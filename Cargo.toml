@@ -1,8 +1,24 @@
 [package]
-name = "zaber-protocol-rs"
+name = "zaber-protocol"
 version = "0.1.0"
+authors = ["Stephen Hunt <stphnhnt.git@gmail.com>"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A library from communicating with Zaber products in Rust."
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/stphnt/zaber-protocol-rs"
+documentation = "https://docs.rs/zaber-protocol"
+homepage = "https://github.com/stphnt/zaber-protocol-rs"
+keywords = ["Zaber", "ASCII", "Binary", "serial", "RS232"]
+categories = []
 
 [dependencies]
+log = "0.4"
+nom = "7"
+paste = "1"
+serialport = "4"
+
+[dev-dependencies]
+simple_logger = "2"
+static_assertions = "1"
+trybuild = "1"
