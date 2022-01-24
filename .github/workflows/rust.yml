@@ -56,10 +56,7 @@ jobs:
 
   fmt:
     name: Rustfmt
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: Swatinem/rust-cache@v1
@@ -76,15 +73,11 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: Swatinem/rust-cache@v1
       - name: Install libudev
-        if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install libudev-dev
@@ -101,17 +94,13 @@ jobs:
 
   doc:
     name: Rustdoc
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+    runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v2
       - uses: Swatinem/rust-cache@v1
       - name: Install libudev
-        if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install libudev-dev
