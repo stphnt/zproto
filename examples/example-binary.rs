@@ -1,5 +1,4 @@
 use simple_logger::SimpleLogger;
-use zproto::ascii::{check::unchecked, IntoCommand as _, Port as AsciiPort};
 use zproto::binary::{command::*, Port};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -8,12 +7,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let port_path = "/dev/ttyUSB0";
     let device = 1;
-    {
-        // If necessary, convert to binary from ASCII.
-        let mut port = AsciiPort::open_serial(&port_path)?;
-        let mut guard = port.timeout_guard(Some(std::time::Duration::from_secs(1)))?;
-        let _ = guard.command_reply_with_check("tools setcomm 9600 1".to_all(), unchecked());
-    }
 
     // Open the port and set up the chain
     let mut port = Port::open_serial(&port_path)?;
