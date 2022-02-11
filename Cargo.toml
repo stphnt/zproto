@@ -37,9 +37,9 @@ static_assertions = "1.1"
 trybuild = "1.0"
 
 [[example]]
-name = "example-ascii"
+name = "ascii"
 required-features = ["ascii"]
 
 [[example]]
-name = "example-binary"
+name = "binary"
 required-features = ["binary"]
