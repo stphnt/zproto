@@ -7,7 +7,7 @@
 //! All communication with Zaber products starts with a [`Port`], which can be either a serial or TCP port:
 //!
 //! ```
-//! # use zaber_protocol::binary::Port;
+//! # use zproto::binary::Port;
 //! # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut port = Port::open_serial("/dev/ttyUSB0")?;
 //! // OR
@@ -26,13 +26,13 @@
 //!     also use a `u8`).
 //!
 //! ```
-//! # use zaber_protocol::{
+//! # use zproto::{
 //! #     binary::Port,
 //! #     backend::Backend,
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! // Send the Home command to all devices (address 0)
-//! use zaber_protocol::binary::command::HOME;
+//! use zproto::binary::command::HOME;
 //! let reply = port.tx_rx((0, HOME))?;
 //! # Ok(())
 //! # }
@@ -44,13 +44,13 @@
 //! and other types.
 //!
 //! ```
-//! # use zaber_protocol::{
+//! # use zproto::{
 //! #     binary::Port,
 //! #     backend::Backend,
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! // Move device 1 to the absolute position 10,000.
-//! use zaber_protocol::binary::command::*;
+//! use zproto::binary::command::*;
 //! let reply = port.tx_rx((1, MOVE_ABSOLUTE, 10000))?;
 //! // OR
 //! let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
@@ -91,12 +91,12 @@
 //! for you at compile time.
 //!
 //! ```
-//! # use zaber_protocol::{
+//! # use zproto::{
 //! #     binary::Port,
 //! #     backend::Backend,
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zaber_protocol::binary::command::*;
+//! use zproto::binary::command::*;
 //! let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
 //! let speed = reply.data()?; // `speed` is an `i32`
 //! let reply = port.tx_rx((0, RETURN_SETTING, SET_HOME_STATUS))?;
@@ -113,12 +113,12 @@
 //! or passing the wrong data type, will result in a compile time error.
 //!
 //! ```compile_fail
-//! # use zaber_protocol::{
+//! # use zproto::{
 //! #     binary::Port,
 //! #     backend::Backend,
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zaber_protocol::binary::command::*;
+//! use zproto::binary::command::*;
 //! let reply = port.tx_rx((0, MOVE_ABSOLUTE))?;  // ERROR: the data field is missing!
 //! let reply = port.tx_rx((0, MOVE_ABSOLUTE, true))?;  // ERROR: the data has the incorrect type!
 //! let reply = port.tx_rx((0, RESET));  // ERROR: Devices do not respond to the RESET command!
@@ -135,7 +135,7 @@
 //! ```compile_fail
 //! // This will not compile because SET_TARGET_SPEED and SET_ACCELERATION
 //! // are different types.
-//! use zaber_protocol::binary::command::*;
+//! use zproto::binary::command::*;
 //! let commands = [(0, SET_TARGET_SPEED, 10000), (0, SET_ACCELERATION, 5000)];
 //! ```
 //!
@@ -146,7 +146,7 @@
 //!
 //! ```
 //! // This works now.
-//! use zaber_protocol::binary::command::untyped::*;
+//! use zproto::binary::command::untyped::*;
 //! let commands = [(0, SET_TARGET_SPEED, 10000), (0, SET_ACCELERATION, 5000)];
 //! ```
 //!
@@ -154,12 +154,12 @@
 //! automatic type conversion -- you will have to pick the types yourself.
 //!
 //! ```
-//! # use zaber_protocol::{
+//! # use zproto::{
 //! #     binary::Port,
 //! #     backend::Backend,
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zaber_protocol::binary::command::untyped::*;
+//! use zproto::binary::command::untyped::*;
 //! let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
 //! let speed: i32 = reply.data()?; // Notice that the type must be specified.
 //! // The compiler cannot tell if you have picked the wrong type so this will
@@ -262,12 +262,12 @@ impl<C: traits::Command> DeviceMessage<C> {
     /// ## Example
     ///
     /// ```
-    /// # use zaber_protocol::{
+    /// # use zproto::{
     /// #     binary::Port,
     /// #     backend::Backend,
     /// # };
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::binary::command::*;
+    /// use zproto::binary::command::*;
     /// let reply = port.tx_rx((0, RETURN_SETTING, SET_HOME_STATUS))?;
     /// let homed = reply.data()?;  // `homed` is a `bool`
     /// let reply = port.tx_rx((0, RETURN_SETTING, untyped::SET_HOME_STATUS))?;
@@ -349,7 +349,7 @@ where
 /// For convenience it is comparable to [`f32`].
 ///
 /// ```
-/// # use zaber_protocol::binary::Version;
+/// # use zproto::binary::Version;
 /// let version = Version::new(7, 24).unwrap();
 /// assert_eq!(version, 7.24);
 /// ```

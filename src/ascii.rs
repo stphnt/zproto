@@ -3,7 +3,7 @@
 //! All communication with Zaber products starts with a [`Port`], which can be either a serial or TCP port:
 //!
 //! ```rust
-//! # use zaber_protocol::{error::Error, ascii::Port};
+//! # use zproto::{error::Error, ascii::Port};
 //! # fn wrapper() -> Result<(), Error> {
 //! let mut port = Port::open_serial("/dev/ttyUSB0")?;
 //! // OR
@@ -19,7 +19,7 @@
 //! * using the [`Command`]'s builder methods
 //!
 //! ```rust
-//! # use zaber_protocol::{
+//! # use zproto::{
 //! #     ascii::{Command, Port},
 //! #     backend::Backend,
 //! #     error::Error
@@ -35,9 +35,9 @@
 //! methods it `&str` and a few other types to easily convert them into a [`Command`]:
 //!
 //! ```rust
-//! # use zaber_protocol::{ascii::Port, backend::Backend, error::Error};
+//! # use zproto::{ascii::Port, backend::Backend, error::Error};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zaber_protocol::ascii::IntoCommand as _;
+//! use zproto::ascii::IntoCommand as _;
 //!
 //! let reply = port.command_reply("get device.id".to(1))?; // Sends `/1 get device.id`
 //! let device_id: u32 = reply.data().parse()?;
@@ -57,10 +57,10 @@
 //! be checked:
 //!
 //! ```rust
-//! # use zaber_protocol::{ascii::Port, backend::Backend, error::Error};
-//! # use zaber_protocol::ascii::IntoCommand as _;
+//! # use zproto::{ascii::Port, backend::Backend, error::Error};
+//! # use zproto::ascii::IntoCommand as _;
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zaber_protocol::ascii::check::{flag_ok_and, warning_is};
+//! use zproto::ascii::check::{flag_ok_and, warning_is};
 //!
 //! let reply = port.command_reply_with_check(
 //!    "get device.id".to(1),
@@ -78,7 +78,7 @@
 //! read an [`Alert`] use the [`response`](Port::response) method:
 //!
 //! ```rust
-//! # use zaber_protocol::{ascii::{Alert, Port}, backend::Backend};
+//! # use zproto::{ascii::{Alert, Port}, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! let alert: Alert = port.response()?;
 //! # Ok(())
@@ -89,10 +89,10 @@
 //! [`command_reply_infos`](Port::command_reply_infos) method:
 //!
 //! ```rust
-//! # use zaber_protocol::{ascii::Port, backend::Backend};
-//! # use zaber_protocol::ascii::IntoCommand as _;
+//! # use zproto::{ascii::Port, backend::Backend};
+//! # use zproto::ascii::IntoCommand as _;
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zaber_protocol::ascii::check::{flag_ok_and, warning_is};
+//! use zproto::ascii::check::{flag_ok_and, warning_is};
 //!
 //! let (reply, infos) = port.command_reply_infos("stream buffer 1 print".to(1))?;
 //! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
@@ -106,7 +106,7 @@
 //! It also provides convenience functions for common tasks:
 //!
 //! ```rust
-//! # use zaber_protocol::{
+//! # use zproto::{
 //! #     ascii::{Port, IntoCommand as _},
 //! #     backend::Backend
 //! # };
@@ -136,14 +136,14 @@ pub use response::*;
 /// desired target.
 ///
 /// ```rust
-/// # use zaber_protocol::ascii::Target;
+/// # use zproto::ascii::Target;
 /// let target = Target::device(1).axis(2);
 /// ```
 ///
 /// Or you can create a target from a `u8` or `tuple` of `u8`s:
 ///
 /// ```rust
-/// # use zaber_protocol::ascii::Target;
+/// # use zproto::ascii::Target;
 /// assert_eq!(Target::device(1), Target::from(1));
 /// assert_eq!(Target::device(1).axis(2), Target::from((1, 2)));
 /// ```

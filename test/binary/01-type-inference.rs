@@ -1,4 +1,4 @@
-use zaber_protocol::binary::{DeviceMessage, Port, command::*};
+use zproto::binary::{DeviceMessage, Port, command::*};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut port = Port::open_serial("/dev/nonexistant")?;

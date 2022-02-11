@@ -23,7 +23,7 @@ use std::{
 /// ## Example
 ///
 /// ```rust
-/// # use zaber_protocol::binary::OpenSerialOptions;
+/// # use zproto::binary::OpenSerialOptions;
 /// # use std::time::Duration;
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenSerialOptions::new()
@@ -118,7 +118,7 @@ impl Default for OpenSerialOptions {
 /// ## Example
 ///
 /// ```rust
-/// # use zaber_protocol::binary::OpenTcpOptions;
+/// # use zproto::binary::OpenTcpOptions;
 /// # use std::time::Duration;
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenTcpOptions::new()
@@ -255,7 +255,7 @@ impl Port<Serial> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::binary::Port;
+    /// # use zproto::binary::Port;
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut port = Port::open_serial("/dev/ttyUSB0")?;
     /// # Ok(())
@@ -274,7 +274,7 @@ impl Port<TcpStream> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::binary::Port;
+    /// # use zproto::binary::Port;
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut port = Port::open_tcp("/dev/ttyUSB0")?;
     /// # Ok(())
@@ -325,12 +325,12 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Example
     /// ```
-    /// # use zaber_protocol:: {
+    /// # use zproto:: {
     /// #   backend::Backend,
     /// #   binary::{DeviceMessage, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::binary::command::*;
+    /// use zproto::binary::command::*;
     /// let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
     /// let value = reply.data()?;
     /// # Ok(())
@@ -456,12 +456,12 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```
-    /// # use zaber_protocol:: {
+    /// # use zproto:: {
     /// #   backend::Backend,
     /// #   binary::{DeviceMessage, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::binary::command::*;
+    /// use zproto::binary::command::*;
     /// let reply = port.rx(MANUAL_MOVE_TRACKING)?;
     /// # Ok(())
     /// # }
@@ -584,12 +584,12 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```
-    /// # use zaber_protocol:: {
+    /// # use zproto:: {
     /// #   backend::Backend,
     /// #   binary::{DeviceMessage, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::binary::command::*;
+    /// use zproto::binary::command::*;
     /// // Wait until device 1 has passed position 10000.
     /// let last_reply = port.poll_until(
     ///     (1, RETURN_CURRENT_POSITION),
@@ -641,7 +641,7 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```
-    /// # use zaber_protocol:: {
+    /// # use zproto:: {
     /// #   backend::Backend,
     /// #   binary::{DeviceMessage, Port},
     /// # };
@@ -671,10 +671,10 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Example
     /// ```rust
-    /// # use zaber_protocol::{error::BinaryError, binary::Port, backend::Backend};
+    /// # use zproto::{error::BinaryError, binary::Port, backend::Backend};
     /// # use std::time::Duration;
     /// # fn helper<B: Backend>(mut port: Port<B>) -> Result<(), BinaryError> {
-    /// use zaber_protocol::binary::command::*;
+    /// use zproto::binary::command::*;
     /// {
     ///     let mut guard = port.timeout_guard(Some(Duration::from_secs(25)))?;
     ///     // All commands within this scope will use a 25 second timeout
