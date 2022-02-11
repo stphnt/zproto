@@ -7,8 +7,13 @@
 #![deny(rustdoc::missing_crate_level_docs)]
 #![deny(missing_debug_implementations)]
 
+#[cfg(feature = "ascii")]
 pub mod ascii;
 pub mod backend;
+#[cfg(feature = "binary")]
 pub mod binary;
 pub mod error;
 pub mod timeout_guard;
+
+#[cfg(not(any(feature = "ascii", feature = "binary")))]
+compile_error!("At least one of the `ascii` or `binary` features must be specified");

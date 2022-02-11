@@ -12,6 +12,13 @@ homepage = "https://github.com/stphnt/zproto"
 keywords = ["Zaber", "ASCII", "Binary", "serial", "RS232"]
 categories = []
 
+[features]
+defaults = ["ascii", "binary"]
+# Include the ASCII protocol
+ascii = []
+# Include the Binary protocol
+binary = []
+
 [dependencies]
 log = "0.4"
 nom = "7.1"
