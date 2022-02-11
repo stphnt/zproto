@@ -24,7 +24,7 @@ use std::time::Duration;
 /// ## Example
 ///
 /// ```rust
-/// # use zaber_protocol::ascii::OpenSerialOptions;
+/// # use zproto::ascii::OpenSerialOptions;
 /// # use std::time::Duration;
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenSerialOptions::new()
@@ -145,7 +145,7 @@ impl Default for OpenSerialOptions {
 /// ## Example
 ///
 /// ```rust
-/// # use zaber_protocol::ascii::OpenTcpOptions;
+/// # use zproto::ascii::OpenTcpOptions;
 /// # use std::time::Duration;
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenTcpOptions::new()
@@ -275,7 +275,7 @@ impl Port<Serial> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::ascii::Port;
+    /// # use zproto::ascii::Port;
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut port = Port::open_serial("/dev/ttyUSB0")?;
     /// # Ok(())
@@ -294,7 +294,7 @@ impl Port<TcpStream> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::ascii::Port;
+    /// # use zproto::ascii::Port;
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut port = Port::open_tcp("198.168.0.1:7770")?;
     /// # Ok(())
@@ -344,7 +344,7 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::{Command, Port}, backend::Backend};
+    /// # use zproto::{ascii::{Command, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// port.command(Command::empty())?;
     /// # Ok(())
@@ -377,9 +377,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::IntoCommand as _;
+    /// use zproto::ascii::IntoCommand as _;
     ///
     /// let reply = port.command_reply("get maxspeed".to(1))?;
     /// # Ok(())
@@ -394,9 +394,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::{check::flag_ok, IntoCommand as _};
+    /// use zproto::ascii::{check::flag_ok, IntoCommand as _};
     ///
     /// let reply = port.command_reply_with_check("home".to(1), flag_ok())?;  // Home, but ignore any warning flags that might be present
     /// # Ok(())
@@ -435,9 +435,9 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Example
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend, error::AsciiError};
+    /// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-    /// use zaber_protocol::ascii::IntoCommand as _;
+    /// use zproto::ascii::IntoCommand as _;
     ///
     /// let (reply, info_messages) = port.command_reply_infos("stream buffer 1 print".to(1))?;
     /// # Ok(())
@@ -454,13 +454,13 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Example
     /// ```rust
-    /// # use zaber_protocol::{
+    /// # use zproto::{
     /// #     ascii::{Port, AnyResponse},
     /// #     backend::Backend,
     /// #     error::{AsciiCheckError, AsciiError}
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-    /// use zaber_protocol::ascii::IntoCommand as _;
+    /// use zproto::ascii::IntoCommand as _;
     ///
     /// let (reply, info_messages) = port.command_reply_infos_with_check(
     ///    "stream buffer 1 print".to(1),
@@ -515,9 +515,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::IntoCommand as _;
+    /// use zproto::ascii::IntoCommand as _;
     ///
     /// let replies = port.command_reply_n("get system.serial".to_all(), 5)?;
     /// # Ok(())
@@ -536,9 +536,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::{check::unchecked, IntoCommand as _};
+    /// use zproto::ascii::{check::unchecked, IntoCommand as _};
     ///
     /// let replies = port.command_reply_n_with_check("get system.serial".to_all(), 5, unchecked())?;
     /// # Ok(())
@@ -567,9 +567,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::IntoCommand as _;
+    /// use zproto::ascii::IntoCommand as _;
     ///
     /// let replies = port.command_replies_until_timeout("get system.serial".to_all())?;
     /// # Ok(())
@@ -587,9 +587,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::{check::flag_ok, IntoCommand as _};
+    /// use zproto::ascii::{check::flag_ok, IntoCommand as _};
     ///
     /// let replies = port.command_replies_until_timeout_with_check(
     ///     "get system.serial".to_all(),
@@ -806,7 +806,7 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::{Reply, Info, Port}, backend::Backend};
+    /// # use zproto::{ascii::{Reply, Info, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// let reply: Reply = port.response()?;
     /// let info: Info = port.response()?;
@@ -827,9 +827,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::{Alert, Port}, backend::Backend};
+    /// # use zproto::{ascii::{Alert, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::check::warning_below_fault;
+    /// use zproto::ascii::check::warning_below_fault;
     /// let reply: Alert = port.response_with_check(warning_below_fault())?;
     /// # Ok(())
     /// # }
@@ -852,7 +852,7 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::{Info, Port}, backend::Backend};
+    /// # use zproto::{ascii::{Info, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// let reply: Vec<Info> = port.response_n(3)?;
     /// # Ok(())
@@ -872,9 +872,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::{Reply, Port}, backend::Backend};
+    /// # use zproto::{ascii::{Reply, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::check::{flag_ok_and, warning_below_fault};
+    /// use zproto::ascii::check::{flag_ok_and, warning_below_fault};
     /// let reply: Vec<Reply> = port.response_n_with_check(3, flag_ok_and(warning_below_fault()))?;
     /// # Ok(())
     /// # }
@@ -901,8 +901,8 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::ascii::{AnyResponse, Port};
-    /// # use zaber_protocol::backend::Backend;
+    /// # use zproto::ascii::{AnyResponse, Port};
+    /// # use zproto::backend::Backend;
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// let reply: Vec<AnyResponse> = port.responses_until_timeout()?;
     /// # Ok(())
@@ -922,10 +922,10 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::ascii::{AnyResponse, Port};
-    /// # use zaber_protocol::backend::Backend;
+    /// # use zproto::ascii::{AnyResponse, Port};
+    /// # use zproto::backend::Backend;
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::check::unchecked;
+    /// use zproto::ascii::check::unchecked;
     /// let reply: Vec<AnyResponse> = port.responses_until_timeout_with_check(unchecked())?;
     /// # Ok(())
     /// # }
@@ -951,9 +951,9 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zaber_protocol::ascii::IntoCommand as _;
+    /// use zproto::ascii::IntoCommand as _;
     ///
     /// port.poll_until("".to((1,1)), |reply| { reply.warning() != "FZ" })?;
     /// # Ok(())
@@ -981,7 +981,7 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// port.poll_until_idle((1,1))?;
     /// # Ok(())
@@ -1000,7 +1000,7 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Example
     /// ```rust
-    /// # use zaber_protocol::{error::AsciiError, ascii::{Port, Reply, IntoCommand as _}, backend::Backend};
+    /// # use zproto::{error::AsciiError, ascii::{Port, Reply, IntoCommand as _}, backend::Backend};
     /// # use std::time::Duration;
     /// # fn helper<B: Backend>(mut port: Port<B>) -> Result<Reply, AsciiError> {
     /// {

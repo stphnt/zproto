@@ -12,7 +12,7 @@
 //! `OK` and no warning flags you can use:
 //!
 //! ```rust
-//! # use zaber_protocol::ascii::{
+//! # use zproto::ascii::{
 //! #     Flag,
 //! #     Reply,
 //! #     check::{all, Check, flag_is, warning_is_none},
@@ -73,7 +73,7 @@ mod private {
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{check::{Check, warning_is}, Warning, Reply};
+/// # use zproto::ascii::{check::{Check, warning_is}, Warning, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// warning_is("WR")
 /// # }
@@ -103,7 +103,7 @@ where
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{check::{Check, warning_in}, Warning, Reply};
+/// # use zproto::ascii::{check::{Check, warning_in}, Warning, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// warning_in(["WR", "WH"])
 /// # }
@@ -169,7 +169,7 @@ pub fn warning_is_none<R: ResponseWithWarning>() -> impl Check<R> {
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{check::{Check, status_is}, Status, Reply};
+/// # use zproto::ascii::{check::{Check, status_is}, Status, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// status_is(Status::Idle)
 /// # }
@@ -188,7 +188,7 @@ pub fn status_is<R: ResponseWithStatus>(status: Status) -> impl Check<R> {
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{check::{Check, flag_is}, Flag, Reply};
+/// # use zproto::ascii::{check::{Check, flag_is}, Flag, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// flag_is(Flag::Ok)
 /// # }
@@ -212,7 +212,7 @@ pub fn flag_ok() -> impl Check<Reply> {
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{check::{Check, flag_ok_and, warning_is}, Flag, Reply};
+/// # use zproto::ascii::{check::{Check, flag_ok_and, warning_is}, Flag, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// flag_ok_and(warning_is("WR"))
 /// # }
@@ -228,7 +228,7 @@ pub fn flag_ok_and(check: impl Check<Reply>) -> impl Check<Reply> {
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{check::{Check, parsed_data_is}, Reply};
+/// # use zproto::ascii::{check::{Check, parsed_data_is}, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// parsed_data_is(256)
 /// # }
@@ -258,7 +258,7 @@ pub fn parsed_data_is<
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{*, check::*};
+/// # use zproto::ascii::{*, check::*};
 /// # fn wrapper() -> impl Check<Reply> {
 /// all((flag_is(Flag::Ok), warning_in(("WR", "WH"))))
 /// # }
@@ -271,7 +271,7 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
 ///
 /// For [`Reply`](crate::ascii::Reply) this is equivalent to
 /// ```rust
-/// # use zaber_protocol::ascii::{check::*, *};
+/// # use zproto::ascii::{check::*, *};
 /// # fn wrapper() -> impl Check<Reply> {
 /// all((flag_is(Flag::Ok), warning_is(Warning::NONE)))
 /// # }
@@ -279,7 +279,7 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
 ///
 /// For [`Alert`](crate::ascii::Alert) this is equivalent to
 /// ```rust
-/// # use zaber_protocol::ascii::{check::*, *};
+/// # use zproto::ascii::{check::*, *};
 /// # fn wrapper() -> impl Check<Alert> {
 /// warning_is(Warning::NONE)
 /// # }
@@ -304,7 +304,7 @@ pub fn unchecked<R: Response>() -> impl Check<R> {
 ///
 /// ## Example
 /// ```rust
-/// # use zaber_protocol::ascii::{check::{Check, predicate}, Reply};
+/// # use zproto::ascii::{check::{Check, predicate}, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// let expected_value = "256";
 /// let check = predicate(move |reply: &Reply| {

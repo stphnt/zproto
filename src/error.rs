@@ -7,7 +7,7 @@
 //! higher level enums, allowing them to be used with `?`:
 //!
 //! ```
-//! use zaber_protocol::error::{AsciiUnexpectedError, Error};
+//! use zproto::error::{AsciiUnexpectedError, Error};
 //!
 //! fn foo() -> Result<(), AsciiUnexpectedError> {
 //!     // ...
@@ -25,7 +25,7 @@
 //! [`From`]/[`Into`] to retrieve the offending response.
 //!
 //! ```
-//! # use zaber_protocol::{ascii, error::AsciiUnexpectedError};
+//! # use zproto::{ascii, error::AsciiUnexpectedError};
 //! #
 //! # fn wrapper() {
 //! let error: AsciiUnexpectedError = //...

@@ -254,8 +254,8 @@ impl Default for Command {
 /// A trait to convert a type into the body of an ASCII [`Command`].
 ///
 /// ```rust
-/// # use zaber_protocol::ascii::Command;
-/// use zaber_protocol::ascii::IntoCommand as _;
+/// # use zproto::ascii::Command;
+/// use zproto::ascii::IntoCommand as _;
 ///
 /// let command: Command = "get maxspeed".to(1);
 /// ```

@@ -1,6 +1,6 @@
 //! Tests to confirm that port methods accept/reject commands appropriately at
 //! compile time.
-use zaber_protocol::{
+use zproto::{
     backend::Backend,
     binary::{command::*, Port}
 };

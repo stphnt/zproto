@@ -1,6 +1,6 @@
 use simple_logger::SimpleLogger;
-use zaber_protocol::ascii::{check::unchecked, IntoCommand as _, Port as AsciiPort};
-use zaber_protocol::binary::{command::*, Port};
+use zproto::ascii::{check::unchecked, IntoCommand as _, Port as AsciiPort};
+use zproto::binary::{command::*, Port};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Enable logging
