@@ -165,6 +165,10 @@ impl Mock {
         self.buffer.get_mut().clear();
         self.buffer.set_position(0);
     }
+    /// Whether the mock has any data available or not
+    pub fn is_empty(&self) -> bool {
+        self.buffer.position() as usize >= self.buffer.get_ref().len()
+    }
     /// Set the error for the next `read`, if any.
     pub fn read_error(&mut self, err: Option<io::Error>) {
         self.read_error = err;
@@ -207,6 +211,15 @@ impl io::Read for Mock {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if let Some(err) = self.read_error.take() {
             Err(err)
+        } else if self.is_empty() {
+            // For a real device, having no data ready would result in a wait
+            // and then eventual timeout error. However, as our data is in
+            // memory that does not happen here. So simulate that behaviour by
+            // returning a timeout error immediately.
+            Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "Simulated timeout error",
+            ))
         } else {
             self.buffer.read(buf)
         }
