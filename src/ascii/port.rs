@@ -560,6 +560,57 @@ impl<B: Backend> Port<B> {
         Ok(replies)
     }
 
+    /// Transmit a command, receive replies until the port times out, and check each reply with the [`default`](check::default) checks.
+    ///
+    /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// use zaber_protocol::ascii::IntoCommand as _;
+    ///
+    /// let replies = port.command_replies_until_timeout("get system.serial".to_all())?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn command_replies_until_timeout<C>(&mut self, cmd: C) -> Result<Vec<Reply>, AsciiError>
+    where
+        C: AsRef<Command>,
+    {
+        self.command_replies_until_timeout_with_check(cmd, check::default())
+    }
+
+    /// Same as [`Port::command_replies_until_timeout`] except that the replies are validated with the custom [`Check`](check::Check).
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use zaber_protocol::{ascii::Port, backend::Backend};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// use zaber_protocol::ascii::{check::flag_ok, IntoCommand as _};
+    ///
+    /// let replies = port.command_replies_until_timeout_with_check(
+    ///     "get system.serial".to_all(),
+    ///     flag_ok(),
+    /// )?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn command_replies_until_timeout_with_check<C>(
+        &mut self,
+        cmd: C,
+        checker: impl check::Check<Reply>,
+    ) -> Result<Vec<Reply>, AsciiError>
+    where
+        C: AsRef<Command>,
+    {
+        let cmd = cmd.as_ref();
+        let id = self.command(cmd)?;
+        self.internal_responses_until_timeout_with_check(|_| Some((cmd.target(), id)), checker)
+    }
+
     /// Receive a response [`Packet`]
     ///
     /// The packet's LRC is verified, then the header is validated using `header_check`, and finally the packet is
