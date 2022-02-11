@@ -106,6 +106,7 @@ macro_rules! impl_from_specific_to_any_response {
 
 /// An ASCII packet was missing a start byte.
 #[derive(Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiPacketMissingStartError(Box<str>);
 
 impl_error_display! {
@@ -116,6 +117,7 @@ impl_ascii_packet! { AsciiPacketMissingStartError }
 
 /// An ASCII packet was missing the end byte(s).
 #[derive(Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiPacketMissingEndError(Box<str>);
 
 impl_error_display! {
@@ -126,6 +128,7 @@ impl_ascii_packet! { AsciiPacketMissingEndError }
 
 /// An ASCII packet is malformed.
 #[derive(Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiPacketMalformedError(Box<str>);
 
 impl_error_display! {
@@ -138,6 +141,10 @@ error_enum! {
     /// Received data that did not conform to the ASCII protocol.
     #[derive(Debug, PartialEq, Eq, Hash)]
     #[non_exhaustive]
+    #[cfg_attr(
+    all(doc, feature = "doc_cfg"),
+    doc(cfg(feature = "ascii"))
+)]
     pub enum AsciiProtocolError {
         PacketMissingStart(AsciiPacketMissingStartError),
         PacketMissingEnd(AsciiPacketMissingEndError),
@@ -147,6 +154,7 @@ error_enum! {
 
 /// A response had an invalid checksum, indicating it was corrupt.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiInvalidChecksumError(AnyResponse);
 
 impl_error_display! {
@@ -159,6 +167,7 @@ impl_new_for_into_any_response! { AsciiInvalidChecksumError }
 
 /// A response came from an unexpected target.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiUnexpectedTargetError(AnyResponse);
 
 impl_error_display! {
@@ -171,6 +180,7 @@ impl_new_for_into_any_response! { AsciiUnexpectedTargetError }
 
 /// A response had an unexpected message ID.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiUnexpectedIdError(AnyResponse);
 
 impl_error_display! {
@@ -183,6 +193,7 @@ impl_new_for_into_any_response! { AsciiUnexpectedIdError }
 
 /// A response had an unexpected message kind.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiUnexpectedKindError(AnyResponse);
 
 impl_error_display! {
@@ -195,6 +206,7 @@ impl_new_for_into_any_response! { AsciiUnexpectedKindError }
 
 /// A response was expected to be a continuation info message but it was not.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiUnexpectedContinuationError(AnyResponse);
 
 impl_error_display! {
@@ -207,6 +219,7 @@ impl_new_for_into_any_response! { AsciiUnexpectedContinuationError }
 
 /// A [`Reply`] was received with an unexpected reply flag.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckFlagError(Box<(Flag, Reply)>);
 
 impl_error_display! {
@@ -227,6 +240,7 @@ impl_traits_to_access_inner_response! { (AsciiCheckFlagError) -> Reply { 0.1 } }
 
 /// A response of type `R` was received with an unexpected status.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckStatusError<R>(Box<(Status, R)>);
 
 impl_error_display! {
@@ -248,6 +262,7 @@ impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckStatusError)
 
 /// A response of type `R` was received with an unexpected warning flag.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckWarningError<R>(Box<(String, R)>);
 
 impl_error_display! {
@@ -269,6 +284,7 @@ impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckWarningError
 
 /// A response of type `R` was received with unexpected data.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckDataError<R>(Box<(String, R)>);
 
 impl<R: Response> AsciiCheckDataError<R> {
@@ -292,6 +308,7 @@ impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckDataError) -
 ///
 /// This should be used when [`AsciiCheckFlagError`], [`AsciiCheckStatusError`]. [`AsciiCheckWarningError`], or [`AsciiCheckDataError`] are not appropriate.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckCustomError<R>(Box<(String, R)>);
 
 impl_error_display! {
@@ -320,6 +337,10 @@ error_enum! {
     /// Received an unexpected ASCII response.
     #[derive(Debug, PartialEq)]
     #[non_exhaustive]
+    #[cfg_attr(
+    all(doc, feature = "doc_cfg"),
+    doc(cfg(feature = "ascii"))
+)]
     pub enum AsciiUnexpectedError {
         Target(AsciiUnexpectedTargetError),
         Id(AsciiUnexpectedIdError),
@@ -359,6 +380,10 @@ error_enum! {
 /// the response is well formed.
 #[derive(Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(
+    all(doc, feature = "doc_cfg"),
+    doc(cfg(feature = "ascii"))
+)]
 pub enum AsciiCheckError<R> {
     Flag(AsciiCheckFlagError),
     Status(AsciiCheckStatusError<R>),
@@ -484,6 +509,10 @@ error_enum! {
     /// Any error returned by the [`ascii`](crate::ascii) module.
     #[derive(Debug)]
     #[non_exhaustive]
+    #[cfg_attr(
+    all(doc, feature = "doc_cfg"),
+    doc(cfg(feature = "ascii"))
+)]
     pub enum AsciiError {
         SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
         Io(std::io::Error),

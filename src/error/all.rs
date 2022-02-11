@@ -7,6 +7,10 @@ error_enum! {
     /// Any error returned by this library.
     #[derive(Debug)]
     #[non_exhaustive]
+    #[cfg_attr(
+        all(doc, feature = "doc_cfg"),
+        doc(cfg(all(feature = "ascii", feature = "binary")))
+    )]
     pub enum Error {
         SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
         Io(std::io::Error),

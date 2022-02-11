@@ -28,6 +28,7 @@ macro_rules! impl_binary_error {
 
 /// A Binary command failed and an Error (`255`) response was received.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryCommandFailureError(DeviceMessage);
 
 impl_error_display! {
@@ -54,6 +55,7 @@ impl BinaryCommandFailureError {
 
 /// A Binary response came from an unexpected target.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryUnexpectedTargetError(DeviceMessage);
 
 impl_error_display! {
@@ -64,6 +66,7 @@ impl_binary_error! { BinaryUnexpectedTargetError }
 
 /// A Binary response had an unexpected message ID.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryUnexpectedIdError(DeviceMessage);
 
 impl_error_display! {
@@ -74,6 +77,7 @@ impl_binary_error! { BinaryUnexpectedIdError }
 
 /// A Binary response had an unexpected Binary command code.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryUnexpectedCommandError(DeviceMessage);
 
 impl_error_display! {
@@ -85,6 +89,10 @@ impl_binary_error! { BinaryUnexpectedCommandError }
 error_enum! {
 /// Received an unexpected Binary response.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(
+    all(doc, feature = "doc_cfg"),
+    doc(cfg(feature = "binary"))
+)]
 pub enum BinaryUnexpectedError {
     Target(BinaryUnexpectedTargetError),
     Id(BinaryUnexpectedIdError),
@@ -96,6 +104,10 @@ error_enum! {
     /// Any error returned by the [`binary`](crate::binary) module.
     #[derive(Debug)]
     #[non_exhaustive]
+    #[cfg_attr(
+    all(doc, feature = "doc_cfg"),
+    doc(cfg(feature = "binary"))
+)]
     pub enum BinaryError {
         SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
         Io(std::io::Error),
@@ -138,6 +150,10 @@ macro_rules! define_error_codes {
         ),+
     ) => {
         paste::paste! {
+            #[cfg_attr(
+    all(doc, feature = "doc_cfg"),
+    doc(cfg(feature = "binary"))
+)]
             pub mod binary_code {
                 //! Binary error codes.
                 //!
