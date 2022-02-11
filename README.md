@@ -1,6 +1,6 @@
-## zaber-protocol-rs
+## zproto
 
-A library from communicating with Zaber products in Rust.
+A Rust library from communicating with Zaber products.
 
 This library is unofficial. [Zaber Motion Library](https://www.zaber.com/software) is Zaber's official communications library, but as of this writing there are no Rust bindings.
 
@@ -10,12 +10,12 @@ Add this to you `Cargo.toml:
 
 ```toml
 [dependencies]
-zaber-protocol = "0.1"
+zproto = "0.1"
 ```
 
 ## Getting started
 
-See the [`ascii`](https://docs.rs/zaber-protocol/latest/zaber-protocol/ascii) or [`binary`](https://docs.rs/zaber-protocol/latest/zaber-protocol/ascii) module documentation for an introduction to communicating with devices using the Zaber ASCII or Binary protocols.
+See the [`ascii`](https://docs.rs/zproto/latest/zproto/ascii) or [`binary`](https://docs.rs/zproto/latest/zproto/ascii) module documentation for an introduction to communicating with devices using the Zaber ASCII or Binary protocols.
 
 The [examples](examples) folder has some very simple applications. To run an example:
 
