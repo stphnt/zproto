@@ -1122,7 +1122,7 @@ fn extract_response_bytes(buf: &[u8]) -> (usize, Result<&[u8], AsciiProtocolErro
 #[cfg(test)]
 mod test {
     use crate::{
-        ascii::{check::unchecked, port, AnyResponse, IntoCommand as _, Port},
+        ascii::{check::unchecked, port, AnyResponse, IntoCommand as _, Port, Reply},
         backend::Mock,
         error::*,
     };
@@ -1194,6 +1194,113 @@ mod test {
                 std::str::from_utf8(case.input).unwrap()
             );
         }
+    }
+
+    #[test]
+    fn command_reply_ok() {
+        let mut port = Port::open_mock();
+        port.backend
+            .get_mut()
+            .append_data(b"@01 0 OK IDLE -- 0\r\n");
+        let reply = port.command_reply("".to(1)).unwrap();
+        assert_eq!(reply.target(), (1, 0).into());
+    }
+
+    #[test]
+    fn command_reply_fail() {
+        let mut port = Port::open_mock();
+
+        // UnexpectedKind errors come before Check* errors.
+        port.backend.get_mut().append_data(b"!01 0 IDLE FF 0\r\n");
+        let err = port.command_reply("".to(1)).unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedKind(_)));
+
+        // UnexpectedTarget comes before UnexpectedKind/Check* errors.
+        port.backend.get_mut().append_data(b"!02 0 IDLE FF 0\r\n");
+        let err = port.command_reply("".to(1)).unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
+    }
+
+    #[test]
+    fn command_reply_n_ok() {
+        let mut port = Port::open_mock();
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let _ = port.command_reply_n("".to_all(), 2).unwrap();
+    }
+
+    #[test]
+    fn command_reply_n_fail() {
+        let mut port = Port::open_mock();
+
+        // Timeout waiting for non-existant message.
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let err = port.command_reply_n("".to_all(), 3).unwrap_err();
+        assert!(err.is_timeout());
+    }
+
+    #[test]
+    fn command_replies_until_timeout_ok() {
+        let mut port = Port::open_mock();
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let replies = port.command_replies_until_timeout("".to_all()).unwrap();
+        assert_eq!(replies.len(), 2);
+    }
+
+    #[test]
+    fn command_replies_until_timeout_fail() {
+        let mut port = Port::open_mock();
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 1 OK IDLE -- 0\r\n");
+            buf.append_data(b"@02 2 OK IDLE -- 0\r\n"); // Wrong axis number
+            buf.append_data(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
+        }
+        let err = port
+            .command_replies_until_timeout("get pos".to((0, 1))) // To all first axes
+            .unwrap_err();
+        // UnexpectedTarget should take precedence over UnexpectedKind
+        assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
+    }
+
+    #[test]
+    fn response_until_timeout_ok() {
+        let mut port = Port::open_mock();
+
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
+        assert_eq!(replies.len(), 2);
+    }
+
+    #[test]
+    fn response_until_timeout_fail() {
+        let mut port = Port::open_mock();
+
+        // Received an alert part way should not read following messages.
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"!02 1 IDLE -- \r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let err = port.responses_until_timeout::<Reply>().unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedKind(_)));
+        let _ = port.response::<Reply>().unwrap();
     }
 
     // Poison a port
