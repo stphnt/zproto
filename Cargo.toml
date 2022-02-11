@@ -12,6 +12,19 @@ homepage = "https://github.com/stphnt/zproto"
 keywords = ["Zaber", "ASCII", "Binary", "serial", "RS232"]
 categories = []
 
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+defaults = ["ascii", "binary"]
+# Include the ASCII protocol
+ascii = []
+# Include the Binary protocol
+binary = []
+
+# Use the nightly-only `doc_cfg` feature when generating the documentation.
+doc_cfg = []
+
 [dependencies]
 log = "0.4"
 nom = "7.1"
@@ -22,3 +35,11 @@ serialport = "4.0"
 simple_logger = "2.1"
 static_assertions = "1.1"
 trybuild = "1.0"
+
+[[example]]
+name = "example-ascii"
+required-features = ["ascii"]
+
+[[example]]
+name = "example-binary"
+required-features = ["binary"]

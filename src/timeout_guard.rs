@@ -16,7 +16,9 @@ pub trait Port<B>: private::Sealed {
 mod private {
     /// Marks a trait a sealed.
     pub trait Sealed {}
+    #[cfg(feature = "ascii")]
     impl<B> Sealed for crate::ascii::Port<B> {}
+    #[cfg(feature = "binary")]
     impl<B> Sealed for crate::binary::Port<B> {}
 }
 
