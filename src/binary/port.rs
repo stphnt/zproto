@@ -879,7 +879,7 @@ mod test {
 
         // Timeout waiting for second message
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
-        assert!(port.tx_rx_n((0, HOME), 2).is_err());
+        assert!(port.tx_rx_n((0, HOME), 2).unwrap_err().is_timeout());
 
         // Unexpected command in second message
         port.backend.append_data([1, untyped::HOME, 0, 0, 0, 0]);
@@ -923,6 +923,30 @@ mod test {
             assert_eq!(err.code(), 5);
         } else {
             panic!("unexpected error: {:?}", err);
+        }
+    }
+
+    #[test]
+    fn tx_rx_until_timeout_ok() {
+        let mut port = Port::open_mock();
+
+        port.backend.append_data([1, 1, 0, 0, 0, 0]);
+        let replies = port.tx_rx_until_timeout((0, HOME)).unwrap();
+        assert_eq!(replies.len(), 1);
+        let reply = replies[0];
+        assert_eq!(reply.command(), HOME);
+        assert_eq!(reply.target(), 1);
+        assert_eq!(reply.data().unwrap(), 0);
+
+        port.backend.append_data([1, 1, 0, 0, 0, 0]);
+        port.backend.append_data([2, 1, 0, 0, 0, 0]);
+        let replies = port.tx_rx_until_timeout((0, HOME)).unwrap();
+        assert_eq!(replies.len(), 2);
+        for (i, reply) in replies.iter().enumerate() {
+            eprintln!("{:?}", reply);
+            assert_eq!(reply.command(), HOME);
+            assert_eq!(reply.target(), i as u8 + 1);
+            assert_eq!(reply.data().unwrap(), 0);
         }
     }
 
