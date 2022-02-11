@@ -6,9 +6,9 @@ edition = "2021"
 description = "A library from communicating with Zaber products in Rust."
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/stphnt/zaber-protocol-rs"
-documentation = "https://docs.rs/zaber-protocol"
-homepage = "https://github.com/stphnt/zaber-protocol-rs"
+repository = "https://github.com/stphnt/zproto"
+documentation = "https://docs.rs/zproto"
+homepage = "https://github.com/stphnt/zproto"
 keywords = ["Zaber", "ASCII", "Binary", "serial", "RS232"]
 categories = []
 
