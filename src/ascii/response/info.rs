@@ -15,7 +15,7 @@ use nom::{
     sequence::{delimited, preceded, tuple},
 };
 
-/// The contents of an [`Info`] message
+/// The contents of an [`Info`] message.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InfoInner {
     pub target: Target,
@@ -24,24 +24,24 @@ pub(crate) struct InfoInner {
     pub checksum: Option<u32>,
 }
 
-/// A decoded Zaber ASCII Info message
+/// A decoded Zaber ASCII Info message.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Info(Box<InfoInner>);
 
 impl Info {
-    /// The device and axis number the Info message came from
+    /// The device and axis number the Info message came from.
     pub fn target(&self) -> Target {
         self.0.target
     }
-    /// The message ID, if any
+    /// The message ID, if any.
     pub fn id(&self) -> Option<u8> {
         self.0.id
     }
-    /// The message's data
+    /// The message's data.
     pub fn data(&self) -> &str {
         self.0.data.as_str()
     }
-    /// The message's checksum, if any
+    /// The message's checksum, if any.
     pub fn checksum(&self) -> Option<u32> {
         self.0.checksum
     }
@@ -119,7 +119,7 @@ impl std::fmt::Display for Info {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", char::from(parse::INFO_MARKER))?;
         Header {
-            address: self.target().get_address(),
+            address: self.target().get_device(),
             axis: self.target().get_axis(),
             id: self.id(),
         }

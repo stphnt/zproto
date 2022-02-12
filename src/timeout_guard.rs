@@ -1,4 +1,4 @@
-//! A "scope guard" that will reset a port's timeout when it is goes out of scope.
+//! An [RAII guard](https://rust-unofficial.github.io/patterns/patterns/behavioural/RAII.html) that will reset a port's timeout when it is goes out of scope.
 
 use crate::backend::Backend;
 use std::{io, marker::PhantomData, time::Duration};
@@ -22,14 +22,15 @@ mod private {
     impl<B> Sealed for crate::binary::Port<B> {}
 }
 
-/// A "scope guard" that will update the port's timeout and then reset it when
-/// it goes out of scope.
-///
-/// To create a guard, use the port's [`timeout_guard`](crate::ascii::Port::timeout_guard) method.
+/// An [RAII guard](https://rust-unofficial.github.io/patterns/patterns/behavioural/RAII.html)
+/// that will update the port's timeout and then reset it when it goes out of scope.
 ///
 /// While the guard is in scope, the port can only be accessed through the guard.
 /// However, because the guard implements [`Deref`](std::ops::Deref) and
 /// [`DerefMut`](std::ops::DerefMut) callers can treat the guard as the port.
+///
+/// To create a guard, use the port's [`timeout_guard`](crate::ascii::Port::timeout_guard) method.
+/// Also see its documentation for an example of its use.
 #[derive(Debug)]
 pub struct TimeoutGuard<'a, B: Backend, P: Port<B>> {
     /// The underlying port.

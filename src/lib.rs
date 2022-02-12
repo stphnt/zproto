@@ -1,7 +1,8 @@
-//! A simple but easy to use library for communicating with Zaber products.
+//! A simple library for communicating with Zaber products.
 //!
-//! Both Zaber's [`ASCII`](ascii) and [`Binary`](binary) protocols are supported
-//! over serial and TCP ports.
+//! Both Zaber's ASCII and Binary protocols are supported over serial and TCP
+//! ports. See the [`ascii`] and [`binary`] modules for an introduction to their
+//! use.
 
 #![deny(missing_docs)]
 #![deny(rustdoc::missing_crate_level_docs)]

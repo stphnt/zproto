@@ -25,28 +25,28 @@ pub(crate) struct AlertInner {
     pub checksum: Option<u32>,
 }
 
-/// A decoded Zaber ASCII Alert message
+/// A decoded Zaber ASCII Alert message.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Alert(Box<AlertInner>);
 
 impl Alert {
-    /// The device and axis number the Alert came from
+    /// The device and axis number the Alert came from.
     pub fn target(&self) -> Target {
         self.0.target
     }
-    /// The device's or axis' status
+    /// The device's or axis's status.
     pub fn status(&self) -> Status {
         self.0.status
     }
-    /// The highest priority warning on the device or axis
+    /// The highest priority warning on the device or axis.
     pub fn warning(&self) -> Warning {
         self.0.warning
     }
-    /// The message's data
+    /// The message's data.
     pub fn data(&self) -> &str {
         self.0.data.as_str()
     }
-    /// The message's checksum, if any
+    /// The message's checksum, if any.
     pub fn checksum(&self) -> Option<u32> {
         self.0.checksum
     }
@@ -137,7 +137,7 @@ impl std::fmt::Display for Alert {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", char::from(parse::ALERT_MARKER))?;
         Header {
-            address: self.target().get_address(),
+            address: self.target().get_device(),
             axis: self.target().get_axis(),
             id: None,
         }

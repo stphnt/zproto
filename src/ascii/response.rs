@@ -24,7 +24,7 @@ fn protocol_error_from_nom_error(nom_err: nom::error::Error<&[u8]>) -> AsciiProt
     AsciiPacketMalformedError::new(nom_err.input).into()
 }
 
-/// A trait that is implemented by ASCII response messages
+/// A trait that is implemented by ASCII response messages.
 pub trait Response:
     std::fmt::Display
     + std::fmt::Debug
@@ -103,12 +103,12 @@ impl ResponseWithFlag for Reply {
     }
 }
 
-/// The device or axis status
+/// The device or axis status.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Status {
-    /// The device or axis is busy performing a motion
+    /// The device or axis is busy performing a motion.
     Busy,
-    /// The device or axis is not moving
+    /// The device or axis is not moving.
     Idle,
 }
 
@@ -152,7 +152,7 @@ impl std::fmt::Display for Status {
     }
 }
 
-/// A device or axis warning flag
+/// A device or axis warning flag.
 ///
 /// To check what the the warning flag is simply do a comparison (e.g. `warning == "WR"`).
 #[derive(Debug, Copy, Clone, Eq, Hash)]
@@ -164,23 +164,23 @@ impl Warning {
 
     /// Whether there is no warning (i.e., `--`).
     ///
-    /// The opposite of `is_some()`
+    /// The opposite of `is_some()`.
     pub fn is_none(&self) -> bool {
         *self == Warning::NONE
     }
-    /// Whether there is a warning or not
+    /// Whether there is a warning or not.
     pub fn is_some(&self) -> bool {
         !self.is_none()
     }
-    /// Whether the warning is a fault, i.e., `F*`
+    /// Whether the warning is a fault, i.e., `F*`.
     pub fn is_fault(&self) -> bool {
         self.0[0] == b'F'
     }
-    /// Whether the warning is a warning, i.e., `W*`
+    /// Whether the warning is a warning, i.e., `W*`.
     pub fn is_warning(&self) -> bool {
         self.0[0] == b'W'
     }
-    /// Whether the warning is a notice, i.e., `N*`
+    /// Whether the warning is a notice, i.e., `N*`.
     pub fn is_notice(&self) -> bool {
         self.0[0] == b'N'
     }
@@ -259,7 +259,7 @@ where
     }
 }
 
-/// A Zaber ASCII message header
+/// A Zaber ASCII message header.
 #[derive(Debug, Clone, PartialEq)]
 struct Header {
     /// The address of the device sending the message
@@ -314,10 +314,10 @@ impl std::fmt::Display for Header {
     }
 }
 
-/// A Zaber ASCII message footer
+/// A Zaber ASCII message footer.
 #[derive(Debug, Clone, PartialEq)]
 struct Footer {
-    /// The optional message checksum
+    /// The optional message checksum.
     pub checksum: Option<u32>,
 }
 
@@ -368,7 +368,7 @@ impl std::fmt::Display for Footer {
     }
 }
 
-/// Any Zaber ASCII response
+/// Any Zaber ASCII response.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AnyResponse {
     /// A reply message
@@ -380,7 +380,7 @@ pub enum AnyResponse {
 }
 
 impl AnyResponse {
-    /// The kind of Zaber ASCII response
+    /// The kind of Zaber ASCII response.
     pub fn kind(&self) -> Kind {
         match self {
             AnyResponse::Reply(..) => Kind::Reply,
@@ -389,7 +389,7 @@ impl AnyResponse {
         }
     }
 
-    /// The response's data
+    /// The response's data.
     pub fn data(&self) -> &str {
         match self {
             AnyResponse::Reply(reply) => reply.data(),
@@ -398,7 +398,7 @@ impl AnyResponse {
         }
     }
 
-    /// The status of the response
+    /// The status of the response.
     ///
     /// Not all response's have a status.
     pub fn status(&self) -> Option<Status> {
@@ -532,11 +532,11 @@ impl Response for AnyResponse {
 /// keyword in Rust so we use "kind" instead.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
-    /// A reply message
+    /// A reply message.
     Reply,
-    /// An info message
+    /// An info message.
     Info,
-    /// An alert message
+    /// An alert message.
     Alert,
 }
 

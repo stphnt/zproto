@@ -15,12 +15,12 @@ use nom::{
     sequence::{delimited, preceded, tuple},
 };
 
-/// A reply flag
+/// A reply flag.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Flag {
-    /// The `OK` flag, indicating the previous command was accepted
+    /// The `OK` flag, indicating the previous command was accepted.
     Ok,
-    /// The `RJ` flag, indicating the previous command was rejected
+    /// The `RJ` flag, indicating the previous command was rejected.
     Rj,
 }
 
@@ -75,36 +75,36 @@ pub(crate) struct ReplyInner {
     pub checksum: Option<u32>,
 }
 
-/// A decoded ASCII Reply message
+/// A decoded ASCII Reply message.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reply(Box<ReplyInner>);
 
 impl Reply {
-    /// The device and axis number the Reply came from
+    /// The device and axis number the Reply came from.
     pub fn target(&self) -> Target {
         self.0.target
     }
-    /// The message ID, if any
+    /// The message ID, if any.
     pub fn id(&self) -> Option<u8> {
         self.0.id
     }
-    /// The reply flag
+    /// The reply flag.
     pub fn flag(&self) -> Flag {
         self.0.flag
     }
-    /// The device's or axis' status
+    /// The device's or axis's status.
     pub fn status(&self) -> Status {
         self.0.status
     }
-    /// The highest priority warning on the device or axis
+    /// The highest priority warning on the device or axis.
     pub fn warning(&self) -> Warning {
         self.0.warning
     }
-    /// The messages's data
+    /// The message's data.
     pub fn data(&self) -> &str {
         self.0.data.as_str()
     }
-    /// The message's checksum, if any
+    /// The message's checksum, if any.
     pub fn checksum(&self) -> Option<u32> {
         self.0.checksum
     }
@@ -186,7 +186,7 @@ impl std::fmt::Display for Reply {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", char::from(parse::REPLY_MARKER))?;
         Header {
-            address: self.target().get_address(),
+            address: self.target().get_device(),
             axis: self.target().get_axis(),
             id: self.id(),
         }
