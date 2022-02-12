@@ -3,7 +3,7 @@
 use crate::ascii::{checksum::Lrc, id, Target};
 use std::io;
 
-/// A concrete instance of a message ID (e.g., what would be sent over the serial port)
+/// A concrete instance of a message ID (e.g., what would be sent over the serial port).
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub(crate) enum IdInstance {
     /// The specified message ID
@@ -99,7 +99,7 @@ impl<'a> CommandInstance<'a> {
         Lrc::hash(buf.as_ref())
     }
 
-    /// Write the command packet into the specified writer
+    /// Write the command packet into the specified writer.
     pub fn write_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
         write!(writer, "/")?;
         self.write_contents_into(writer)?;
@@ -128,21 +128,21 @@ impl Default for Id {
     }
 }
 
-/// An Zaber ASCII command
+/// An Zaber ASCII command.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Command {
-    /// The targeted device or axis
+    /// The targeted device or axis.
     target: Target,
-    /// The override for how to instantiate the message ID, if any
+    /// The override for how to instantiate the message ID, if any.
     id: Option<Id>,
-    /// The command data
+    /// The command data.
     data: Vec<u8>,
-    /// The override for whether to generate a checksum or not, if any
+    /// The override for whether to generate a checksum or not, if any.
     checksum: Option<bool>,
 }
 
 impl Command {
-    /// Create the empty command (i.e. `/`)
+    /// Create the empty command (i.e. `/`).
     pub const fn empty() -> Command {
         Command {
             target: Target::all(),
@@ -206,14 +206,14 @@ impl Command {
         self
     }
 
-    /// Set the command data
+    /// Set the command data.
     pub fn data<T: AsRef<[u8]>>(&mut self, data: T) -> &mut Self {
         self.data.clear();
         self.data.extend_from_slice(data.as_ref());
         self
     }
 
-    /// Get the target of the command
+    /// Get the target of the command.
     pub(crate) fn target(&self) -> Target {
         self.target
     }

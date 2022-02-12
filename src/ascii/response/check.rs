@@ -1,4 +1,4 @@
-//! Types for checking the contents of an ASCII response
+//! Types for checking the contents of an ASCII response.
 //!
 //! The [`Check`] trait defines the interface all "checkers" must implement.
 //! It is implemented for all closures that take a [`Response`](crate::ascii::Response)
@@ -26,7 +26,7 @@
 //! ```
 //!
 //! What this does should hopefully be somewhat self explanatory from the function names:
-//!   * [`all`] checks that all of the checks passed to it pass (notice that they are enclosed in a [`tuple`])
+//!   * [`all`] checks that all of the checks passed to it (notice that they are enclosed in a [`tuple`])
 //!   * [`flag_is`] checks that the reply flag on the [`Reply`] is the specified value
 //!   * [`warning_is_none`] checks that the warning is `--`.
 //!
@@ -254,13 +254,16 @@ pub fn parsed_data_is<
 
 /// Return a check that will validate a response against all the specified checks.
 ///
-/// Once one check fails, no further checks are run. Note that the checks must be passed as a [`tuple`].
+/// Once one check fails, no further checks are run. Note that the checks must be passed as members of a [`tuple`].
 ///
 /// ## Example
 /// ```rust
 /// # use zproto::ascii::{*, check::*};
 /// # fn wrapper() -> impl Check<Reply> {
-/// all((flag_is(Flag::Ok), warning_in(("WR", "WH"))))
+/// all((
+///     flag_is(Flag::Ok),
+///     warning_in(("WR", "WH"))
+/// ))
 /// # }
 /// ```
 pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
@@ -273,7 +276,7 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
 /// ```rust
 /// # use zproto::ascii::{check::*, *};
 /// # fn wrapper() -> impl Check<Reply> {
-/// all((flag_is(Flag::Ok), warning_is(Warning::NONE)))
+/// flag_ok_and(warning_is_none())
 /// # }
 /// ```
 ///

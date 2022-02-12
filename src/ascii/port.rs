@@ -995,6 +995,8 @@ impl<B: Backend> Port<B> {
 
     /// Set the port timeout and return a "scope guard" that will reset the timeout when it goes out of scope.
     ///
+    /// If not timeout is specified, reads can block indefinitely.
+    ///
     /// While the guard is in scope, the port can only be accessed through the guard.
     /// However, because the guard implements [`Deref`](std::ops::Deref) and [`DerefMut`](std::ops::DerefMut) callers can treat the guard as the port.
     ///

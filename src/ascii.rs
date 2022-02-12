@@ -1,5 +1,7 @@
 //! Types and traits for communicating with Zaber products over Zaber's [ASCII protocol](https://www.zaber.com/protocol-manual?protocol=ASCII).
 //!
+//! ## Communicating with Devices
+//!
 //! All communication with Zaber products starts with a [`Port`], which can be either a serial or TCP port:
 //!
 //! ```rust
@@ -12,7 +14,7 @@
 //! # }
 //! ```
 //!
-//! You can then send a command and receive a reply to devices/axes connected to
+//! Send a command to and receive a reply from devices/axes connected to
 //! that port with the [`command_reply`](Port::command_reply) method. A
 //! [`Command`] can be created in two main ways:
 //!
@@ -25,8 +27,8 @@
 //! #     error::Error
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! let reply = port.command_reply(Command::new("get device.id").to(1))?; // Sends `/1 get device.id`
-//! let device_id: u32 = reply.data().parse()?;
+//! // Send `/1 get device.id` and receive a reply
+//! let reply = port.command_reply(Command::new("get device.id").to(1))?;
 //! # Ok(())
 //! # }
 //! ```
@@ -39,8 +41,8 @@
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::ascii::IntoCommand as _;
 //!
-//! let reply = port.command_reply("get device.id".to(1))?; // Sends `/1 get device.id`
-//! let device_id: u32 = reply.data().parse()?;
+//! // Send `/1 get device.id` and receive a reply
+//! let reply = port.command_reply("get device.id".to(1))?;
 //! # Ok(())
 //! # }
 //! ```
@@ -48,13 +50,32 @@
 //! You can determine the target devices/axes in the [`to(..)`](IntoCommand::to)
 //! method by either:
 //!   * passing in the device address (e.g., `to(2)`)
-//!   * passing in the device address and axis number as a tuple (e.g., `to((1, 2))`)
-//!   * passing in a [`Target`] type (e.g., `Target::device(1).axis(2)`)
+//!   * passing in the device address and axis number as a tuple (e.g., `to((2, 1))`)
+//!   * passing in a [`Target`] type (e.g., `Target::device(2).axis(1)`)
+//!
+//! ## Reading Data
+//!
+//! Reading data from a response is as simple as calling [`data()`](Reply::data)
+//! on the response and then using Rust's standard [`parse()`](https://doc.rust-lang.org/std/primitive.str.html#method.parse)
+//! method to convert the string to your desired data type.
+//!
+//! ```rust
+//! # use zproto::{ascii::Port, backend::Backend, error::Error};
+//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+//! # use zproto::ascii::IntoCommand as _;
+//! let reply = port.command_reply("get device.id".to(1))?;
+//! let device_id: u32 = reply.data().parse()?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Checking Responses
 //!
 //! The library always checks the contents of responses and returns an error for
 //! rejected commmands or replies with any warnings. However, that may not always
 //! be desirable, in which case you can explicitly define how the response should
-//! be checked:
+//! be checked. The [`check`] module defines many common validation functions,
+//! or you can write your own:
 //!
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend, error::Error};
@@ -70,8 +91,10 @@
 //! # }
 //! ```
 //!
-//! Most [`Port`] methods have a `_with_check` version so you can override
-//! the default validation of a response.
+//! Most [`Port`] methods have a `_with_check` version so you can override the
+//! default validation of a response.
+//!
+//! ## Other `Port` Methods
 //!
 //! The [`Port`] has many other helpful methods for receiving any type and number
 //! of responses: [`Reply`]s, [`Info`]s, and [`Alert`]s. For instance, to
@@ -103,7 +126,8 @@
 //! # }
 //! ```
 //!
-//! It also provides convenience functions for common tasks:
+//! It also provides convenience functions for other common tasks, like waiting
+//! until a specific target is `IDLE`:
 //!
 //! ```rust
 //! # use zproto::{
@@ -132,7 +156,7 @@ pub use response::*;
 
 /// The device and axis number a command/response was sent to/from.
 ///
-/// `Target` has multiple builder methods can can be chained to construct the
+/// `Target` has multiple builder methods that can be chained to construct the
 /// desired target.
 ///
 /// ```rust
