@@ -175,7 +175,7 @@ impl Target {
         Target(self.0, axis)
     }
     /// Get the address of the targeted device.
-    pub const fn get_address(&self) -> u8 {
+    pub const fn get_device(&self) -> u8 {
         self.0
     }
     /// Get the number of the targeted axis.

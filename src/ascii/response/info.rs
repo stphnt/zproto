@@ -119,7 +119,7 @@ impl std::fmt::Display for Info {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", char::from(parse::INFO_MARKER))?;
         Header {
-            address: self.target().get_address(),
+            address: self.target().get_device(),
             axis: self.target().get_axis(),
             id: self.id(),
         }

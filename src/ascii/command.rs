@@ -47,7 +47,7 @@ impl<'a> CommandInstance<'a> {
                 write!(
                     writer,
                     "{} {} {}",
-                    self.target.get_address(),
+                    self.target.get_device(),
                     self.target.get_axis(),
                     id
                 )?;
@@ -57,7 +57,7 @@ impl<'a> CommandInstance<'a> {
                 write!(
                     writer,
                     "{} {} --",
-                    self.target.get_address(),
+                    self.target.get_device(),
                     self.target.get_axis()
                 )?;
                 true
@@ -67,12 +67,12 @@ impl<'a> CommandInstance<'a> {
                     write!(
                         writer,
                         "{} {}",
-                        self.target.get_address(),
+                        self.target.get_device(),
                         self.target.get_axis()
                     )?;
                     true
-                } else if self.target.get_address() != 0 {
-                    write!(writer, "{}", self.target.get_address())?;
+                } else if self.target.get_device() != 0 {
+                    write!(writer, "{}", self.target.get_device())?;
                     true
                 } else {
                     false
