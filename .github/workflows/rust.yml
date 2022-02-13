@@ -93,6 +93,14 @@ jobs:
           command: clippy
           args: --all-features -- -D warnings
 
+  spelling:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: Swatinem/rust-cache@v1
+      - uses: crate-ci/typos@master
+
   doc:
     name: Rustdoc
     runs-on: ubuntu-latest
