@@ -3,7 +3,7 @@
 //! Each error is represented by a unique type that implements [`std::error::Error`].
 //! However, most APIs return more than one kind of error and so will return one
 //! of the higher level [enums](#enums), such as [`AsciiError`], [`BinaryError`],
-//! or [`Error`]. Where appropriate, the error types are convertable to the
+//! or [`Error`]. Where appropriate, the error types are convertible to the
 //! higher level enums, allowing them to be used with `?`:
 //!
 //! ```
@@ -216,7 +216,7 @@ macro_rules! error_enum {
             }
         }
 
-        // Allow the enum to be convertable from an infallible error
+        // Allow the enum to be convertible from an infallible error
         impl From<std::convert::Infallible> for $name {
             fn from(_: std::convert::Infallible) -> Self {
                 unreachable!();
@@ -302,7 +302,7 @@ macro_rules! error_enum {
             }
         }
 
-        // Allow the enum to be convertable from an infallible error
+        // Allow the enum to be convertible from an infallible error
         impl<$type: $bound> From<std::convert::Infallible> for $name<$type> {
             fn from(_: std::convert::Infallible) -> Self {
                 unreachable!();
@@ -345,7 +345,7 @@ mod all;
 #[cfg(all(feature = "ascii", feature = "binary"))]
 pub use all::*;
 
-/// The specified device is either disconnected or already in use by another processs.
+/// The specified device is either disconnected or already in use by another process.
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct SerialDeviceInUseOrDisconnectedError(Box<str>);
 

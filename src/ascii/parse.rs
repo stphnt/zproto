@@ -2,7 +2,7 @@
 
 use nom::{bytes::complete::take_till, IResult};
 
-/// The byte preceeding a checksum.
+/// The byte preceding a checksum.
 pub const CHECKSUM_MARKER: u8 = b':';
 
 /// The byte indicating the message is continued in a subsequent info message.

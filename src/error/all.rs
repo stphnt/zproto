@@ -116,7 +116,7 @@ mod test {
     const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
     const_assert_eq!(std::mem::size_of::<Error>(), 3 * _WORD_SIZE);
 
-    // Make sure that error enum types are properly convertable
+    // Make sure that error enum types are properly convertible
     assert_impl_all!(Error: From<AsciiProtocolError>);
     assert_impl_all!(Error: From<AsciiUnexpectedError>);
     assert_impl_all!(Error: From<AsciiCheckError<AnyResponse>>);

@@ -25,7 +25,7 @@ impl std::convert::From<IdInstance> for Option<u8> {
 
 /// An instance of a [`Command`] that can be sent over the serial port.
 pub(crate) struct CommandInstance<'a> {
-    /// The targetted device/axis
+    /// The targeted device/axis
     pub target: Target,
     /// The message ID
     pub id: IdInstance,
@@ -260,9 +260,9 @@ impl Default for Command {
 /// let command: Command = "get maxspeed".to(1);
 /// ```
 pub trait IntoCommand {
-    /// Create a command targetting `target` with this type as the command's data
+    /// Create a command targeting `target` with this type as the command's data
     fn to<T: Into<Target>>(&self, target: T) -> Command;
-    /// Create a command targetting all devices with this type as the command's data
+    /// Create a command targeting all devices with this type as the command's data
     fn to_all(&self) -> Command;
 }
 

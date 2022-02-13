@@ -1,7 +1,7 @@
 //! Types for producing and verifying ASCII packet checksums
 use crate::ascii::parse::get_packet_contents;
 
-/// A Longitudinal Redudancy Check hasher.
+/// A Longitudinal Redundancy Check hasher.
 #[derive(Debug, Default)]
 pub(crate) struct Lrc {
     /// The hash value
