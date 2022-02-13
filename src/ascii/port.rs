@@ -1238,7 +1238,7 @@ mod test {
     fn command_reply_n_fail() {
         let mut port = Port::open_mock();
 
-        // Timeout waiting for non-existant message.
+        // Timeout waiting for non-existent message.
         {
             let buf = port.backend.get_mut();
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");

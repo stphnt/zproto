@@ -36,7 +36,7 @@
 //! You can also check the status, warning, and data of responses using
 //! [`status_is`], one of the `warning_*` functions, and [`parsed_data_is`],
 //! respectively. If the validation logic for a response is more complex, the
-//! [`predicate`] fuction allows you to validate responses using a closure that
+//! [`predicate`] function allows you to validate responses using a closure that
 //! simply returns a `bool`. Finally, to not check a response at all you can
 //! use [`unchecked`].
 

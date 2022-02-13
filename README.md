@@ -7,7 +7,7 @@ is Zaber's official communications library, but as of this writing there are no 
 
 ## Usage
 
-Add this to you `Cargo.toml:
+Add this to your `Cargo.toml:
 
 ```toml
 [dependencies]

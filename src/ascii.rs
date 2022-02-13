@@ -72,7 +72,7 @@
 //! ## Checking Responses
 //!
 //! The library always checks the contents of responses and returns an error for
-//! rejected commmands or replies with any warnings. However, that may not always
+//! rejected commands or replies with any warnings. However, that may not always
 //! be desirable, in which case you can explicitly define how the response should
 //! be checked. The [`check`] module defines many common validation functions,
 //! or you can write your own:

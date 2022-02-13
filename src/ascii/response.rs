@@ -526,7 +526,7 @@ impl Response for AnyResponse {
     }
 }
 
-/// The different kind of reponses.
+/// The different kind of responses.
 ///
 /// The Zaber ASCII protocol calls this the "type" of response but "type" is a
 /// keyword in Rust so we use "kind" instead.
