@@ -51,13 +51,13 @@ impl OpenSerialOptions {
 
     /// Create a blank set of options ready for configuration.
     ///
-    /// The default baud rate and read timeout are 115,200 and 5 seconds, respectively. Message IDs and checksums are also enabled by default.
+    /// The default baud rate and read timeout are 115,200 and 3 seconds, respectively. Message IDs and checksums are also enabled by default.
     ///
     /// Equivalent to [`default`](OpenSerialOptions::default).
     pub fn new() -> Self {
         OpenSerialOptions {
             baud_rate: OpenSerialOptions::DEFAULT_BAUD_RATE,
-            timeout: Some(Duration::from_secs(5)),
+            timeout: Some(Duration::from_secs(3)),
             default_id: Id::Generate,
             default_checksum: true,
         }
@@ -167,12 +167,12 @@ pub struct OpenTcpOptions {
 impl OpenTcpOptions {
     /// Create a blank set of options ready for configuration.
     ///
-    /// The default read timeout is 5 seconds. Message IDs and checksums are also enabled by default.
+    /// The default read timeout is 3 seconds. Message IDs and checksums are also enabled by default.
     ///
     /// Equivalent to [`default`](OpenSerialOptions::default).
     pub fn new() -> Self {
         OpenTcpOptions {
-            timeout: Some(Duration::from_secs(5)),
+            timeout: Some(Duration::from_secs(3)),
             default_id: Id::Generate,
             default_checksum: true,
         }
