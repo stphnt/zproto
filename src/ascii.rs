@@ -28,12 +28,12 @@
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! // Send `/1 get device.id` and receive a reply
-//! let reply = port.command_reply(Command::new("get device.id").to(1))?;
+//! let reply = port.command_reply(Command::new("get device.id").target(1))?;
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! * importing the [`IntoCommand`] trait which adds [`to(..)`](IntoCommand::to) or [`to_all()`](IntoCommand::to_all)
+//! * importing the [`IntoCommand`] trait which adds [`target(..)`](IntoCommand::target) or [`target_all()`](IntoCommand::target_all)
 //! methods it `&str` and a few other types to easily convert them into a [`Command`]:
 //!
 //! ```rust
@@ -42,15 +42,15 @@
 //! use zproto::ascii::IntoCommand as _;
 //!
 //! // Send `/1 get device.id` and receive a reply
-//! let reply = port.command_reply("get device.id".to(1))?;
+//! let reply = port.command_reply("get device.id".target(1))?;
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! You can determine the target devices/axes in the [`to(..)`](IntoCommand::to)
+//! You can determine the target devices/axes in the [`target(..)`](IntoCommand::target)
 //! method by either:
-//!   * passing in the device address (e.g., `to(2)`)
-//!   * passing in the device address and axis number as a tuple (e.g., `to((2, 1))`)
+//!   * passing in the device address (e.g., `target(2)`)
+//!   * passing in the device address and axis number as a tuple (e.g., `target((2, 1))`)
 //!   * passing in a [`Target`] type (e.g., `Target::device(2).axis(1)`)
 //!
 //! ## Reading Data
@@ -63,7 +63,7 @@
 //! # use zproto::{ascii::Port, backend::Backend, error::Error};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! # use zproto::ascii::IntoCommand as _;
-//! let reply = port.command_reply("get device.id".to(1))?;
+//! let reply = port.command_reply("get device.id".target(1))?;
 //! let device_id: u32 = reply.data().parse()?;
 //! # Ok(())
 //! # }
@@ -84,7 +84,7 @@
 //! use zproto::ascii::check::{flag_ok_and, warning_is};
 //!
 //! let reply = port.command_reply_with_check(
-//!    "get device.id".to(1),
+//!    "get device.id".target(1),
 //!    flag_ok_and(warning_is("WR"))
 //! )?;
 //! # Ok(())
@@ -117,7 +117,7 @@
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::ascii::check::{flag_ok_and, warning_is};
 //!
-//! let (reply, infos) = port.command_reply_infos("stream buffer 1 print".to(1))?;
+//! let (reply, infos) = port.command_reply_infos("stream buffer 1 print".target(1))?;
 //! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
 //! for info in infos {
 //!     println!("{}", info); // `#01 0 setup store 1 1` (for example)
@@ -136,7 +136,7 @@
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! let target = (1, 2);
-//! port.command_reply("move max".to(target))?;
+//! port.command_reply("move max".target(target))?;
 //! port.poll_until_idle(target)?;
 //! // Axis 2 on device 1 is now idle
 //! # Ok(())

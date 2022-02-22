@@ -128,7 +128,26 @@ impl Default for Id {
     }
 }
 
-/// An Zaber ASCII command.
+/// A builder for a Zaber ASCII command.
+///
+/// Create a command using either the [`empty`](Command::empty) or
+/// [`new`](Command::new) methods. By default the command will target all
+/// devices and only include message IDs or checksums if the port it is sent
+/// on is configured to do so. To target a specific device and/or axis, use the
+/// [`target`](Command::target) method. To customize whether the message ID and
+/// checksum are populated, use the [`id`](Command::id) and
+/// [`checksum`](Command::checksum) methods, respectively.
+///
+/// ## Example
+///
+/// Build a command that will send `/1 2 home`. The message ID and checksum will
+/// be generated if the port the command is sent on is configured to do so (the
+/// default):
+///
+/// ```
+/// # use zproto::ascii::Command;
+/// let cmd = Command::new("home").target((1, 2));
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Command {
     /// The targeted device or axis.
@@ -173,48 +192,22 @@ impl Command {
         self
     }
 
-    /// Defer to the [`Port`](crate::ascii::Port)'s default method of instantiating the message ID.
-    pub fn id_default(&mut self) -> &mut Self {
-        self.id = None;
-        self
-    }
-
     /// Set whether or not the command should include a checksum.
     ///
-    /// This overrides any default the [`Port`](crate::ascii::Port) specifies.
+    /// This overrides any configuration the [`Port`](crate::ascii::Port) specifies.
     pub fn checksum(&mut self, checksum: bool) -> &mut Self {
         self.checksum = Some(checksum);
         self
     }
 
-    /// Defer to the [`Port`](crate::ascii::Port)'s default checksum.
-    pub fn checksum_default(&mut self) -> &mut Self {
-        self.checksum = None;
-        self
-    }
-
     /// Set the device address and, optionally, axis number to send the command to.
-    pub fn to<T: Into<Target>>(&mut self, target: T) -> &mut Self {
+    pub fn target<T: Into<Target>>(&mut self, target: T) -> &mut Self {
         self.target = target.into();
         self
     }
 
-    /// Address the command to all devices.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_all(&mut self) -> &mut Self {
-        self.target = Target::all();
-        self
-    }
-
-    /// Set the command data.
-    pub fn data<T: AsRef<[u8]>>(&mut self, data: T) -> &mut Self {
-        self.data.clear();
-        self.data.extend_from_slice(data.as_ref());
-        self
-    }
-
     /// Get the target of the command.
-    pub(crate) fn target(&self) -> Target {
+    pub(crate) fn get_target(&self) -> Target {
         self.target
     }
 
@@ -257,22 +250,22 @@ impl Default for Command {
 /// # use zproto::ascii::Command;
 /// use zproto::ascii::IntoCommand as _;
 ///
-/// let command: Command = "get maxspeed".to(1);
+/// let command: Command = "get maxspeed".target(1);
 /// ```
 pub trait IntoCommand {
     /// Create a command targeting `target` with this type as the command's data
-    fn to<T: Into<Target>>(&self, target: T) -> Command;
+    fn target<T: Into<Target>>(&self, target: T) -> Command;
     /// Create a command targeting all devices with this type as the command's data
-    fn to_all(&self) -> Command;
+    fn target_all(&self) -> Command;
 }
 
 impl IntoCommand for [u8] {
-    fn to<T: Into<Target>>(&self, target: T) -> Command {
+    fn target<T: Into<Target>>(&self, target: T) -> Command {
         let mut cmd = Command::new(self);
-        cmd.to(target);
+        cmd.target(target);
         cmd
     }
-    fn to_all(&self) -> Command {
+    fn target_all(&self) -> Command {
         Command::new(self)
     }
 }
@@ -281,11 +274,11 @@ impl<T> IntoCommand for T
 where
     T: AsRef<[u8]>,
 {
-    fn to<S: Into<Target>>(&self, target: S) -> Command {
-        self.as_ref().to(target)
+    fn target<S: Into<Target>>(&self, target: S) -> Command {
+        self.as_ref().target(target)
     }
-    fn to_all(&self) -> Command {
-        self.as_ref().to_all()
+    fn target_all(&self) -> Command {
+        self.as_ref().target_all()
     }
 }
 
@@ -311,15 +304,15 @@ mod test {
     #[test]
     fn test_into_command_data() {
         let mut expected = Command::new("get maxspeed");
-        expected.to(1);
+        expected.target(1);
         assert_eq!(
-            "get maxspeed".to((1, 2)),
-            *Command::new("get maxspeed").to((1, 2))
+            "get maxspeed".target((1, 2)),
+            *Command::new("get maxspeed").target((1, 2))
         );
-        assert_eq!("get maxspeed".to(1), expected);
-        assert_eq!("get maxspeed".to_string().to(1), expected);
-        assert_eq!(b"get maxspeed".to(1), expected);
-        assert_eq!(b"get maxspeed".to_vec().to(1), expected);
+        assert_eq!("get maxspeed".target(1), expected);
+        assert_eq!("get maxspeed".to_string().target(1), expected);
+        assert_eq!(b"get maxspeed".target(1), expected);
+        assert_eq!(b"get maxspeed".to_vec().target(1), expected);
     }
 
     #[test]
@@ -328,7 +321,7 @@ mod test {
 
         let mut buf = Vec::new();
 
-        let cmd = "get maxspeed".to_all();
+        let cmd = "get maxspeed".target_all();
         cmd.instance(&mut generator, Id::None, true)
             .write_into(&mut buf)
             .unwrap();
@@ -341,7 +334,7 @@ mod test {
 
         buf.clear();
         "get maxspeed"
-            .to(2)
+            .target(2)
             .id(Id::Generate)
             .instance(&mut generator, Id::None, true)
             .write_into(&mut buf)
@@ -354,7 +347,7 @@ mod test {
         );
 
         buf.clear();
-        "".to_all()
+        "".target_all()
             .instance(&mut generator, Id::None, true)
             .write_into(&mut buf)
             .unwrap();
@@ -366,7 +359,7 @@ mod test {
         );
 
         buf.clear();
-        "".to(1)
+        "".target(1)
             .instance(&mut generator, Id::None, true)
             .write_into(&mut buf)
             .unwrap();
@@ -382,7 +375,7 @@ mod test {
     fn test_command_checksum() {
         let mut buf = vec![];
         "tools echo"
-            .to(1)
+            .target(1)
             .checksum(true)
             .instance(ConstId {}, Id::None, false)
             .write_into(&mut buf)
