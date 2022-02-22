@@ -221,7 +221,7 @@ impl CommandBuilder {
         CommandInstance {
             target: self.target,
             id: match self.id.unwrap_or(id_default) {
-                Id::Generate => IdInstance::Some(generator.next_id(self)),
+                Id::Generate => IdInstance::Some(generator.next_id()),
                 Id::None => IdInstance::None,
                 Id::NoReply => IdInstance::NoReply,
             },
@@ -288,7 +288,7 @@ mod test {
 
     struct ConstId {}
     impl id::Generator for ConstId {
-        fn next_id(&mut self, _: &Command) -> u8 {
+        fn next_id(&mut self) -> u8 {
             5
         }
     }
