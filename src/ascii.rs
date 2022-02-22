@@ -16,25 +16,25 @@
 //!
 //! Send a command to and receive a reply from devices/axes connected to
 //! that port with the [`command_reply`](Port::command_reply) method. A
-//! [`Command`] can be created in two main ways:
+//! command can be created in two main ways:
 //!
-//! * using the [`Command`]'s builder methods
+//! * using a [`CommandBuilder`]
 //!
 //! ```rust
 //! # use zproto::{
-//! #     ascii::{Command, Port},
+//! #     ascii::{CommandBuilder, Port},
 //! #     backend::Backend,
 //! #     error::Error
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! // Send `/1 get device.id` and receive a reply
-//! let reply = port.command_reply(Command::new("get device.id").target(1))?;
+//! let reply = port.command_reply(CommandBuilder::new("get device.id").target(1))?;
 //! # Ok(())
 //! # }
 //! ```
 //!
 //! * importing the [`IntoCommand`] trait which adds [`target(..)`](IntoCommand::target) or [`target_all()`](IntoCommand::target_all)
-//! methods it `&str` and a few other types to easily convert them into a [`Command`]:
+//! methods it `&str` and a few other types to easily convert them into a [`CommandBuilder`]:
 //!
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend, error::Error};

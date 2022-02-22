@@ -9,7 +9,7 @@ use crate::{
     ascii::check,
     ascii::checksum::Lrc,
     ascii::id,
-    ascii::{AnyResponse, Command, Id, Info, Packet, Reply, Response, Status, Target},
+    ascii::{AnyResponse, CommandBuilder, Id, Info, Packet, Reply, Response, Status, Target},
     error::*,
     timeout_guard::TimeoutGuard,
 };
@@ -344,13 +344,13 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zproto::{ascii::{Command, Port}, backend::Backend};
+    /// # use zproto::{ascii::{CommandBuilder, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// port.command(Command::empty())?;
+    /// port.command(CommandBuilder::empty())?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command<C: AsRef<Command>>(&mut self, cmd: C) -> Result<Option<u8>, AsciiError> {
+    pub fn command<C: AsRef<CommandBuilder>>(&mut self, cmd: C) -> Result<Option<u8>, AsciiError> {
         self.check_poisoned()?;
 
         let mut buffer = Vec::new();
@@ -385,7 +385,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply<C: AsRef<Command>>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
+    pub fn command_reply<C: AsRef<CommandBuilder>>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
         self.command_reply_with_check(cmd, check::default())
     }
 
@@ -402,7 +402,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_with_check<C: AsRef<Command>>(
+    pub fn command_reply_with_check<C: AsRef<CommandBuilder>>(
         &mut self,
         cmd: C,
         checker: impl check::Check<Reply>,
@@ -443,7 +443,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_infos<C: AsRef<Command>>(
+    pub fn command_reply_infos<C: AsRef<CommandBuilder>>(
         &mut self,
         cmd: C,
     ) -> Result<(Reply, Vec<Info>), AsciiError> {
@@ -473,7 +473,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_infos_with_check<C: AsRef<Command>>(
+    pub fn command_reply_infos_with_check<C: AsRef<CommandBuilder>>(
         &mut self,
         cmd: C,
         checker: impl check::Check<AnyResponse>,
@@ -488,7 +488,7 @@ impl<B: Backend> Port<B> {
         let cmd = cmd.as_ref();
         let target = cmd.get_target();
         let reply = self.command_reply(cmd)?;
-        let sentinel_id = self.command(Command::empty().target(target).id(Id::Generate))?;
+        let sentinel_id = self.command(CommandBuilder::empty().target(target).id(Id::Generate))?;
         let mut infos = Vec::new();
         let header_check = |response: &AnyResponse| match response {
             AnyResponse::Info(_) => Some((target, reply.id())),
@@ -523,7 +523,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_n<C: AsRef<Command>>(
+    pub fn command_reply_n<C: AsRef<CommandBuilder>>(
         &mut self,
         cmd: C,
         n: usize,
@@ -551,7 +551,7 @@ impl<B: Backend> Port<B> {
         checker: impl check::Check<Reply>,
     ) -> Result<Vec<Reply>, AsciiError>
     where
-        C: AsRef<Command>,
+        C: AsRef<CommandBuilder>,
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
@@ -577,7 +577,7 @@ impl<B: Backend> Port<B> {
     /// ```
     pub fn command_replies_until_timeout<C>(&mut self, cmd: C) -> Result<Vec<Reply>, AsciiError>
     where
-        C: AsRef<Command>,
+        C: AsRef<CommandBuilder>,
     {
         self.command_replies_until_timeout_with_check(cmd, check::default())
     }
@@ -604,7 +604,7 @@ impl<B: Backend> Port<B> {
         checker: impl check::Check<Reply>,
     ) -> Result<Vec<Reply>, AsciiError>
     where
-        C: AsRef<Command>,
+        C: AsRef<CommandBuilder>,
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
@@ -961,7 +961,7 @@ impl<B: Backend> Port<B> {
     /// ```
     pub fn poll_until<C, F>(&mut self, cmd: C, mut predicate: F) -> Result<Reply, AsciiError>
     where
-        C: AsRef<Command>,
+        C: AsRef<CommandBuilder>,
         F: FnMut(&Reply) -> bool,
     {
         let mut reply;
@@ -988,7 +988,7 @@ impl<B: Backend> Port<B> {
     /// # }
     /// ```
     pub fn poll_until_idle<T: Into<Target>>(&mut self, target: T) -> Result<Reply, AsciiError> {
-        self.poll_until(Command::empty().target(target.into()), |reply| {
+        self.poll_until(CommandBuilder::empty().target(target.into()), |reply| {
             reply.status() == Status::Idle
         })
     }
