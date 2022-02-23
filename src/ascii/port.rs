@@ -9,7 +9,10 @@ use crate::{
     ascii::check,
     ascii::checksum::Lrc,
     ascii::id,
-    ascii::{AnyResponse, CommandBuilder, Info, Packet, Reply, Response, Status, Target},
+    ascii::{
+        AnyResponse, Command, CommandBuilder, CommandInstance, Info, Packet, Reply, Response,
+        Status, Target,
+    },
     error::*,
     timeout_guard::TimeoutGuard,
 };
@@ -350,13 +353,16 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command<C: AsRef<CommandBuilder>>(&mut self, cmd: C) -> Result<Option<u8>, AsciiError> {
+    pub fn command<C: Command>(&mut self, cmd: C) -> Result<Option<u8>, AsciiError> {
         self.check_poisoned()?;
 
         let mut buffer = Vec::new();
-        let instance =
-            cmd.as_ref()
-                .instance(&mut self.ids, self.generate_id, self.generate_checksum);
+        let instance = CommandInstance::new(
+            &cmd,
+            &mut self.ids,
+            self.generate_id,
+            self.generate_checksum,
+        );
         instance.write_into(&mut buffer)?;
         log::debug!(
             "{} TX: {}",
@@ -385,7 +391,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply<C: AsRef<CommandBuilder>>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
+    pub fn command_reply<C: Command>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
         self.command_reply_with_check(cmd, check::default())
     }
 
@@ -402,7 +408,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_with_check<C: AsRef<CommandBuilder>>(
+    pub fn command_reply_with_check<C: Command>(
         &mut self,
         cmd: C,
         checker: impl check::Check<Reply>,
@@ -443,7 +449,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_infos<C: AsRef<CommandBuilder>>(
+    pub fn command_reply_infos<C: Command>(
         &mut self,
         cmd: C,
     ) -> Result<(Reply, Vec<Info>), AsciiError> {
@@ -473,7 +479,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_infos_with_check<C: AsRef<CommandBuilder>>(
+    pub fn command_reply_infos_with_check<C: Command>(
         &mut self,
         cmd: C,
         checker: impl check::Check<AnyResponse>,
@@ -485,8 +491,7 @@ impl<B: Backend> Port<B> {
             move |response| checker.check(response)
         }
 
-        let cmd = cmd.as_ref();
-        let target = cmd.get_target();
+        let target = cmd.as_ref().get_target();
         let reply = self.command_reply(cmd)?;
         let old_generate_id = self.set_id(true);
         let sentinel_id = self.command(CommandBuilder::empty().target(target));
@@ -526,7 +531,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_n<C: AsRef<CommandBuilder>>(
+    pub fn command_reply_n<C: Command>(
         &mut self,
         cmd: C,
         n: usize,
@@ -547,15 +552,12 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_n_with_check<C>(
+    pub fn command_reply_n_with_check<C: Command>(
         &mut self,
         cmd: C,
         n: usize,
         checker: impl check::Check<Reply>,
-    ) -> Result<Vec<Reply>, AsciiError>
-    where
-        C: AsRef<CommandBuilder>,
-    {
+    ) -> Result<Vec<Reply>, AsciiError> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         let replies =
@@ -578,10 +580,10 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_replies_until_timeout<C>(&mut self, cmd: C) -> Result<Vec<Reply>, AsciiError>
-    where
-        C: AsRef<CommandBuilder>,
-    {
+    pub fn command_replies_until_timeout<C: Command>(
+        &mut self,
+        cmd: C,
+    ) -> Result<Vec<Reply>, AsciiError> {
         self.command_replies_until_timeout_with_check(cmd, check::default())
     }
 
@@ -601,14 +603,11 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_replies_until_timeout_with_check<C>(
+    pub fn command_replies_until_timeout_with_check<C: Command>(
         &mut self,
         cmd: C,
         checker: impl check::Check<Reply>,
-    ) -> Result<Vec<Reply>, AsciiError>
-    where
-        C: AsRef<CommandBuilder>,
-    {
+    ) -> Result<Vec<Reply>, AsciiError> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         self.internal_responses_until_timeout_with_check(|_| Some((cmd.get_target(), id)), checker)
@@ -964,7 +963,7 @@ impl<B: Backend> Port<B> {
     /// ```
     pub fn poll_until<C, F>(&mut self, cmd: C, mut predicate: F) -> Result<Reply, AsciiError>
     where
-        C: AsRef<CommandBuilder>,
+        C: Command,
         F: FnMut(&Reply) -> bool,
     {
         let mut reply;

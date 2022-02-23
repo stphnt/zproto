@@ -3,6 +3,221 @@
 use crate::ascii::{checksum::Lrc, id, Target};
 use std::io;
 
+/// A trait that is implemented by all ASCII commands.
+///
+/// Multiple types implement `Command` including:
+///
+/// * `str`,
+/// * `String`,
+/// * `[u8; N]`,
+/// * `[u8]`,
+/// * `Vec<u8>`,
+/// * and any `&T`, `&mut T`, or `Box<T>` where `T` implements `Command`.
+///
+/// When used as a command the bytes in these types will be interpreted as the
+/// data for a command and targeted to all devices and axes in the chain. For
+/// instance, the following are examples of how the above types are converted
+/// into ASCII commands:
+///
+/// * `"home"` → `"/home\n"`
+/// * `format!("move abs {}", 12345)` → `"/move abs 12345\n"`
+///
+/// To target specific devices and/or axes, prepend any type convertible to a
+/// [`Target`] to the data as part of a tuple:
+///
+/// * `(1, "home")` → `"/1 home\n"`
+/// * `((1, 2), format!("move abs {}", 12345))` → `"/1 2 move abs 12345\n"`
+///
+/// For convenience, tuples of the form `(u8, u8, data)` are also supported:
+///
+/// * `(1, 2, "home")` → `"/1 2 home\n"`
+pub trait Command {
+    /// The type returned when calling `as_ref`, below.
+    type Ref: Command + ?Sized;
+
+    /// Get a reference to the command.
+    ///
+    /// This is roughly equivalent to `AsRef` except that it is not generic over
+    /// the return type, which allows this trait to also not be generic.
+    /// Including it as part of the trait directly rather than a supertrait
+    /// avoids requiring call sites to add a somewhat complicated `AsRef` bound.
+    fn as_ref(&self) -> &Self::Ref;
+    /// Get the command's target.
+    fn get_target(&self) -> Target;
+    /// Get the command's data.
+    fn get_data(&self) -> &[u8];
+}
+
+impl Command for str {
+    type Ref = str;
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+impl Command for [u8] {
+    type Ref = [u8];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self
+    }
+}
+
+impl<const N: usize> Command for [u8; N] {
+    type Ref = [u8; N];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self
+    }
+}
+
+impl Command for String {
+    type Ref = [u8];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self.as_bytes()
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+impl Command for Vec<u8> {
+    type Ref = [u8];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self.as_slice()
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl<T, D> Command for (T, D)
+where
+    T: Into<Target> + Copy,
+    D: AsRef<[u8]>,
+{
+    type Ref = (T, D);
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        self.0.into()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.1.as_ref()
+    }
+}
+
+impl<D> Command for (u8, u8, D)
+where
+    D: AsRef<[u8]>,
+{
+    type Ref = (u8, u8, D);
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::device(self.0).axis(self.1)
+    }
+    fn get_data(&self) -> &[u8] {
+        self.2.as_ref()
+    }
+}
+
+impl Command for CommandBuilder {
+    type Ref = CommandBuilder;
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        self.target
+    }
+    fn get_data(&self) -> &[u8] {
+        self.data.as_slice()
+    }
+}
+
+impl<T> Command for &T
+where
+    T: Command + ?Sized,
+{
+    type Ref = T;
+
+    fn as_ref(&self) -> &Self::Ref {
+        *self
+    }
+    fn get_target(&self) -> Target {
+        (**self).get_target()
+    }
+    fn get_data(&self) -> &[u8] {
+        (**self).get_data()
+    }
+}
+
+impl<T> Command for &mut T
+where
+    T: Command + ?Sized,
+{
+    type Ref = T;
+
+    fn as_ref(&self) -> &Self::Ref {
+        *self
+    }
+    fn get_target(&self) -> Target {
+        (**self).get_target()
+    }
+    fn get_data(&self) -> &[u8] {
+        (**self).get_data()
+    }
+}
+
+impl<T> Command for Box<T>
+where
+    T: Command + ?Sized,
+{
+    type Ref = T;
+
+    fn as_ref(&self) -> &Self::Ref {
+        &*self
+    }
+    fn get_target(&self) -> Target {
+        (**self).get_target()
+    }
+    fn get_data(&self) -> &[u8] {
+        (**self).get_data()
+    }
+}
+
 /// An instance of a [`CommandBuilder`] that can be sent over the serial port.
 pub(crate) struct CommandInstance<'a> {
     /// The targeted device/axis
@@ -16,6 +231,29 @@ pub(crate) struct CommandInstance<'a> {
 }
 
 impl<'a> CommandInstance<'a> {
+    /// Create a instance of this command, which can be sent over the serial port.
+    pub fn new<C, G>(
+        command: &'a C,
+        mut generator: G,
+        generate_id: bool,
+        generate_checksum: bool,
+    ) -> CommandInstance<'a>
+    where
+        C: Command,
+        G: id::Generator,
+    {
+        CommandInstance {
+            target: command.get_target(),
+            id: if generate_id {
+                Some(generator.next_id())
+            } else {
+                None
+            },
+            data: command.get_data(),
+            checksum: generate_checksum,
+        }
+    }
+
     /// Write the contents of the command packet into writer.
     ///
     /// This is useful for calculating the checksum for the command and for
@@ -67,7 +305,7 @@ impl<'a> CommandInstance<'a> {
     fn checksum(&self) -> u32 {
         let mut buf = Vec::with_capacity(80);
         self.write_contents_into(&mut buf).unwrap();
-        Lrc::hash(buf.as_ref())
+        Lrc::hash(&buf[..])
     }
 
     /// Write the command packet into the specified writer.
@@ -132,30 +370,6 @@ impl CommandBuilder {
     pub fn target<T: Into<Target>>(&mut self, target: T) -> &mut Self {
         self.target = target.into();
         self
-    }
-
-    /// Get the target of the command.
-    pub(crate) fn get_target(&self) -> Target {
-        self.target
-    }
-
-    /// Create a instance of this command, which can be sent over the serial port.
-    pub(crate) fn instance<G: id::Generator>(
-        &self,
-        mut generator: G,
-        generate_id: bool,
-        generate_checksum: bool,
-    ) -> CommandInstance<'_> {
-        CommandInstance {
-            target: self.target,
-            id: if generate_id {
-                Some(generator.next_id())
-            } else {
-                None
-            },
-            data: &self.data,
-            checksum: generate_checksum,
-        }
     }
 }
 
@@ -249,8 +463,7 @@ mod test {
 
         let mut buf = Vec::new();
 
-        let cmd = "get maxspeed".target_all();
-        cmd.instance(&mut generator, false, true)
+        CommandInstance::new(&"get maxspeed".target_all(), &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -261,9 +474,7 @@ mod test {
         );
 
         buf.clear();
-        "get maxspeed"
-            .target(2)
-            .instance(&mut generator, true, true)
+        CommandInstance::new(&"get maxspeed".target(2), &mut generator, true, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -274,8 +485,7 @@ mod test {
         );
 
         buf.clear();
-        "".target_all()
-            .instance(&mut generator, false, true)
+        CommandInstance::new(&"".target_all(), &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -286,8 +496,7 @@ mod test {
         );
 
         buf.clear();
-        "".target(1)
-            .instance(&mut generator, false, true)
+        CommandInstance::new(&"".target(1), &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -296,14 +505,23 @@ mod test {
             "Unexpectedly got `{}`",
             std::str::from_utf8(&buf).unwrap()
         );
+
+        buf.clear();
+        CommandInstance::new(&(1, 2, "tools echo bob"), &mut generator, false, false)
+            .write_into(&mut buf)
+            .unwrap();
+        assert_eq!(
+            buf,
+            b"/1 2 tools echo bob\n",
+            "Unexpectedly got `{}`",
+            std::str::from_utf8(&buf).unwrap()
+        );
     }
 
     #[test]
     fn test_command_checksum() {
         let mut buf = vec![];
-        "tools echo"
-            .target(1)
-            .instance(ConstId {}, false, true)
+        CommandInstance::new(&(1, "tools echo"), ConstId {}, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
