@@ -1,4 +1,4 @@
-## zproto
+# zproto
 
 A Rust implementation of Zaber's ASCII and Binary Protocols.
 
