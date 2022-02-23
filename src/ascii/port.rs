@@ -64,6 +64,8 @@ impl OpenSerialOptions {
     }
 
     /// Set a custom baud rate.
+    ///
+    /// The default is 115,200.
     pub fn baud_rate(&mut self, baud_rate: u32) -> &mut Self {
         self.baud_rate = baud_rate;
         self
@@ -71,19 +73,23 @@ impl OpenSerialOptions {
 
     /// Set a custom read timeout.
     ///
-    /// If duration is `None`, reads will block indefinitely.
+    /// If duration is `None`, reads will block indefinitely. The default is 3 seconds.
     pub fn timeout(&mut self, duration: Option<Duration>) -> &mut Self {
         self.timeout = duration;
         self
     }
 
     /// Set whether commands sent on the port should include a checksum or not.
+    ///
+    /// The default is `true` (checksums will be included).
     pub fn checksum(&mut self, checksum: bool) -> &mut Self {
         self.generate_checksum = checksum;
         self
     }
 
     /// Set whether commands sent on the port should include a message ID or not.
+    ///
+    /// The default is `true` (message IDs will be included).
     pub fn id(&mut self, id: bool) -> &mut Self {
         self.generate_id = id;
         self
@@ -180,19 +186,23 @@ impl OpenTcpOptions {
 
     /// Set a custom read timeout.
     ///
-    /// If duration is `None`, reads will block indefinitely.
+    /// If duration is `None`, reads will block indefinitely. The default is 3 seconds.
     pub fn timeout(&mut self, duration: Option<Duration>) -> &mut Self {
         self.timeout = duration;
         self
     }
 
     /// Set whether commands sent on the port should include a checksum or not.
+    ///
+    /// The default is `true` (checksums will be included).
     pub fn checksum(&mut self, checksum: bool) -> &mut Self {
         self.generate_checksum = checksum;
         self
     }
 
     /// Set whether commands sent on the port should include a message ID or not.
+    ///
+    /// The default is `true` (message IDs will be included).
     pub fn id(&mut self, id: bool) -> &mut Self {
         self.generate_checksum = id;
         self
@@ -275,9 +285,11 @@ impl Port<Serial> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zproto::ascii::Port;
+    /// # use zproto::ascii::{OpenSerialOptions, Port};
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut port = Port::open_serial("/dev/ttyUSB0")?;
+    /// // Or equivalently
+    /// let mut port = OpenSerialOptions::new().open("/dev/ttyUSB0")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -294,9 +306,11 @@ impl Port<TcpStream> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zproto::ascii::Port;
+    /// # use zproto::ascii::{OpenTcpOptions, Port};
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut port = Port::open_tcp("198.168.0.1:7770")?;
+    /// // Or equivalently
+    /// let mut port = OpenTcpOptions::new().open("198.168.0.1:7770")?;
     /// # Ok(())
     /// # }
     /// ```

@@ -52,6 +52,10 @@ mod private {
 /// For convenience, tuples of the form `(u8, u8, data)` are also supported:
 ///
 /// * `(1, 2, "home")` → `"/1 2 home\n"`
+///
+/// Note, whether message IDs and/or checksums are generated for each command
+/// is defined by the [`Port`](crate::ascii::Port). By default they are both
+/// enabled.
 pub trait Command: private::Sealed {
     /// The type returned when calling `as_ref`, below.
     type Ref: Command + ?Sized;
