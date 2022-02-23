@@ -3,6 +3,27 @@
 use crate::ascii::{checksum::Lrc, id, Target};
 use std::io;
 
+mod private {
+    use super::*;
+    pub trait Sealed {}
+
+    impl Sealed for str {}
+    impl Sealed for String {}
+    impl Sealed for [u8] {}
+    impl<const N: usize> Sealed for [u8; N] {}
+    impl Sealed for Vec<u8> {}
+    impl<T, D> Sealed for (T, D)
+    where
+        T: Into<Target> + Copy,
+        D: AsRef<[u8]>,
+    {
+    }
+    impl<D: AsRef<[u8]>> Sealed for (u8, u8, D) {}
+    impl<T> Sealed for &T where T: Sealed + ?Sized {}
+    impl<T> Sealed for &mut T where T: Sealed + ?Sized {}
+    impl<T> Sealed for Box<T> where T: Sealed + ?Sized {}
+}
+
 /// A trait that is implemented by all ASCII commands.
 ///
 /// Multiple types implement `Command` including:
@@ -31,7 +52,7 @@ use std::io;
 /// For convenience, tuples of the form `(u8, u8, data)` are also supported:
 ///
 /// * `(1, 2, "home")` → `"/1 2 home\n"`
-pub trait Command {
+pub trait Command: private::Sealed {
     /// The type returned when calling `as_ref`, below.
     type Ref: Command + ?Sized;
 
