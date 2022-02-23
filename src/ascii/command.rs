@@ -64,9 +64,9 @@ pub trait Command: private::Sealed {
     /// avoids requiring call sites to add a somewhat complicated `AsRef` bound.
     fn as_ref(&self) -> &Self::Ref;
     /// Get the command's target.
-    fn get_target(&self) -> Target;
+    fn target(&self) -> Target;
     /// Get the command's data.
-    fn get_data(&self) -> &[u8];
+    fn data(&self) -> &[u8];
 }
 
 impl Command for str {
@@ -75,10 +75,10 @@ impl Command for str {
     fn as_ref(&self) -> &Self::Ref {
         self
     }
-    fn get_target(&self) -> Target {
+    fn target(&self) -> Target {
         Target::all()
     }
-    fn get_data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         self.as_bytes()
     }
 }
@@ -89,10 +89,10 @@ impl Command for [u8] {
     fn as_ref(&self) -> &Self::Ref {
         self
     }
-    fn get_target(&self) -> Target {
+    fn target(&self) -> Target {
         Target::all()
     }
-    fn get_data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         self
     }
 }
@@ -103,10 +103,10 @@ impl<const N: usize> Command for [u8; N] {
     fn as_ref(&self) -> &Self::Ref {
         self
     }
-    fn get_target(&self) -> Target {
+    fn target(&self) -> Target {
         Target::all()
     }
-    fn get_data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         self
     }
 }
@@ -117,10 +117,10 @@ impl Command for String {
     fn as_ref(&self) -> &Self::Ref {
         self.as_bytes()
     }
-    fn get_target(&self) -> Target {
+    fn target(&self) -> Target {
         Target::all()
     }
-    fn get_data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         self.as_bytes()
     }
 }
@@ -131,10 +131,10 @@ impl Command for Vec<u8> {
     fn as_ref(&self) -> &Self::Ref {
         self.as_slice()
     }
-    fn get_target(&self) -> Target {
+    fn target(&self) -> Target {
         Target::all()
     }
-    fn get_data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         self.as_slice()
     }
 }
@@ -149,10 +149,10 @@ where
     fn as_ref(&self) -> &Self::Ref {
         self
     }
-    fn get_target(&self) -> Target {
+    fn target(&self) -> Target {
         self.0.into()
     }
-    fn get_data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         self.1.as_ref()
     }
 }
@@ -166,10 +166,10 @@ where
     fn as_ref(&self) -> &Self::Ref {
         self
     }
-    fn get_target(&self) -> Target {
+    fn target(&self) -> Target {
         Target::device(self.0).axis(self.1)
     }
-    fn get_data(&self) -> &[u8] {
+    fn data(&self) -> &[u8] {
         self.2.as_ref()
     }
 }
@@ -183,11 +183,11 @@ where
     fn as_ref(&self) -> &Self::Ref {
         *self
     }
-    fn get_target(&self) -> Target {
-        (**self).get_target()
+    fn target(&self) -> Target {
+        (**self).target()
     }
-    fn get_data(&self) -> &[u8] {
-        (**self).get_data()
+    fn data(&self) -> &[u8] {
+        (**self).data()
     }
 }
 
@@ -200,11 +200,11 @@ where
     fn as_ref(&self) -> &Self::Ref {
         *self
     }
-    fn get_target(&self) -> Target {
-        (**self).get_target()
+    fn target(&self) -> Target {
+        (**self).target()
     }
-    fn get_data(&self) -> &[u8] {
-        (**self).get_data()
+    fn data(&self) -> &[u8] {
+        (**self).data()
     }
 }
 
@@ -217,11 +217,11 @@ where
     fn as_ref(&self) -> &Self::Ref {
         &*self
     }
-    fn get_target(&self) -> Target {
-        (**self).get_target()
+    fn target(&self) -> Target {
+        (**self).target()
     }
-    fn get_data(&self) -> &[u8] {
-        (**self).get_data()
+    fn data(&self) -> &[u8] {
+        (**self).data()
     }
 }
 
@@ -250,13 +250,13 @@ impl<'a> CommandInstance<'a> {
         G: id::Generator,
     {
         CommandInstance {
-            target: command.get_target(),
+            target: command.target(),
             id: if generate_id {
                 Some(generator.next_id())
             } else {
                 None
             },
-            data: command.get_data(),
+            data: command.data(),
             checksum: generate_checksum,
         }
     }

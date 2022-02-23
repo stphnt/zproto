@@ -411,7 +411,7 @@ impl<B: Backend> Port<B> {
     ) -> Result<Reply, AsciiError> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.internal_response_with_check(|_| Some((cmd.get_target(), id)), checker)
+        self.internal_response_with_check(|_| Some((cmd.target(), id)), checker)
     }
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
@@ -483,7 +483,7 @@ impl<B: Backend> Port<B> {
             move |response| checker.check(response)
         }
 
-        let target = cmd.as_ref().get_target();
+        let target = cmd.as_ref().target();
         let reply = self.command_reply(cmd)?;
         let old_generate_id = self.set_id(true);
         let sentinel_id = self.command((target, ""));
@@ -551,7 +551,7 @@ impl<B: Backend> Port<B> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         let replies =
-            self.internal_response_n_with_check(n, |_| Some((cmd.get_target(), id)), checker)?;
+            self.internal_response_n_with_check(n, |_| Some((cmd.target(), id)), checker)?;
         Ok(replies)
     }
 
@@ -598,7 +598,7 @@ impl<B: Backend> Port<B> {
     ) -> Result<Vec<Reply>, AsciiError> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.internal_responses_until_timeout_with_check(|_| Some((cmd.get_target(), id)), checker)
+        self.internal_responses_until_timeout_with_check(|_| Some((cmd.target(), id)), checker)
     }
 
     /// Receive a response [`Packet`]
