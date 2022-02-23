@@ -9,7 +9,7 @@ use crate::{
     ascii::check,
     ascii::checksum::Lrc,
     ascii::id,
-    ascii::{AnyResponse, CommandBuilder, Id, Info, Packet, Reply, Response, Status, Target},
+    ascii::{AnyResponse, CommandBuilder, Info, Packet, Reply, Response, Status, Target},
     error::*,
     timeout_guard::TimeoutGuard,
 };
@@ -39,10 +39,10 @@ pub struct OpenSerialOptions {
     baud_rate: u32,
     /// The custom timeout
     timeout: Option<Duration>,
-    /// The default for how message IDs should be created (or not) when sending commands.
-    default_id: Id,
-    /// The default for whether commands should include a checksum or not.
-    default_checksum: bool,
+    /// Whether commands should include message IDs or not.
+    generate_id: bool,
+    /// Whether commands should include a checksum or not.
+    generate_checksum: bool,
 }
 
 impl OpenSerialOptions {
@@ -58,8 +58,8 @@ impl OpenSerialOptions {
         OpenSerialOptions {
             baud_rate: OpenSerialOptions::DEFAULT_BAUD_RATE,
             timeout: Some(Duration::from_secs(3)),
-            default_id: Id::Generate,
-            default_checksum: true,
+            generate_id: true,
+            generate_checksum: true,
         }
     }
 
@@ -77,15 +77,15 @@ impl OpenSerialOptions {
         self
     }
 
-    /// Set whether commands sent on the port should include a checksum by default or not.
+    /// Set whether commands sent on the port should include a checksum or not.
     pub fn checksum(&mut self, checksum: bool) -> &mut Self {
-        self.default_checksum = checksum;
+        self.generate_checksum = checksum;
         self
     }
 
-    /// Set whether commands sent on the port should include a message ID by default or not.
+    /// Set whether commands sent on the port should include a message ID or not.
     pub fn id(&mut self, id: bool) -> &mut Self {
-        self.default_id = if id { Id::Generate } else { Id::None };
+        self.generate_id = id;
         self
     }
 
@@ -114,8 +114,8 @@ impl OpenSerialOptions {
     pub fn open(&self, path: &str) -> Result<Port<Serial>, AsciiError> {
         Ok(Port::from_backend(
             self.open_serial_port(path)?,
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 
@@ -128,8 +128,8 @@ impl OpenSerialOptions {
     pub fn open_dyn(&self, path: &str) -> Result<Port<Box<dyn Backend>>, AsciiError> {
         Ok(Port::from_backend(
             Box::new(self.open_serial_port(path)?),
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 }
@@ -158,10 +158,10 @@ impl Default for OpenSerialOptions {
 pub struct OpenTcpOptions {
     /// The custom timeout
     timeout: Option<Duration>,
-    /// The default for how message IDs should be created (or not) when sending commands.
-    default_id: Id,
-    /// The default for whether commands should include a checksum or not.
-    default_checksum: bool,
+    /// Whether commands should include message IDs or not.
+    generate_id: bool,
+    /// Whether commands should include a checksum or not.
+    generate_checksum: bool,
 }
 
 impl OpenTcpOptions {
@@ -173,8 +173,8 @@ impl OpenTcpOptions {
     pub fn new() -> Self {
         OpenTcpOptions {
             timeout: Some(Duration::from_secs(3)),
-            default_id: Id::Generate,
-            default_checksum: true,
+            generate_id: true,
+            generate_checksum: true,
         }
     }
 
@@ -186,15 +186,15 @@ impl OpenTcpOptions {
         self
     }
 
-    /// Set whether commands sent on the port should include a checksum by default or not.
+    /// Set whether commands sent on the port should include a checksum or not.
     pub fn checksum(&mut self, checksum: bool) -> &mut Self {
-        self.default_checksum = checksum;
+        self.generate_checksum = checksum;
         self
     }
 
-    /// Set whether commands sent on the port should include a message ID by default or not.
+    /// Set whether commands sent on the port should include a message ID or not.
     pub fn id(&mut self, id: bool) -> &mut Self {
-        self.default_id = if id { Id::Generate } else { Id::None };
+        self.generate_checksum = id;
         self
     }
 
@@ -209,8 +209,8 @@ impl OpenTcpOptions {
     pub fn open<A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<TcpStream>> {
         Ok(Port::from_backend(
             self.open_tcp_stream(address)?,
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 
@@ -223,8 +223,8 @@ impl OpenTcpOptions {
     pub fn open_dyn<A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<Box<dyn Backend>>> {
         Ok(Port::from_backend(
             Box::new(self.open_tcp_stream(address)?),
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 }
@@ -248,10 +248,10 @@ pub struct Port<B> {
     backend: BufReader<B>,
     /// The message ID generator
     ids: id::Counter,
-    /// The default for how message IDs should be created (or not) when sending commands.
-    default_id: Id,
-    /// The default for whether commands should include a checksum or not.
-    default_checksum: bool,
+    /// Whether commands should include message IDs or not.
+    generate_id: bool,
+    /// Whether commands should include checksums or not.
+    generate_checksum: bool,
     /// If populated, the error that has "poisoned" the port. This error MUST be
     /// reported before the port is used for communication again.
     ///
@@ -309,7 +309,7 @@ impl Port<TcpStream> {
 impl Port<Mock> {
     /// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
     pub fn open_mock() -> Port<Mock> {
-        Port::from_backend(Mock::new(), Id::None, false)
+        Port::from_backend(Mock::new(), false, false)
     }
 }
 
@@ -318,12 +318,12 @@ impl<B: Backend> Port<B> {
     const BUFFER_SIZE: usize = 1024;
 
     /// Create a `Port` from a [`Backend`] type.
-    fn from_backend(backend: B, default_id: Id, default_checksum: bool) -> Self {
+    fn from_backend(backend: B, generate_id: bool, generate_checksum: bool) -> Self {
         Port {
             backend: BufReader::with_capacity(Self::BUFFER_SIZE, backend),
             ids: id::Counter::default(),
-            default_id,
-            default_checksum,
+            generate_id,
+            generate_checksum,
             poison: None,
         }
     }
@@ -354,9 +354,9 @@ impl<B: Backend> Port<B> {
         self.check_poisoned()?;
 
         let mut buffer = Vec::new();
-        let instance = cmd
-            .as_ref()
-            .instance(&mut self.ids, self.default_id, self.default_checksum);
+        let instance =
+            cmd.as_ref()
+                .instance(&mut self.ids, self.generate_id, self.generate_checksum);
         instance.write_into(&mut buffer)?;
         log::debug!(
             "{} TX: {}",
@@ -367,7 +367,7 @@ impl<B: Backend> Port<B> {
             String::from_utf8_lossy(buffer.as_slice()).trim_end()
         );
         self.backend.get_mut().write_all(buffer.as_slice())?;
-        Ok(instance.id.into())
+        Ok(instance.id)
     }
 
     /// Transmit a command, receive a reply, and check it with the [`default`](check::default) checks.
@@ -488,7 +488,10 @@ impl<B: Backend> Port<B> {
         let cmd = cmd.as_ref();
         let target = cmd.get_target();
         let reply = self.command_reply(cmd)?;
-        let sentinel_id = self.command(CommandBuilder::empty().target(target).id(Id::Generate))?;
+        let old_generate_id = self.set_id(true);
+        let sentinel_id = self.command(CommandBuilder::empty().target(target));
+        self.set_id(old_generate_id);
+        let sentinel_id = sentinel_id?;
         let mut infos = Vec::new();
         let header_check = |response: &AnyResponse| match response {
             AnyResponse::Info(_) => Some((target, reply.id())),
@@ -1025,20 +1028,28 @@ impl<B: Backend> Port<B> {
         TimeoutGuard::new(self, timeout)
     }
 
-    /// Set whether commands sent on this port should include a checksum by default or not.
+    /// Set whether commands sent on this port should include a checksum or not.
     ///
-    /// This default is ignored for any command that explicitly overrides it.
-    pub fn default_checksum(&mut self, value: bool) -> &mut Self {
-        self.default_checksum = value;
-        self
+    /// The previous value is returned.
+    pub fn set_checksum(&mut self, value: bool) -> bool {
+        std::mem::replace(&mut self.generate_checksum, value)
     }
 
-    /// Set whether commands sent on this port should include an automatically generated message ID by default or not.
+    /// Get whether the port will include checksums or not in commands.
+    pub fn checksum(&self) -> bool {
+        self.generate_checksum
+    }
+
+    /// Set whether commands sent on this port should include an automatically generated message ID or not.
     ///
-    /// This default is ignored for any command that explicitly overrides it.
-    pub fn default_id(&mut self, value: bool) -> &mut Self {
-        self.default_id = if value { Id::Generate } else { Id::None };
-        self
+    /// The previous value is returned.
+    pub fn set_id(&mut self, value: bool) -> bool {
+        std::mem::replace(&mut self.generate_id, value)
+    }
+
+    /// Get whether the port will include message IDs or not in commands.
+    pub fn id(&self) -> bool {
+        self.generate_checksum
     }
 }
 

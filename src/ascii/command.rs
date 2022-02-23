@@ -3,32 +3,12 @@
 use crate::ascii::{checksum::Lrc, id, Target};
 use std::io;
 
-/// A concrete instance of a message ID (e.g., what would be sent over the serial port).
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub(crate) enum IdInstance {
-    /// The specified message ID
-    Some(u8),
-    /// No message ID
-    None,
-    /// The special marker (`--`) indicating no reply should be sent to the command.
-    NoReply,
-}
-
-impl std::convert::From<IdInstance> for Option<u8> {
-    fn from(other: IdInstance) -> Self {
-        match other {
-            IdInstance::Some(value) => Some(value),
-            _ => None,
-        }
-    }
-}
-
 /// An instance of a [`CommandBuilder`] that can be sent over the serial port.
 pub(crate) struct CommandInstance<'a> {
     /// The targeted device/axis
     pub target: Target,
     /// The message ID
-    pub id: IdInstance,
+    pub id: Option<u8>,
     /// The command data
     pub data: &'a [u8],
     /// Whether to generate a checksum
@@ -43,7 +23,7 @@ impl<'a> CommandInstance<'a> {
     fn write_contents_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
         // Only output the address, axis or message ID if it is necessary.
         let wrote = match self.id {
-            IdInstance::Some(id) => {
+            Some(id) => {
                 write!(
                     writer,
                     "{} {} {}",
@@ -53,16 +33,7 @@ impl<'a> CommandInstance<'a> {
                 )?;
                 true
             }
-            IdInstance::NoReply => {
-                write!(
-                    writer,
-                    "{} {} --",
-                    self.target.get_device(),
-                    self.target.get_axis()
-                )?;
-                true
-            }
-            IdInstance::None => {
+            None => {
                 if self.target.get_axis() != 0 {
                     write!(
                         writer,
@@ -111,32 +82,13 @@ impl<'a> CommandInstance<'a> {
     }
 }
 
-/// The way in which a command should instantiate a message ID.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum Id {
-    /// A newly generated message ID should be used.
-    Generate,
-    /// No message ID should be included.
-    None,
-    /// The special marker (`--`) indicating no reply should be use.
-    NoReply,
-}
-
-impl Default for Id {
-    fn default() -> Self {
-        Id::Generate
-    }
-}
-
 /// A builder for a Zaber ASCII command.
 ///
 /// Create a command using either the [`empty`](CommandBuilder::empty) or
 /// [`new`](CommandBuilder::new) methods. By default the command will target all
 /// devices and only include message IDs or checksums if the port it is sent
 /// on is configured to do so. To target a specific device and/or axis, use the
-/// [`target`](CommandBuilder::target) method. To customize whether the message ID and
-/// checksum are populated, use the [`id`](CommandBuilder::id) and
-/// [`checksum`](CommandBuilder::checksum) methods, respectively.
+/// [`target`](CommandBuilder::target) method.
 ///
 /// ## Example
 ///
@@ -152,12 +104,8 @@ impl Default for Id {
 pub struct CommandBuilder {
     /// The targeted device or axis.
     target: Target,
-    /// The override for how to instantiate the message ID, if any.
-    id: Option<Id>,
     /// The command data.
     data: Vec<u8>,
-    /// The override for whether to generate a checksum or not, if any.
-    checksum: Option<bool>,
 }
 
 impl CommandBuilder {
@@ -165,9 +113,7 @@ impl CommandBuilder {
     pub const fn empty() -> CommandBuilder {
         CommandBuilder {
             target: Target::all(),
-            id: None,
             data: Vec::new(),
-            checksum: None,
         }
     }
 
@@ -178,26 +124,8 @@ impl CommandBuilder {
     pub fn new<T: AsRef<[u8]>>(data: T) -> CommandBuilder {
         CommandBuilder {
             target: Target::all(),
-            id: None,
             data: data.as_ref().to_vec(),
-            checksum: None,
         }
-    }
-
-    /// Set how the command's message ID should be instantiated.
-    ///
-    /// This overrides any default the [`Port`](crate::ascii::Port) specifies.
-    pub fn id(&mut self, id: Id) -> &mut Self {
-        self.id = Some(id);
-        self
-    }
-
-    /// Set whether or not the command should include a checksum.
-    ///
-    /// This overrides any configuration the [`Port`](crate::ascii::Port) specifies.
-    pub fn checksum(&mut self, checksum: bool) -> &mut Self {
-        self.checksum = Some(checksum);
-        self
     }
 
     /// Set the device address and, optionally, axis number to send the command to.
@@ -215,18 +143,18 @@ impl CommandBuilder {
     pub(crate) fn instance<G: id::Generator>(
         &self,
         mut generator: G,
-        id_default: Id,
-        checksum_default: bool,
+        generate_id: bool,
+        generate_checksum: bool,
     ) -> CommandInstance<'_> {
         CommandInstance {
             target: self.target,
-            id: match self.id.unwrap_or(id_default) {
-                Id::Generate => IdInstance::Some(generator.next_id()),
-                Id::None => IdInstance::None,
-                Id::NoReply => IdInstance::NoReply,
+            id: if generate_id {
+                Some(generator.next_id())
+            } else {
+                None
             },
             data: &self.data,
-            checksum: self.checksum.unwrap_or(checksum_default),
+            checksum: generate_checksum,
         }
     }
 }
@@ -322,7 +250,7 @@ mod test {
         let mut buf = Vec::new();
 
         let cmd = "get maxspeed".target_all();
-        cmd.instance(&mut generator, Id::None, true)
+        cmd.instance(&mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -335,8 +263,7 @@ mod test {
         buf.clear();
         "get maxspeed"
             .target(2)
-            .id(Id::Generate)
-            .instance(&mut generator, Id::None, true)
+            .instance(&mut generator, true, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -348,7 +275,7 @@ mod test {
 
         buf.clear();
         "".target_all()
-            .instance(&mut generator, Id::None, true)
+            .instance(&mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -360,7 +287,7 @@ mod test {
 
         buf.clear();
         "".target(1)
-            .instance(&mut generator, Id::None, true)
+            .instance(&mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -376,8 +303,7 @@ mod test {
         let mut buf = vec![];
         "tools echo"
             .target(1)
-            .checksum(true)
-            .instance(ConstId {}, Id::None, false)
+            .instance(ConstId {}, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
