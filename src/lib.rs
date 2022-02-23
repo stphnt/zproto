@@ -21,3 +21,7 @@ pub mod timeout_guard;
 
 #[cfg(not(any(feature = "ascii", feature = "binary")))]
 compile_error!("At least one of the `ascii` or `binary` features must be specified");
+
+// Check the contents of the README (but don't include it in the docs).
+#[doc = include_str!("../README.md")]
+extern "C" {}

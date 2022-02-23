@@ -19,24 +19,32 @@ zproto = "0.1"
 This library aims to be simple but robust. Communicating with a product in Zaber's
 ASCII protocol looks something like this:
 
-```rust
-// Open the port, home device 1, and wait for it to finish.
-let mut port = Port::open_serial("/dev/ttyUSB0")?;
-port.command_reply_with_check(
-    "home"
-    // Ignore warnings about it being unhomed.
-    check::warning_in(("WR", "WH", Warning::NONE)),
-)?;
-port.poll_until_idle(address)?;
+```rust,no_run
+use zproto::{
+    ascii::{Port, check, Warning},
+    error::Error,
+};
 
-// Move towards the end of travel and monitor position as it goes.
-// Once the position exceeds 100000, interrupt the motion.
-port.command_reply("move max")?;
-port.poll_until("get pos", |reply| {
-    let pos: i32 = reply.data().parse().unwrap();
-    pos >= 100_000
-})?;
-port.command_reply_with_check("stop", check::warning_is("NI"))?;
+fn main() -> Result<(), Error> {
+    // Open the port, home device 1, and wait for it to finish.
+    let mut port = Port::open_serial("/dev/ttyUSB0")?;
+    port.command_reply_with_check(
+        "home",
+        // Ignore warnings about it being unhomed.
+        check::warning_in(("WR", "WH", Warning::NONE)),
+    )?;
+    port.poll_until_idle(0)?;
+
+    // Move towards the end of travel and monitor position as it goes.
+    // Once the position exceeds 100000, interrupt the motion.
+    port.command_reply("move max")?;
+    port.poll_until("get pos", |reply| {
+        let pos: i32 = reply.data().parse().unwrap();
+        pos >= 100_000
+    })?;
+    port.command_reply_with_check("stop", check::warning_is("NI"))?;
+    Ok(())
+}
 ```
 
 See the [`ascii`](https://docs.rs/zproto/latest/zproto/ascii) or
