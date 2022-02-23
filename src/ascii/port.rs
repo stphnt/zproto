@@ -9,7 +9,7 @@ use crate::{
     ascii::check,
     ascii::checksum::Lrc,
     ascii::id,
-    ascii::{AnyResponse, Command, Id, Info, Packet, Reply, Response, Status, Target},
+    ascii::{AnyResponse, Command, CommandInstance, Info, Packet, Reply, Response, Status, Target},
     error::*,
     timeout_guard::TimeoutGuard,
 };
@@ -39,10 +39,10 @@ pub struct OpenSerialOptions {
     baud_rate: u32,
     /// The custom timeout
     timeout: Option<Duration>,
-    /// The default for how message IDs should be created (or not) when sending commands.
-    default_id: Id,
-    /// The default for whether commands should include a checksum or not.
-    default_checksum: bool,
+    /// Whether commands should include message IDs or not.
+    generate_id: bool,
+    /// Whether commands should include a checksum or not.
+    generate_checksum: bool,
 }
 
 impl OpenSerialOptions {
@@ -58,8 +58,8 @@ impl OpenSerialOptions {
         OpenSerialOptions {
             baud_rate: OpenSerialOptions::DEFAULT_BAUD_RATE,
             timeout: Some(Duration::from_secs(3)),
-            default_id: Id::Generate,
-            default_checksum: true,
+            generate_id: true,
+            generate_checksum: true,
         }
     }
 
@@ -77,15 +77,15 @@ impl OpenSerialOptions {
         self
     }
 
-    /// Set whether commands sent on the port should include a checksum by default or not.
+    /// Set whether commands sent on the port should include a checksum or not.
     pub fn checksum(&mut self, checksum: bool) -> &mut Self {
-        self.default_checksum = checksum;
+        self.generate_checksum = checksum;
         self
     }
 
-    /// Set whether commands sent on the port should include a message ID by default or not.
+    /// Set whether commands sent on the port should include a message ID or not.
     pub fn id(&mut self, id: bool) -> &mut Self {
-        self.default_id = if id { Id::Generate } else { Id::None };
+        self.generate_id = id;
         self
     }
 
@@ -114,8 +114,8 @@ impl OpenSerialOptions {
     pub fn open(&self, path: &str) -> Result<Port<Serial>, AsciiError> {
         Ok(Port::from_backend(
             self.open_serial_port(path)?,
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 
@@ -128,8 +128,8 @@ impl OpenSerialOptions {
     pub fn open_dyn(&self, path: &str) -> Result<Port<Box<dyn Backend>>, AsciiError> {
         Ok(Port::from_backend(
             Box::new(self.open_serial_port(path)?),
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 }
@@ -158,10 +158,10 @@ impl Default for OpenSerialOptions {
 pub struct OpenTcpOptions {
     /// The custom timeout
     timeout: Option<Duration>,
-    /// The default for how message IDs should be created (or not) when sending commands.
-    default_id: Id,
-    /// The default for whether commands should include a checksum or not.
-    default_checksum: bool,
+    /// Whether commands should include message IDs or not.
+    generate_id: bool,
+    /// Whether commands should include a checksum or not.
+    generate_checksum: bool,
 }
 
 impl OpenTcpOptions {
@@ -173,8 +173,8 @@ impl OpenTcpOptions {
     pub fn new() -> Self {
         OpenTcpOptions {
             timeout: Some(Duration::from_secs(3)),
-            default_id: Id::Generate,
-            default_checksum: true,
+            generate_id: true,
+            generate_checksum: true,
         }
     }
 
@@ -186,15 +186,15 @@ impl OpenTcpOptions {
         self
     }
 
-    /// Set whether commands sent on the port should include a checksum by default or not.
+    /// Set whether commands sent on the port should include a checksum or not.
     pub fn checksum(&mut self, checksum: bool) -> &mut Self {
-        self.default_checksum = checksum;
+        self.generate_checksum = checksum;
         self
     }
 
-    /// Set whether commands sent on the port should include a message ID by default or not.
+    /// Set whether commands sent on the port should include a message ID or not.
     pub fn id(&mut self, id: bool) -> &mut Self {
-        self.default_id = if id { Id::Generate } else { Id::None };
+        self.generate_checksum = id;
         self
     }
 
@@ -209,8 +209,8 @@ impl OpenTcpOptions {
     pub fn open<A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<TcpStream>> {
         Ok(Port::from_backend(
             self.open_tcp_stream(address)?,
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 
@@ -223,8 +223,8 @@ impl OpenTcpOptions {
     pub fn open_dyn<A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<Box<dyn Backend>>> {
         Ok(Port::from_backend(
             Box::new(self.open_tcp_stream(address)?),
-            self.default_id,
-            self.default_checksum,
+            self.generate_id,
+            self.generate_checksum,
         ))
     }
 }
@@ -248,10 +248,10 @@ pub struct Port<B> {
     backend: BufReader<B>,
     /// The message ID generator
     ids: id::Counter,
-    /// The default for how message IDs should be created (or not) when sending commands.
-    default_id: Id,
-    /// The default for whether commands should include a checksum or not.
-    default_checksum: bool,
+    /// Whether commands should include message IDs or not.
+    generate_id: bool,
+    /// Whether commands should include checksums or not.
+    generate_checksum: bool,
     /// If populated, the error that has "poisoned" the port. This error MUST be
     /// reported before the port is used for communication again.
     ///
@@ -309,7 +309,7 @@ impl Port<TcpStream> {
 impl Port<Mock> {
     /// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
     pub fn open_mock() -> Port<Mock> {
-        Port::from_backend(Mock::new(), Id::None, false)
+        Port::from_backend(Mock::new(), false, false)
     }
 }
 
@@ -318,12 +318,12 @@ impl<B: Backend> Port<B> {
     const BUFFER_SIZE: usize = 1024;
 
     /// Create a `Port` from a [`Backend`] type.
-    fn from_backend(backend: B, default_id: Id, default_checksum: bool) -> Self {
+    fn from_backend(backend: B, generate_id: bool, generate_checksum: bool) -> Self {
         Port {
             backend: BufReader::with_capacity(Self::BUFFER_SIZE, backend),
             ids: id::Counter::default(),
-            default_id,
-            default_checksum,
+            generate_id,
+            generate_checksum,
             poison: None,
         }
     }
@@ -344,19 +344,23 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zproto::{ascii::{Command, Port}, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// port.command(Command::empty())?;
+    /// // Send the empty command.
+    /// port.command("")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command<C: AsRef<Command>>(&mut self, cmd: C) -> Result<Option<u8>, AsciiError> {
+    pub fn command<C: Command>(&mut self, cmd: C) -> Result<Option<u8>, AsciiError> {
         self.check_poisoned()?;
 
         let mut buffer = Vec::new();
-        let instance = cmd
-            .as_ref()
-            .instance(&mut self.ids, self.default_id, self.default_checksum);
+        let instance = CommandInstance::new(
+            &cmd,
+            &mut self.ids,
+            self.generate_id,
+            self.generate_checksum,
+        );
         instance.write_into(&mut buffer)?;
         log::debug!(
             "{} TX: {}",
@@ -367,7 +371,7 @@ impl<B: Backend> Port<B> {
             String::from_utf8_lossy(buffer.as_slice()).trim_end()
         );
         self.backend.get_mut().write_all(buffer.as_slice())?;
-        Ok(instance.id.into())
+        Ok(instance.id)
     }
 
     /// Transmit a command, receive a reply, and check it with the [`default`](check::default) checks.
@@ -379,13 +383,11 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let reply = port.command_reply("get maxspeed".to(1))?;
+    /// let reply = port.command_reply("get maxspeed")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply<C: AsRef<Command>>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
+    pub fn command_reply<C: Command>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
         self.command_reply_with_check(cmd, check::default())
     }
 
@@ -396,20 +398,20 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::{check::flag_ok, IntoCommand as _};
-    ///
-    /// let reply = port.command_reply_with_check("home".to(1), flag_ok())?;  // Home, but ignore any warning flags that might be present
+    /// use zproto::ascii::check::flag_ok;
+    /// // Home, but ignore any warning flags that might be present
+    /// let reply = port.command_reply_with_check((1, "home"), flag_ok())?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_with_check<C: AsRef<Command>>(
+    pub fn command_reply_with_check<C: Command>(
         &mut self,
         cmd: C,
         checker: impl check::Check<Reply>,
     ) -> Result<Reply, AsciiError> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.internal_response_with_check(|_| Some((cmd.target(), id)), checker)
+        self.internal_response_with_check(|_| Some((cmd.get_target(), id)), checker)
     }
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
@@ -437,13 +439,11 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let (reply, info_messages) = port.command_reply_infos("stream buffer 1 print".to(1))?;
+    /// let (reply, info_messages) = port.command_reply_infos("stream buffer 1 print")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_infos<C: AsRef<Command>>(
+    pub fn command_reply_infos<C: Command>(
         &mut self,
         cmd: C,
     ) -> Result<(Reply, Vec<Info>), AsciiError> {
@@ -460,10 +460,8 @@ impl<B: Backend> Port<B> {
     /// #     error::{AsciiCheckError, AsciiError}
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
     /// let (reply, info_messages) = port.command_reply_infos_with_check(
-    ///    "stream buffer 1 print".to(1),
+    ///    (1, "stream buffer 1 print"),
     ///    |response| match response {
     ///        // Don't check replies or info messages, but error on alerts
     ///        AnyResponse::Reply(_) | AnyResponse::Info(_) => Ok(response),
@@ -473,7 +471,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_infos_with_check<C: AsRef<Command>>(
+    pub fn command_reply_infos_with_check<C: Command>(
         &mut self,
         cmd: C,
         checker: impl check::Check<AnyResponse>,
@@ -485,10 +483,12 @@ impl<B: Backend> Port<B> {
             move |response| checker.check(response)
         }
 
-        let cmd = cmd.as_ref();
-        let target = cmd.target();
+        let target = cmd.as_ref().get_target();
         let reply = self.command_reply(cmd)?;
-        let sentinel_id = self.command(Command::empty().to(target).id(Id::Generate))?;
+        let old_generate_id = self.set_id(true);
+        let sentinel_id = self.command((target, ""));
+        self.set_id(old_generate_id);
+        let sentinel_id = sentinel_id?;
         let mut infos = Vec::new();
         let header_check = |response: &AnyResponse| match response {
             AnyResponse::Info(_) => Some((target, reply.id())),
@@ -517,13 +517,11 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let replies = port.command_reply_n("get system.serial".to_all(), 5)?;
+    /// let replies = port.command_reply_n("get system.serial", 5)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_n<C: AsRef<Command>>(
+    pub fn command_reply_n<C: Command>(
         &mut self,
         cmd: C,
         n: usize,
@@ -538,25 +536,22 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::{check::unchecked, IntoCommand as _};
+    /// use zproto::ascii::check::unchecked;
     ///
-    /// let replies = port.command_reply_n_with_check("get system.serial".to_all(), 5, unchecked())?;
+    /// let replies = port.command_reply_n_with_check("get system.serial", 5, unchecked())?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_n_with_check<C>(
+    pub fn command_reply_n_with_check<C: Command>(
         &mut self,
         cmd: C,
         n: usize,
         checker: impl check::Check<Reply>,
-    ) -> Result<Vec<Reply>, AsciiError>
-    where
-        C: AsRef<Command>,
-    {
+    ) -> Result<Vec<Reply>, AsciiError> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         let replies =
-            self.internal_response_n_with_check(n, |_| Some((cmd.target(), id)), checker)?;
+            self.internal_response_n_with_check(n, |_| Some((cmd.get_target(), id)), checker)?;
         Ok(replies)
     }
 
@@ -569,16 +564,14 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let replies = port.command_replies_until_timeout("get system.serial".to_all())?;
+    /// let replies = port.command_replies_until_timeout("get system.serial")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_replies_until_timeout<C>(&mut self, cmd: C) -> Result<Vec<Reply>, AsciiError>
-    where
-        C: AsRef<Command>,
-    {
+    pub fn command_replies_until_timeout<C: Command>(
+        &mut self,
+        cmd: C,
+    ) -> Result<Vec<Reply>, AsciiError> {
         self.command_replies_until_timeout_with_check(cmd, check::default())
     }
 
@@ -589,26 +582,23 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::{check::flag_ok, IntoCommand as _};
+    /// use zproto::ascii::check::flag_ok;
     ///
     /// let replies = port.command_replies_until_timeout_with_check(
-    ///     "get system.serial".to_all(),
+    ///     "get system.serial",
     ///     flag_ok(),
     /// )?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_replies_until_timeout_with_check<C>(
+    pub fn command_replies_until_timeout_with_check<C: Command>(
         &mut self,
         cmd: C,
         checker: impl check::Check<Reply>,
-    ) -> Result<Vec<Reply>, AsciiError>
-    where
-        C: AsRef<Command>,
-    {
+    ) -> Result<Vec<Reply>, AsciiError> {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.internal_responses_until_timeout_with_check(|_| Some((cmd.target(), id)), checker)
+        self.internal_responses_until_timeout_with_check(|_| Some((cmd.get_target(), id)), checker)
     }
 
     /// Receive a response [`Packet`]
@@ -875,6 +865,7 @@ impl<B: Backend> Port<B> {
     /// # use zproto::{ascii::{Reply, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::ascii::check::{flag_ok_and, warning_below_fault};
+    ///
     /// let reply: Vec<Reply> = port.response_n_with_check(3, flag_ok_and(warning_below_fault()))?;
     /// # Ok(())
     /// # }
@@ -953,15 +944,16 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// port.poll_until("".to((1,1)), |reply| { reply.warning() != "FZ" })?;
+    /// port.poll_until(
+    ///     (1, 1, ""),
+    ///     |reply| reply.warning() != "FZ"
+    /// )?;
     /// # Ok(())
     /// # }
     /// ```
     pub fn poll_until<C, F>(&mut self, cmd: C, mut predicate: F) -> Result<Reply, AsciiError>
     where
-        C: AsRef<Command>,
+        C: Command,
         F: FnMut(&Reply) -> bool,
     {
         let mut reply;
@@ -988,9 +980,7 @@ impl<B: Backend> Port<B> {
     /// # }
     /// ```
     pub fn poll_until_idle<T: Into<Target>>(&mut self, target: T) -> Result<Reply, AsciiError> {
-        self.poll_until(Command::empty().to(target.into()), |reply| {
-            reply.status() == Status::Idle
-        })
+        self.poll_until((target.into(), ""), |reply| reply.status() == Status::Idle)
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the timeout when it goes out of scope.
@@ -1002,18 +992,18 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Example
     /// ```rust
-    /// # use zproto::{error::AsciiError, ascii::{Port, Reply, IntoCommand as _}, backend::Backend};
+    /// # use zproto::{error::AsciiError, ascii::{Port, Reply}, backend::Backend};
     /// # use std::time::Duration;
     /// # fn helper<B: Backend>(mut port: Port<B>) -> Result<Reply, AsciiError> {
     /// {
     ///     let mut guard = port.timeout_guard(Some(Duration::from_secs(3)))?;
     ///     // All commands within this scope will use a 3 second timeout
-    ///     guard.command_reply("system reset".to(1));
+    ///     guard.command_reply("system reset");
     ///
     /// }  // The guard is dropped and the timeout is reset.
     ///
     /// // This command-reply uses the original timeout
-    /// port.command_reply("get device.id".to(1))
+    /// port.command_reply("get device.id")
     /// # }
     /// ```
     pub fn timeout_guard(
@@ -1025,20 +1015,28 @@ impl<B: Backend> Port<B> {
         TimeoutGuard::new(self, timeout)
     }
 
-    /// Set whether commands sent on this port should include a checksum by default or not.
+    /// Set whether commands sent on this port should include a checksum or not.
     ///
-    /// This default is ignored for any command that explicitly overrides it.
-    pub fn default_checksum(&mut self, value: bool) -> &mut Self {
-        self.default_checksum = value;
-        self
+    /// The previous value is returned.
+    pub fn set_checksum(&mut self, value: bool) -> bool {
+        std::mem::replace(&mut self.generate_checksum, value)
     }
 
-    /// Set whether commands sent on this port should include an automatically generated message ID by default or not.
+    /// Get whether the port will include checksums or not in commands.
+    pub fn checksum(&self) -> bool {
+        self.generate_checksum
+    }
+
+    /// Set whether commands sent on this port should include an automatically generated message ID or not.
     ///
-    /// This default is ignored for any command that explicitly overrides it.
-    pub fn default_id(&mut self, value: bool) -> &mut Self {
-        self.default_id = if value { Id::Generate } else { Id::None };
-        self
+    /// The previous value is returned.
+    pub fn set_id(&mut self, value: bool) -> bool {
+        std::mem::replace(&mut self.generate_id, value)
+    }
+
+    /// Get whether the port will include message IDs or not in commands.
+    pub fn id(&self) -> bool {
+        self.generate_checksum
     }
 }
 
@@ -1124,7 +1122,7 @@ fn extract_response_bytes(buf: &[u8]) -> (usize, Result<&[u8], AsciiProtocolErro
 #[cfg(test)]
 mod test {
     use crate::{
-        ascii::{check::unchecked, port, AnyResponse, IntoCommand as _, Port, Reply},
+        ascii::{check::unchecked, port, AnyResponse, Port, Reply},
         backend::Mock,
         error::*,
     };
@@ -1204,7 +1202,7 @@ mod test {
         port.backend
             .get_mut()
             .append_data(b"@01 0 OK IDLE -- 0\r\n");
-        let reply = port.command_reply("".to(1)).unwrap();
+        let reply = port.command_reply("").unwrap();
         assert_eq!(reply.target(), (1, 0).into());
     }
 
@@ -1214,12 +1212,12 @@ mod test {
 
         // UnexpectedKind errors come before Check* errors.
         port.backend.get_mut().append_data(b"!01 0 IDLE FF 0\r\n");
-        let err = port.command_reply("".to(1)).unwrap_err();
+        let err = port.command_reply("").unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedKind(_)));
 
         // UnexpectedTarget comes before UnexpectedKind/Check* errors.
         port.backend.get_mut().append_data(b"!02 0 IDLE FF 0\r\n");
-        let err = port.command_reply("".to(1)).unwrap_err();
+        let err = port.command_reply((1, "")).unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
     }
 
@@ -1231,7 +1229,7 @@ mod test {
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
-        let _ = port.command_reply_n("".to_all(), 2).unwrap();
+        let _ = port.command_reply_n("", 2).unwrap();
     }
 
     #[test]
@@ -1244,7 +1242,7 @@ mod test {
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
-        let err = port.command_reply_n("".to_all(), 3).unwrap_err();
+        let err = port.command_reply_n("", 3).unwrap_err();
         assert!(err.is_timeout());
     }
 
@@ -1256,7 +1254,7 @@ mod test {
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
-        let replies = port.command_replies_until_timeout("".to_all()).unwrap();
+        let replies = port.command_replies_until_timeout("").unwrap();
         assert_eq!(replies.len(), 2);
     }
 
@@ -1270,7 +1268,7 @@ mod test {
             buf.append_data(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
         }
         let err = port
-            .command_replies_until_timeout("get pos".to((0, 1))) // To all first axes
+            .command_replies_until_timeout(((0, 1), "get pos")) // To all first axes
             .unwrap_err();
         // UnexpectedTarget should take precedence over UnexpectedKind
         assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
@@ -1384,14 +1382,14 @@ mod test {
 		};
 	}
 
-    make_poison_test!(command, "".to_all());
-    make_poison_test!(command_reply, "".to_all());
-    make_poison_test!(command_reply_infos, "".to_all());
-    make_poison_test!(command_reply_infos_with_check, "".to_all(), unchecked());
-    make_poison_test!(command_reply_n, "".to_all(), 1);
-    make_poison_test!(command_reply_n_with_check, "".to_all(), 1, unchecked());
-    make_poison_test!(command_reply_with_check, "".to_all(), unchecked());
-    make_poison_test!(poll_until, "".to_all(), |_| true);
+    make_poison_test!(command, "");
+    make_poison_test!(command_reply, "");
+    make_poison_test!(command_reply_infos, "");
+    make_poison_test!(command_reply_infos_with_check, "", unchecked());
+    make_poison_test!(command_reply_n, "", 1);
+    make_poison_test!(command_reply_n_with_check, "", 1, unchecked());
+    make_poison_test!(command_reply_with_check, "", unchecked());
+    make_poison_test!(poll_until, "", |_| true);
     make_poison_test!(poll_until_idle, 1);
     make_poison_test!(response::<AnyResponse>);
     make_poison_test!(response_n::<AnyResponse>, 1);

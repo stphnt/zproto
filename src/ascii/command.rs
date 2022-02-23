@@ -3,32 +3,234 @@
 use crate::ascii::{checksum::Lrc, id, Target};
 use std::io;
 
-/// A concrete instance of a message ID (e.g., what would be sent over the serial port).
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub(crate) enum IdInstance {
-    /// The specified message ID
-    Some(u8),
-    /// No message ID
-    None,
-    /// The special marker (`--`) indicating no reply should be sent to the command.
-    NoReply,
+mod private {
+    use super::*;
+    pub trait Sealed {}
+
+    impl Sealed for str {}
+    impl Sealed for String {}
+    impl Sealed for [u8] {}
+    impl<const N: usize> Sealed for [u8; N] {}
+    impl Sealed for Vec<u8> {}
+    impl<T, D> Sealed for (T, D)
+    where
+        T: Into<Target> + Copy,
+        D: AsRef<[u8]>,
+    {
+    }
+    impl<D: AsRef<[u8]>> Sealed for (u8, u8, D) {}
+    impl<T> Sealed for &T where T: Sealed + ?Sized {}
+    impl<T> Sealed for &mut T where T: Sealed + ?Sized {}
+    impl<T> Sealed for Box<T> where T: Sealed + ?Sized {}
 }
 
-impl std::convert::From<IdInstance> for Option<u8> {
-    fn from(other: IdInstance) -> Self {
-        match other {
-            IdInstance::Some(value) => Some(value),
-            _ => None,
-        }
+/// A trait that is implemented by all ASCII commands.
+///
+/// Multiple types implement `Command` including:
+///
+/// * `str`,
+/// * `String`,
+/// * `[u8; N]`,
+/// * `[u8]`,
+/// * `Vec<u8>`,
+/// * and any `&T`, `&mut T`, or `Box<T>` where `T` implements `Command`.
+///
+/// When used as a command the bytes in these types will be interpreted as the
+/// data for a command and targeted to all devices and axes in the chain. For
+/// instance, the following are examples of how the above types are converted
+/// into ASCII commands:
+///
+/// * `"home"` → `"/home\n"`
+/// * `format!("move abs {}", 12345)` → `"/move abs 12345\n"`
+///
+/// To target specific devices and/or axes, prepend any type convertible to a
+/// [`Target`] to the data as part of a tuple:
+///
+/// * `(1, "home")` → `"/1 home\n"`
+/// * `((1, 2), format!("move abs {}", 12345))` → `"/1 2 move abs 12345\n"`
+///
+/// For convenience, tuples of the form `(u8, u8, data)` are also supported:
+///
+/// * `(1, 2, "home")` → `"/1 2 home\n"`
+pub trait Command: private::Sealed {
+    /// The type returned when calling `as_ref`, below.
+    type Ref: Command + ?Sized;
+
+    /// Get a reference to the command.
+    ///
+    /// This is roughly equivalent to `AsRef` except that it is not generic over
+    /// the return type, which allows this trait to also not be generic.
+    /// Including it as part of the trait directly rather than a supertrait
+    /// avoids requiring call sites to add a somewhat complicated `AsRef` bound.
+    fn as_ref(&self) -> &Self::Ref;
+    /// Get the command's target.
+    fn get_target(&self) -> Target;
+    /// Get the command's data.
+    fn get_data(&self) -> &[u8];
+}
+
+impl Command for str {
+    type Ref = str;
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.as_bytes()
     }
 }
 
-/// An instance of a [`Command`] that can be sent over the serial port.
+impl Command for [u8] {
+    type Ref = [u8];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self
+    }
+}
+
+impl<const N: usize> Command for [u8; N] {
+    type Ref = [u8; N];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self
+    }
+}
+
+impl Command for String {
+    type Ref = [u8];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self.as_bytes()
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.as_bytes()
+    }
+}
+
+impl Command for Vec<u8> {
+    type Ref = [u8];
+
+    fn as_ref(&self) -> &Self::Ref {
+        self.as_slice()
+    }
+    fn get_target(&self) -> Target {
+        Target::all()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl<T, D> Command for (T, D)
+where
+    T: Into<Target> + Copy,
+    D: AsRef<[u8]>,
+{
+    type Ref = (T, D);
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        self.0.into()
+    }
+    fn get_data(&self) -> &[u8] {
+        self.1.as_ref()
+    }
+}
+
+impl<D> Command for (u8, u8, D)
+where
+    D: AsRef<[u8]>,
+{
+    type Ref = (u8, u8, D);
+
+    fn as_ref(&self) -> &Self::Ref {
+        self
+    }
+    fn get_target(&self) -> Target {
+        Target::device(self.0).axis(self.1)
+    }
+    fn get_data(&self) -> &[u8] {
+        self.2.as_ref()
+    }
+}
+
+impl<T> Command for &T
+where
+    T: Command + ?Sized,
+{
+    type Ref = T;
+
+    fn as_ref(&self) -> &Self::Ref {
+        *self
+    }
+    fn get_target(&self) -> Target {
+        (**self).get_target()
+    }
+    fn get_data(&self) -> &[u8] {
+        (**self).get_data()
+    }
+}
+
+impl<T> Command for &mut T
+where
+    T: Command + ?Sized,
+{
+    type Ref = T;
+
+    fn as_ref(&self) -> &Self::Ref {
+        *self
+    }
+    fn get_target(&self) -> Target {
+        (**self).get_target()
+    }
+    fn get_data(&self) -> &[u8] {
+        (**self).get_data()
+    }
+}
+
+impl<T> Command for Box<T>
+where
+    T: Command + ?Sized,
+{
+    type Ref = T;
+
+    fn as_ref(&self) -> &Self::Ref {
+        &*self
+    }
+    fn get_target(&self) -> Target {
+        (**self).get_target()
+    }
+    fn get_data(&self) -> &[u8] {
+        (**self).get_data()
+    }
+}
+
+/// An instance of an ASCII command that can be sent over the serial port.
 pub(crate) struct CommandInstance<'a> {
     /// The targeted device/axis
     pub target: Target,
     /// The message ID
-    pub id: IdInstance,
+    pub id: Option<u8>,
     /// The command data
     pub data: &'a [u8],
     /// Whether to generate a checksum
@@ -36,6 +238,29 @@ pub(crate) struct CommandInstance<'a> {
 }
 
 impl<'a> CommandInstance<'a> {
+    /// Create a instance of this command, which can be sent over the serial port.
+    pub fn new<C, G>(
+        command: &'a C,
+        mut generator: G,
+        generate_id: bool,
+        generate_checksum: bool,
+    ) -> CommandInstance<'a>
+    where
+        C: Command,
+        G: id::Generator,
+    {
+        CommandInstance {
+            target: command.get_target(),
+            id: if generate_id {
+                Some(generator.next_id())
+            } else {
+                None
+            },
+            data: command.get_data(),
+            checksum: generate_checksum,
+        }
+    }
+
     /// Write the contents of the command packet into writer.
     ///
     /// This is useful for calculating the checksum for the command and for
@@ -43,7 +268,7 @@ impl<'a> CommandInstance<'a> {
     fn write_contents_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
         // Only output the address, axis or message ID if it is necessary.
         let wrote = match self.id {
-            IdInstance::Some(id) => {
+            Some(id) => {
                 write!(
                     writer,
                     "{} {} {}",
@@ -53,16 +278,7 @@ impl<'a> CommandInstance<'a> {
                 )?;
                 true
             }
-            IdInstance::NoReply => {
-                write!(
-                    writer,
-                    "{} {} --",
-                    self.target.get_device(),
-                    self.target.get_axis()
-                )?;
-                true
-            }
-            IdInstance::None => {
+            None => {
                 if self.target.get_axis() != 0 {
                     write!(
                         writer,
@@ -96,7 +312,7 @@ impl<'a> CommandInstance<'a> {
     fn checksum(&self) -> u32 {
         let mut buf = Vec::with_capacity(80);
         self.write_contents_into(&mut buf).unwrap();
-        Lrc::hash(buf.as_ref())
+        Lrc::hash(&buf[..])
     }
 
     /// Write the command packet into the specified writer.
@@ -111,191 +327,13 @@ impl<'a> CommandInstance<'a> {
     }
 }
 
-/// The way in which a command should instantiate a message ID.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum Id {
-    /// A newly generated message ID should be used.
-    Generate,
-    /// No message ID should be included.
-    None,
-    /// The special marker (`--`) indicating no reply should be use.
-    NoReply,
-}
-
-impl Default for Id {
-    fn default() -> Self {
-        Id::Generate
-    }
-}
-
-/// An Zaber ASCII command.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Command {
-    /// The targeted device or axis.
-    target: Target,
-    /// The override for how to instantiate the message ID, if any.
-    id: Option<Id>,
-    /// The command data.
-    data: Vec<u8>,
-    /// The override for whether to generate a checksum or not, if any.
-    checksum: Option<bool>,
-}
-
-impl Command {
-    /// Create the empty command (i.e. `/`).
-    pub const fn empty() -> Command {
-        Command {
-            target: Target::all(),
-            id: None,
-            data: Vec::new(),
-            checksum: None,
-        }
-    }
-
-    /// Create a command with the given data.
-    ///
-    /// The command header (address, axis, and message ID) should not be included.
-    /// By default the command is addressed to all devices and axes, and uses the [`Port`](crate::ascii::Port)'s preference for ID and checksum.
-    pub fn new<T: AsRef<[u8]>>(data: T) -> Command {
-        Command {
-            target: Target::all(),
-            id: None,
-            data: data.as_ref().to_vec(),
-            checksum: None,
-        }
-    }
-
-    /// Set how the command's message ID should be instantiated.
-    ///
-    /// This overrides any default the [`Port`](crate::ascii::Port) specifies.
-    pub fn id(&mut self, id: Id) -> &mut Self {
-        self.id = Some(id);
-        self
-    }
-
-    /// Defer to the [`Port`](crate::ascii::Port)'s default method of instantiating the message ID.
-    pub fn id_default(&mut self) -> &mut Self {
-        self.id = None;
-        self
-    }
-
-    /// Set whether or not the command should include a checksum.
-    ///
-    /// This overrides any default the [`Port`](crate::ascii::Port) specifies.
-    pub fn checksum(&mut self, checksum: bool) -> &mut Self {
-        self.checksum = Some(checksum);
-        self
-    }
-
-    /// Defer to the [`Port`](crate::ascii::Port)'s default checksum.
-    pub fn checksum_default(&mut self) -> &mut Self {
-        self.checksum = None;
-        self
-    }
-
-    /// Set the device address and, optionally, axis number to send the command to.
-    pub fn to<T: Into<Target>>(&mut self, target: T) -> &mut Self {
-        self.target = target.into();
-        self
-    }
-
-    /// Address the command to all devices.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn to_all(&mut self) -> &mut Self {
-        self.target = Target::all();
-        self
-    }
-
-    /// Set the command data.
-    pub fn data<T: AsRef<[u8]>>(&mut self, data: T) -> &mut Self {
-        self.data.clear();
-        self.data.extend_from_slice(data.as_ref());
-        self
-    }
-
-    /// Get the target of the command.
-    pub(crate) fn target(&self) -> Target {
-        self.target
-    }
-
-    /// Create a instance of this command, which can be sent over the serial port.
-    pub(crate) fn instance<G: id::Generator>(
-        &self,
-        mut generator: G,
-        id_default: Id,
-        checksum_default: bool,
-    ) -> CommandInstance<'_> {
-        CommandInstance {
-            target: self.target,
-            id: match self.id.unwrap_or(id_default) {
-                Id::Generate => IdInstance::Some(generator.next_id(self)),
-                Id::None => IdInstance::None,
-                Id::NoReply => IdInstance::NoReply,
-            },
-            data: &self.data,
-            checksum: self.checksum.unwrap_or(checksum_default),
-        }
-    }
-}
-
-impl AsRef<Command> for Command {
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-impl Default for Command {
-    /// Create the default command, which is the empty (`/`) command.
-    fn default() -> Command {
-        Command::empty()
-    }
-}
-
-/// A trait to convert a type into the body of an ASCII [`Command`].
-///
-/// ```rust
-/// # use zproto::ascii::Command;
-/// use zproto::ascii::IntoCommand as _;
-///
-/// let command: Command = "get maxspeed".to(1);
-/// ```
-pub trait IntoCommand {
-    /// Create a command targeting `target` with this type as the command's data
-    fn to<T: Into<Target>>(&self, target: T) -> Command;
-    /// Create a command targeting all devices with this type as the command's data
-    fn to_all(&self) -> Command;
-}
-
-impl IntoCommand for [u8] {
-    fn to<T: Into<Target>>(&self, target: T) -> Command {
-        let mut cmd = Command::new(self);
-        cmd.to(target);
-        cmd
-    }
-    fn to_all(&self) -> Command {
-        Command::new(self)
-    }
-}
-
-impl<T> IntoCommand for T
-where
-    T: AsRef<[u8]>,
-{
-    fn to<S: Into<Target>>(&self, target: S) -> Command {
-        self.as_ref().to(target)
-    }
-    fn to_all(&self) -> Command {
-        self.as_ref().to_all()
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     struct ConstId {}
     impl id::Generator for ConstId {
-        fn next_id(&mut self, _: &Command) -> u8 {
+        fn next_id(&mut self) -> u8 {
             5
         }
     }
@@ -309,27 +347,12 @@ mod test {
     }
 
     #[test]
-    fn test_into_command_data() {
-        let mut expected = Command::new("get maxspeed");
-        expected.to(1);
-        assert_eq!(
-            "get maxspeed".to((1, 2)),
-            *Command::new("get maxspeed").to((1, 2))
-        );
-        assert_eq!("get maxspeed".to(1), expected);
-        assert_eq!("get maxspeed".to_string().to(1), expected);
-        assert_eq!(b"get maxspeed".to(1), expected);
-        assert_eq!(b"get maxspeed".to_vec().to(1), expected);
-    }
-
-    #[test]
     fn test_write_command() {
         let mut generator = ConstId {};
 
         let mut buf = Vec::new();
 
-        let cmd = "get maxspeed".to_all();
-        cmd.instance(&mut generator, Id::None, true)
+        CommandInstance::new(&"get maxspeed", &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -340,10 +363,7 @@ mod test {
         );
 
         buf.clear();
-        "get maxspeed"
-            .to(2)
-            .id(Id::Generate)
-            .instance(&mut generator, Id::None, true)
+        CommandInstance::new(&(2, "get maxspeed"), &mut generator, true, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -354,8 +374,7 @@ mod test {
         );
 
         buf.clear();
-        "".to_all()
-            .instance(&mut generator, Id::None, true)
+        CommandInstance::new(&"", &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -366,8 +385,7 @@ mod test {
         );
 
         buf.clear();
-        "".to(1)
-            .instance(&mut generator, Id::None, true)
+        CommandInstance::new(&(1, ""), &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -376,15 +394,23 @@ mod test {
             "Unexpectedly got `{}`",
             std::str::from_utf8(&buf).unwrap()
         );
+
+        buf.clear();
+        CommandInstance::new(&(1, 2, "tools echo bob"), &mut generator, false, false)
+            .write_into(&mut buf)
+            .unwrap();
+        assert_eq!(
+            buf,
+            b"/1 2 tools echo bob\n",
+            "Unexpectedly got `{}`",
+            std::str::from_utf8(&buf).unwrap()
+        );
     }
 
     #[test]
     fn test_command_checksum() {
         let mut buf = vec![];
-        "tools echo"
-            .to(1)
-            .checksum(true)
-            .instance(ConstId {}, Id::None, false)
+        CommandInstance::new(&(1, "tools echo"), ConstId {}, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
