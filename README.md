@@ -21,10 +21,9 @@ ASCII protocol looks something like this:
 
 ```rust
 // Open the port, home device 1, and wait for it to finish.
-let address = 1;
 let mut port = Port::open_serial("/dev/ttyUSB0")?;
 port.command_reply_with_check(
-    "home".to(address),
+    "home"
     // Ignore warnings about it being unhomed.
     check::warning_in(("WR", "WH", Warning::NONE)),
 )?;
@@ -32,12 +31,12 @@ port.poll_until_idle(address)?;
 
 // Move towards the end of travel and monitor position as it goes.
 // Once the position exceeds 100000, interrupt the motion.
-port.command_reply("move max".to(address))?;
-port.poll_until("get pos".to(address), |reply| {
+port.command_reply("move max")?;
+port.poll_until("get pos", |reply| {
     let pos: i32 = reply.data().parse().unwrap();
     pos >= 100_000
 })?;
-port.command_reply_with_check("stop".to(1), check::warning_is("NI"))?;
+port.command_reply_with_check("stop", check::warning_is("NI"))?;
 ```
 
 See the [`ascii`](https://docs.rs/zproto/latest/zproto/ascii) or

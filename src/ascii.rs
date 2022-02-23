@@ -16,42 +16,58 @@
 //!
 //! Send a command to and receive a reply from devices/axes connected to
 //! that port with the [`command_reply`](Port::command_reply) method. A
-//! command can be created in two main ways:
-//!
-//! * using a [`CommandBuilder`]
+//! command can be created from most standard types that are effectively bytes,
+//! such as `&str`, `String`, or `&[u8]`:
 //!
 //! ```rust
 //! # use zproto::{
-//! #     ascii::{CommandBuilder, Port},
+//! #     ascii::Port,
 //! #     backend::Backend,
 //! #     error::Error
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! // Send `/1 get device.id` and receive a reply
-//! let reply = port.command_reply(CommandBuilder::new("get device.id").target(1))?;
+//! // Send `/get device.id` and receive a reply
+//! let reply = port.command_reply("get device.id")?;
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! * importing the [`IntoCommand`] trait which adds [`target(..)`](IntoCommand::target) or [`target_all()`](IntoCommand::target_all)
-//! methods it `&str` and a few other types to easily convert them into a [`CommandBuilder`]:
+//! To target a specific device and/or axis prepend the target to the command
+//! data as part of a tuple, `(target, data)`:
 //!
 //! ```rust
-//! # use zproto::{ascii::Port, backend::Backend, error::Error};
+//! # use zproto::{
+//! #     ascii::Port,
+//! #     backend::Backend,
+//! #     error::Error
+//! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::IntoCommand as _;
-//!
-//! // Send `/1 get device.id` and receive a reply
-//! let reply = port.command_reply("get device.id".target(1))?;
+//! // Send `/2 get device.id` and receive a reply
+//! let reply = port.command_reply((2, "get device.id"))?;
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! You can determine the target devices/axes in the [`target(..)`](IntoCommand::target)
-//! method by either:
-//!   * passing in the device address (e.g., `target(2)`)
-//!   * passing in the device address and axis number as a tuple (e.g., `target((2, 1))`)
-//!   * passing in a [`Target`] type (e.g., `Target::device(2).axis(1)`)
+//! The target can be:
+//!   * the device address: `(2, "home")`
+//!   * the device address and axis number as a tuple: `((2, 1), "home")`
+//!   * a [`Target`] type: `(Target::device(2).axis(1), "home")`
+//!
+//! As a convenience that reduces the number of nested parentheses, the command
+//! tuple can also have the form `(device, axis, data)`:
+//!
+//! ```rust
+//! # use zproto::{
+//! #     ascii::Port,
+//! #     backend::Backend,
+//! #     error::Error
+//! # };
+//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+//! // Send `/2 1 get pos` and receive a reply
+//! let reply = port.command_reply((2, 1, "get pos"))?;
+//! # Ok(())
+//! # }
+//! ```
 //!
 //! ## Reading Data
 //!
@@ -62,8 +78,7 @@
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend, error::Error};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! # use zproto::ascii::IntoCommand as _;
-//! let reply = port.command_reply("get device.id".target(1))?;
+//! let reply = port.command_reply("get device.id")?;
 //! let device_id: u32 = reply.data().parse()?;
 //! # Ok(())
 //! # }
@@ -79,12 +94,11 @@
 //!
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend, error::Error};
-//! # use zproto::ascii::IntoCommand as _;
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::ascii::check::{flag_ok_and, warning_is};
 //!
 //! let reply = port.command_reply_with_check(
-//!    "get device.id".target(1),
+//!    (1, "get device.id"),
 //!    flag_ok_and(warning_is("WR"))
 //! )?;
 //! # Ok(())
@@ -113,11 +127,10 @@
 //!
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend};
-//! # use zproto::ascii::IntoCommand as _;
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::ascii::check::{flag_ok_and, warning_is};
 //!
-//! let (reply, infos) = port.command_reply_infos("stream buffer 1 print".target(1))?;
+//! let (reply, infos) = port.command_reply_infos("stream buffer 1 print")?;
 //! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
 //! for info in infos {
 //!     println!("{}", info); // `#01 0 setup store 1 1` (for example)
@@ -131,12 +144,12 @@
 //!
 //! ```rust
 //! # use zproto::{
-//! #     ascii::{Port, IntoCommand as _},
+//! #     ascii::Port,
 //! #     backend::Backend
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! let target = (1, 2);
-//! port.command_reply("move max".target(target))?;
+//! port.command_reply((target, "move max"))?;
 //! port.poll_until_idle(target)?;
 //! // Axis 2 on device 1 is now idle
 //! # Ok(())

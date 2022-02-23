@@ -9,10 +9,7 @@ use crate::{
     ascii::check,
     ascii::checksum::Lrc,
     ascii::id,
-    ascii::{
-        AnyResponse, Command, CommandBuilder, CommandInstance, Info, Packet, Reply, Response,
-        Status, Target,
-    },
+    ascii::{AnyResponse, Command, CommandInstance, Info, Packet, Reply, Response, Status, Target},
     error::*,
     timeout_guard::TimeoutGuard,
 };
@@ -347,9 +344,10 @@ impl<B: Backend> Port<B> {
     /// ## Example
     ///
     /// ```rust
-    /// # use zproto::{ascii::{CommandBuilder, Port}, backend::Backend};
+    /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// port.command(CommandBuilder::empty())?;
+    /// // Send the empty command.
+    /// port.command("")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -385,9 +383,7 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let reply = port.command_reply("get maxspeed".target(1))?;
+    /// let reply = port.command_reply("get maxspeed")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -402,9 +398,9 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::{check::flag_ok, IntoCommand as _};
-    ///
-    /// let reply = port.command_reply_with_check("home".target(1), flag_ok())?;  // Home, but ignore any warning flags that might be present
+    /// use zproto::ascii::check::flag_ok;
+    /// // Home, but ignore any warning flags that might be present
+    /// let reply = port.command_reply_with_check((1, "home"), flag_ok())?;
     /// # Ok(())
     /// # }
     /// ```
@@ -443,9 +439,7 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let (reply, info_messages) = port.command_reply_infos("stream buffer 1 print".target(1))?;
+    /// let (reply, info_messages) = port.command_reply_infos("stream buffer 1 print")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -466,10 +460,8 @@ impl<B: Backend> Port<B> {
     /// #     error::{AsciiCheckError, AsciiError}
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
     /// let (reply, info_messages) = port.command_reply_infos_with_check(
-    ///    "stream buffer 1 print".target(1),
+    ///    (1, "stream buffer 1 print"),
     ///    |response| match response {
     ///        // Don't check replies or info messages, but error on alerts
     ///        AnyResponse::Reply(_) | AnyResponse::Info(_) => Ok(response),
@@ -494,7 +486,7 @@ impl<B: Backend> Port<B> {
         let target = cmd.as_ref().get_target();
         let reply = self.command_reply(cmd)?;
         let old_generate_id = self.set_id(true);
-        let sentinel_id = self.command(CommandBuilder::empty().target(target));
+        let sentinel_id = self.command((target, ""));
         self.set_id(old_generate_id);
         let sentinel_id = sentinel_id?;
         let mut infos = Vec::new();
@@ -525,9 +517,7 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let replies = port.command_reply_n("get system.serial".target_all(), 5)?;
+    /// let replies = port.command_reply_n("get system.serial", 5)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -546,9 +536,9 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::{check::unchecked, IntoCommand as _};
+    /// use zproto::ascii::check::unchecked;
     ///
-    /// let replies = port.command_reply_n_with_check("get system.serial".target_all(), 5, unchecked())?;
+    /// let replies = port.command_reply_n_with_check("get system.serial", 5, unchecked())?;
     /// # Ok(())
     /// # }
     /// ```
@@ -574,9 +564,7 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// let replies = port.command_replies_until_timeout("get system.serial".target_all())?;
+    /// let replies = port.command_replies_until_timeout("get system.serial")?;
     /// # Ok(())
     /// # }
     /// ```
@@ -594,10 +582,10 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::{check::flag_ok, IntoCommand as _};
+    /// use zproto::ascii::check::flag_ok;
     ///
     /// let replies = port.command_replies_until_timeout_with_check(
-    ///     "get system.serial".target_all(),
+    ///     "get system.serial",
     ///     flag_ok(),
     /// )?;
     /// # Ok(())
@@ -877,6 +865,7 @@ impl<B: Backend> Port<B> {
     /// # use zproto::{ascii::{Reply, Port}, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::ascii::check::{flag_ok_and, warning_below_fault};
+    ///
     /// let reply: Vec<Reply> = port.response_n_with_check(3, flag_ok_and(warning_below_fault()))?;
     /// # Ok(())
     /// # }
@@ -955,9 +944,10 @@ impl<B: Backend> Port<B> {
     /// ```rust
     /// # use zproto::{ascii::Port, backend::Backend};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::IntoCommand as _;
-    ///
-    /// port.poll_until("".target((1,1)), |reply| { reply.warning() != "FZ" })?;
+    /// port.poll_until(
+    ///     (1, 1, ""),
+    ///     |reply| reply.warning() != "FZ"
+    /// )?;
     /// # Ok(())
     /// # }
     /// ```
@@ -990,9 +980,7 @@ impl<B: Backend> Port<B> {
     /// # }
     /// ```
     pub fn poll_until_idle<T: Into<Target>>(&mut self, target: T) -> Result<Reply, AsciiError> {
-        self.poll_until(CommandBuilder::empty().target(target.into()), |reply| {
-            reply.status() == Status::Idle
-        })
+        self.poll_until((target.into(), ""), |reply| reply.status() == Status::Idle)
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the timeout when it goes out of scope.
@@ -1004,18 +992,18 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Example
     /// ```rust
-    /// # use zproto::{error::AsciiError, ascii::{Port, Reply, IntoCommand as _}, backend::Backend};
+    /// # use zproto::{error::AsciiError, ascii::{Port, Reply}, backend::Backend};
     /// # use std::time::Duration;
     /// # fn helper<B: Backend>(mut port: Port<B>) -> Result<Reply, AsciiError> {
     /// {
     ///     let mut guard = port.timeout_guard(Some(Duration::from_secs(3)))?;
     ///     // All commands within this scope will use a 3 second timeout
-    ///     guard.command_reply("system reset".target(1));
+    ///     guard.command_reply("system reset");
     ///
     /// }  // The guard is dropped and the timeout is reset.
     ///
     /// // This command-reply uses the original timeout
-    /// port.command_reply("get device.id".target(1))
+    /// port.command_reply("get device.id")
     /// # }
     /// ```
     pub fn timeout_guard(
@@ -1134,7 +1122,7 @@ fn extract_response_bytes(buf: &[u8]) -> (usize, Result<&[u8], AsciiProtocolErro
 #[cfg(test)]
 mod test {
     use crate::{
-        ascii::{check::unchecked, port, AnyResponse, IntoCommand as _, Port, Reply},
+        ascii::{check::unchecked, port, AnyResponse, Port, Reply},
         backend::Mock,
         error::*,
     };
@@ -1214,7 +1202,7 @@ mod test {
         port.backend
             .get_mut()
             .append_data(b"@01 0 OK IDLE -- 0\r\n");
-        let reply = port.command_reply("".target(1)).unwrap();
+        let reply = port.command_reply("").unwrap();
         assert_eq!(reply.target(), (1, 0).into());
     }
 
@@ -1224,12 +1212,12 @@ mod test {
 
         // UnexpectedKind errors come before Check* errors.
         port.backend.get_mut().append_data(b"!01 0 IDLE FF 0\r\n");
-        let err = port.command_reply("".target(1)).unwrap_err();
+        let err = port.command_reply("").unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedKind(_)));
 
         // UnexpectedTarget comes before UnexpectedKind/Check* errors.
         port.backend.get_mut().append_data(b"!02 0 IDLE FF 0\r\n");
-        let err = port.command_reply("".target(1)).unwrap_err();
+        let err = port.command_reply((1, "")).unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
     }
 
@@ -1241,7 +1229,7 @@ mod test {
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
-        let _ = port.command_reply_n("".target_all(), 2).unwrap();
+        let _ = port.command_reply_n("", 2).unwrap();
     }
 
     #[test]
@@ -1254,7 +1242,7 @@ mod test {
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
-        let err = port.command_reply_n("".target_all(), 3).unwrap_err();
+        let err = port.command_reply_n("", 3).unwrap_err();
         assert!(err.is_timeout());
     }
 
@@ -1266,7 +1254,7 @@ mod test {
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
-        let replies = port.command_replies_until_timeout("".target_all()).unwrap();
+        let replies = port.command_replies_until_timeout("").unwrap();
         assert_eq!(replies.len(), 2);
     }
 
@@ -1280,7 +1268,7 @@ mod test {
             buf.append_data(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
         }
         let err = port
-            .command_replies_until_timeout("get pos".target((0, 1))) // To all first axes
+            .command_replies_until_timeout(((0, 1), "get pos")) // To all first axes
             .unwrap_err();
         // UnexpectedTarget should take precedence over UnexpectedKind
         assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
@@ -1394,14 +1382,14 @@ mod test {
 		};
 	}
 
-    make_poison_test!(command, "".target_all());
-    make_poison_test!(command_reply, "".target_all());
-    make_poison_test!(command_reply_infos, "".target_all());
-    make_poison_test!(command_reply_infos_with_check, "".target_all(), unchecked());
-    make_poison_test!(command_reply_n, "".target_all(), 1);
-    make_poison_test!(command_reply_n_with_check, "".target_all(), 1, unchecked());
-    make_poison_test!(command_reply_with_check, "".target_all(), unchecked());
-    make_poison_test!(poll_until, "".target_all(), |_| true);
+    make_poison_test!(command, "");
+    make_poison_test!(command_reply, "");
+    make_poison_test!(command_reply_infos, "");
+    make_poison_test!(command_reply_infos_with_check, "", unchecked());
+    make_poison_test!(command_reply_n, "", 1);
+    make_poison_test!(command_reply_n_with_check, "", 1, unchecked());
+    make_poison_test!(command_reply_with_check, "", unchecked());
+    make_poison_test!(poll_until, "", |_| true);
     make_poison_test!(poll_until_idle, 1);
     make_poison_test!(response::<AnyResponse>);
     make_poison_test!(response_n::<AnyResponse>, 1);

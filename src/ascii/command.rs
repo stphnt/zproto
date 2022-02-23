@@ -153,20 +153,6 @@ where
     }
 }
 
-impl Command for CommandBuilder {
-    type Ref = CommandBuilder;
-
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn get_target(&self) -> Target {
-        self.target
-    }
-    fn get_data(&self) -> &[u8] {
-        self.data.as_slice()
-    }
-}
-
 impl<T> Command for &T
 where
     T: Command + ?Sized,
@@ -218,7 +204,7 @@ where
     }
 }
 
-/// An instance of a [`CommandBuilder`] that can be sent over the serial port.
+/// An instance of an ASCII command that can be sent over the serial port.
 pub(crate) struct CommandInstance<'a> {
     /// The targeted device/axis
     pub target: Target,
@@ -320,110 +306,6 @@ impl<'a> CommandInstance<'a> {
     }
 }
 
-/// A builder for a Zaber ASCII command.
-///
-/// Create a command using either the [`empty`](CommandBuilder::empty) or
-/// [`new`](CommandBuilder::new) methods. By default the command will target all
-/// devices and only include message IDs or checksums if the port it is sent
-/// on is configured to do so. To target a specific device and/or axis, use the
-/// [`target`](CommandBuilder::target) method.
-///
-/// ## Example
-///
-/// Build a command that will send `/1 2 home`. The message ID and checksum will
-/// be generated if the port the command is sent on is configured to do so (the
-/// default):
-///
-/// ```
-/// # use zproto::ascii::CommandBuilder;
-/// let cmd = CommandBuilder::new("home").target((1, 2));
-/// ```
-#[derive(Debug, Clone, PartialEq)]
-pub struct CommandBuilder {
-    /// The targeted device or axis.
-    target: Target,
-    /// The command data.
-    data: Vec<u8>,
-}
-
-impl CommandBuilder {
-    /// Create the empty command (i.e. `/`).
-    pub const fn empty() -> CommandBuilder {
-        CommandBuilder {
-            target: Target::all(),
-            data: Vec::new(),
-        }
-    }
-
-    /// Create a command with the given data.
-    ///
-    /// The command header (address, axis, and message ID) should not be included.
-    /// By default the command is addressed to all devices and axes, and uses the [`Port`](crate::ascii::Port)'s preference for ID and checksum.
-    pub fn new<T: AsRef<[u8]>>(data: T) -> CommandBuilder {
-        CommandBuilder {
-            target: Target::all(),
-            data: data.as_ref().to_vec(),
-        }
-    }
-
-    /// Set the device address and, optionally, axis number to send the command to.
-    pub fn target<T: Into<Target>>(&mut self, target: T) -> &mut Self {
-        self.target = target.into();
-        self
-    }
-}
-
-impl AsRef<CommandBuilder> for CommandBuilder {
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-impl Default for CommandBuilder {
-    /// Create the default command, which is the empty (`/`) command.
-    fn default() -> CommandBuilder {
-        CommandBuilder::empty()
-    }
-}
-
-/// A trait to convert a type into the body of an ASCII [`CommandBuilder`].
-///
-/// ```rust
-/// # use zproto::ascii::CommandBuilder;
-/// use zproto::ascii::IntoCommand as _;
-///
-/// let command: CommandBuilder = "get maxspeed".target(1);
-/// ```
-pub trait IntoCommand {
-    /// Create a command targeting `target` with this type as the command's data
-    fn target<T: Into<Target>>(&self, target: T) -> CommandBuilder;
-    /// Create a command targeting all devices with this type as the command's data
-    fn target_all(&self) -> CommandBuilder;
-}
-
-impl IntoCommand for [u8] {
-    fn target<T: Into<Target>>(&self, target: T) -> CommandBuilder {
-        let mut cmd = CommandBuilder::new(self);
-        cmd.target(target);
-        cmd
-    }
-    fn target_all(&self) -> CommandBuilder {
-        CommandBuilder::new(self)
-    }
-}
-
-impl<T> IntoCommand for T
-where
-    T: AsRef<[u8]>,
-{
-    fn target<S: Into<Target>>(&self, target: S) -> CommandBuilder {
-        self.as_ref().target(target)
-    }
-    fn target_all(&self) -> CommandBuilder {
-        self.as_ref().target_all()
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -444,26 +326,12 @@ mod test {
     }
 
     #[test]
-    fn test_into_command_data() {
-        let mut expected = CommandBuilder::new("get maxspeed");
-        expected.target(1);
-        assert_eq!(
-            "get maxspeed".target((1, 2)),
-            *CommandBuilder::new("get maxspeed").target((1, 2))
-        );
-        assert_eq!("get maxspeed".target(1), expected);
-        assert_eq!("get maxspeed".to_string().target(1), expected);
-        assert_eq!(b"get maxspeed".target(1), expected);
-        assert_eq!(b"get maxspeed".to_vec().target(1), expected);
-    }
-
-    #[test]
     fn test_write_command() {
         let mut generator = ConstId {};
 
         let mut buf = Vec::new();
 
-        CommandInstance::new(&"get maxspeed".target_all(), &mut generator, false, true)
+        CommandInstance::new(&"get maxspeed", &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -474,7 +342,7 @@ mod test {
         );
 
         buf.clear();
-        CommandInstance::new(&"get maxspeed".target(2), &mut generator, true, true)
+        CommandInstance::new(&(2, "get maxspeed"), &mut generator, true, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -485,7 +353,7 @@ mod test {
         );
 
         buf.clear();
-        CommandInstance::new(&"".target_all(), &mut generator, false, true)
+        CommandInstance::new(&"", &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
@@ -496,7 +364,7 @@ mod test {
         );
 
         buf.clear();
-        CommandInstance::new(&"".target(1), &mut generator, false, true)
+        CommandInstance::new(&(1, ""), &mut generator, false, true)
             .write_into(&mut buf)
             .unwrap();
         assert_eq!(
