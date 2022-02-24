@@ -29,20 +29,20 @@ fn main() -> Result<(), Error> {
     // Open the port, home device 1, and wait for it to finish.
     let mut port = Port::open_serial("/dev/ttyUSB0")?;
     port.command_reply_with_check(
-        "home",
+        (1, "home"),
         // Ignore warnings about it being unhomed.
         check::warning_in(("WR", "WH", Warning::NONE)),
     )?;
-    port.poll_until_idle(0)?;
+    port.poll_until_idle(1)?;
 
     // Move towards the end of travel and monitor position as it goes.
     // Once the position exceeds 100000, interrupt the motion.
-    port.command_reply("move max")?;
-    port.poll_until("get pos", |reply| {
+    port.command_reply((1, "move max"))?;
+    port.poll_until((1, "get pos"), |reply| {
         let pos: i32 = reply.data().parse().unwrap();
         pos >= 100_000
     })?;
-    port.command_reply_with_check("stop", check::warning_is("NI"))?;
+    port.command_reply_with_check((1, "stop"), check::warning_is("NI"))?;
     Ok(())
 }
 ```
