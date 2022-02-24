@@ -1,6 +1,7 @@
-name: CI
+name: Common
 
-on: [pull_request, workflow_dispatch]
+on:
+  workflow_call:
 
 jobs:
   check:

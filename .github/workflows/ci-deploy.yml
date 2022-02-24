@@ -1,0 +1,23 @@
+name: Publish
+
+on:
+  pull_request:
+    branches:
+      - 'rc**'
+
+jobs:
+  common:
+    uses: ./.github/workflows/common.yml
+  publish:
+    name: Publish to Crates.io
+    needs: common
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo publish --all-features --locked --verbose --dry-run
