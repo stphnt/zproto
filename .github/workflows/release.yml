@@ -12,9 +12,15 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v2
+      - name: Install libudev
+        run: |
+          sudo apt update
+          sudo apt install libudev-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
       - run: cargo publish --all-features --locked --verbose --dry-run
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
