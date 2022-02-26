@@ -16,7 +16,7 @@ categories = []
 all-features = true
 
 [features]
-defaults = ["ascii", "binary"]
+default = ["ascii", "binary"]
 # Include the ASCII protocol
 ascii = []
 # Include the Binary protocol
