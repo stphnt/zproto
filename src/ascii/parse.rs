@@ -76,7 +76,7 @@ pub fn get_packet_contents(input: &[u8]) -> &[u8] {
     let len = input[start..]
         .iter()
         .position(|c| *c == CHECKSUM_MARKER || c.is_packet_end())
-        .unwrap_or(input[start..].len());
+        .unwrap_or_else(|| input[start..].len());
     &input[start..start + len]
 }
 
