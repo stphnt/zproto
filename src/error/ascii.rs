@@ -274,7 +274,7 @@ impl<R: Response> AsciiCheckWarningError<R> {
     /// Create a new `AsciiCheckWarningError` error.
     ///
     /// `message` is a description of the error and `response` is the invalid response.
-    pub fn new(message: impl Into<String>, response: R) -> Self {
+    pub fn new<T: Into<String>>(message: T, response: R) -> Self {
         AsciiCheckWarningError(Box::new((message.into(), response)))
     }
 }
@@ -291,7 +291,7 @@ impl<R: Response> AsciiCheckDataError<R> {
     /// Create a new `AsciiCheckDataError` error.
     ///
     /// `message` is a description of the error and `response` is the invalid response.
-    pub fn new(message: impl Into<String>, response: R) -> Self {
+    pub fn new<T: Into<String>>(message: T, response: R) -> Self {
         AsciiCheckDataError(Box::new((message.into(), response)))
     }
 }
@@ -320,7 +320,7 @@ impl<R: Response> AsciiCheckCustomError<R> {
     /// Create a new `AsciiCheckCustomError` error.
     ///
     /// `message` is a description of the error and `response` is the invalid response.
-    pub fn new(message: impl Into<String>, response: R) -> Self {
+    pub fn new<T: Into<String>>(message: T, response: R) -> Self {
         AsciiCheckCustomError(Box::new((message.into(), response)))
     }
 
@@ -407,17 +407,17 @@ impl<R: Response> AsciiCheckError<R> {
     }
 
     /// Create an `AsciiCheckError` error indicating the warning was unexpected.
-    pub fn unexpected_warning(message: impl Into<String>, response: R) -> AsciiCheckError<R> {
+    pub fn unexpected_warning<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
         AsciiCheckWarningError::new(message, response).into()
     }
 
     /// Create an `AsciiCheckError` error indicating the data was unexpected.
-    pub fn unexpected_data(message: impl Into<String>, response: R) -> AsciiCheckError<R> {
+    pub fn unexpected_data<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
         AsciiCheckWarningError::new(message, response).into()
     }
 
     /// Create an `AsciiCheckError` error indicating the message was invalid for some custom reason.
-    pub fn custom(message: impl Into<String>, response: R) -> AsciiCheckError<R> {
+    pub fn custom<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
         AsciiCheckCustomError::new(message, response).into()
     }
 
