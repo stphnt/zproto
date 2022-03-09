@@ -418,11 +418,15 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_with_check<C: Command>(
+    pub fn command_reply_with_check<C, K>(
         &mut self,
         cmd: C,
-        checker: impl check::Check<Reply>,
-    ) -> Result<Reply, AsciiError> {
+        checker: K,
+    ) -> Result<Reply, AsciiError>
+    where
+        C: Command,
+        K: check::Check<Reply>,
+    {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         self.internal_response_with_check(|_| Some((cmd.target(), id)), checker)
@@ -485,11 +489,15 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_infos_with_check<C: Command>(
+    pub fn command_reply_infos_with_check<C, K>(
         &mut self,
         cmd: C,
-        checker: impl check::Check<AnyResponse>,
-    ) -> Result<(Reply, Vec<Info>), AsciiError> {
+        checker: K,
+    ) -> Result<(Reply, Vec<Info>), AsciiError>
+    where
+        C: Command,
+        K: check::Check<AnyResponse>,
+    {
         #[inline]
         fn gen_new_checker<'a, 'b: 'a>(
             checker: &'b impl check::Check<AnyResponse>,
@@ -556,12 +564,16 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_reply_n_with_check<C: Command>(
+    pub fn command_reply_n_with_check<C, K>(
         &mut self,
         cmd: C,
         n: usize,
-        checker: impl check::Check<Reply>,
-    ) -> Result<Vec<Reply>, AsciiError> {
+        checker: K,
+    ) -> Result<Vec<Reply>, AsciiError>
+    where
+        C: Command,
+        K: check::Check<Reply>,
+    {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         let replies =
@@ -605,11 +617,15 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn command_replies_until_timeout_with_check<C: Command>(
+    pub fn command_replies_until_timeout_with_check<C, K>(
         &mut self,
         cmd: C,
-        checker: impl check::Check<Reply>,
-    ) -> Result<Vec<Reply>, AsciiError> {
+        checker: K,
+    ) -> Result<Vec<Reply>, AsciiError>
+    where
+        C: Command,
+        K: check::Check<Reply>,
+    {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         self.internal_responses_until_timeout_with_check(|_| Some((cmd.target(), id)), checker)
@@ -694,16 +710,17 @@ impl<B: Backend> Port<B> {
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
     /// `checker` to validate the contents of the message.
-    fn internal_response_with_check<R, F>(
+    fn internal_response_with_check<R, F, K>(
         &mut self,
         header_check: F,
-        checker: impl check::Check<R>,
+        checker: K,
     ) -> Result<R, AsciiError>
     where
         R: Response,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
         F: FnMut(&AnyResponse) -> Option<(Target, Option<u8>)>,
+        K: check::Check<R>,
     {
         self.check_poisoned()?;
 
@@ -738,17 +755,18 @@ impl<B: Backend> Port<B> {
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
     /// `checker` to validate the contents of the message.
-    fn internal_response_n_with_check<R, F>(
+    fn internal_response_n_with_check<R, F, K>(
         &mut self,
         n: usize,
         mut header_check: F,
-        checker: impl check::Check<R>,
+        checker: K,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
         F: FnMut(&AnyResponse) -> Option<(Target, Option<u8>)>,
+        K: check::Check<R>,
     {
         #[inline]
         fn gen_new_checker<'a, 'b: 'a, R: Response>(
@@ -773,16 +791,17 @@ impl<B: Backend> Port<B> {
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
     /// `checker` to validate the contents of the message.
-    fn internal_responses_until_timeout_with_check<R, F>(
+    fn internal_responses_until_timeout_with_check<R, F, K>(
         &mut self,
         mut header_check: F,
-        check: impl check::Check<R>,
+        check: K,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
         F: FnMut(&AnyResponse) -> Option<(Target, Option<u8>)>,
+        K: check::Check<R>,
     {
         #[inline]
         fn gen_new_checker<'a, 'b: 'a, R: Response>(
@@ -838,9 +857,10 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn response_with_check<R>(&mut self, checker: impl check::Check<R>) -> Result<R, AsciiError>
+    pub fn response_with_check<R, K>(&mut self, checker: K) -> Result<R, AsciiError>
     where
         R: Response,
+        K: check::Check<R>,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
@@ -884,13 +904,14 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn response_n_with_check<R>(
+    pub fn response_n_with_check<R, K>(
         &mut self,
         n: usize,
-        checker: impl check::Check<R>,
+        checker: K,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
+        K: check::Check<R>,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
@@ -935,12 +956,13 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn responses_until_timeout_with_check<R>(
+    pub fn responses_until_timeout_with_check<R, K>(
         &mut self,
-        check: impl check::Check<R>,
+        check: K,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
+        K: check::Check<R>,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
@@ -1315,6 +1337,20 @@ mod test {
         let err = port.responses_until_timeout::<Reply>().unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedKind(_)));
         let _ = port.response::<Reply>().unwrap();
+    }
+
+    /// Ensure that setting explicit types is possible for all `*_with_check`
+    /// methods. This inferencing was previously forbidden because `arg: impl Bound`
+    /// syntax was used. Replacing that syntax with standard `where` bounds
+    /// allows for the explicit type
+    #[test]
+    fn type_inference_regression_test() {
+        use super::check::default;
+
+        let mut port = Port::open_mock();
+        let _ = port.response_with_check::<AnyResponse, _>(default());
+        let _ = port.response_n_with_check::<AnyResponse, _>(2, default());
+        let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(default());
     }
 
     // Poison a port
