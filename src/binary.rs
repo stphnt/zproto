@@ -11,7 +11,7 @@
 //! # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut port = Port::open_serial("/dev/ttyUSB0")?;
 //! // OR
-//! let mut port = Port::open_tcp("192.168.0.1:7770")?;
+//! let mut port = Port::open_tcp("192.168.0.1:55550")?;
 //! # Ok(())
 //! # }
 //! ```

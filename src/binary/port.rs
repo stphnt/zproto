@@ -123,7 +123,7 @@ impl Default for OpenSerialOptions {
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenTcpOptions::new()
 ///     .timeout(Some(Duration::from_millis(50)))
-///     .open("192.168.0.1:7770")?;
+///     .open("192.168.0.1:55550")?;
 /// # Ok(())
 /// # }
 /// ```
