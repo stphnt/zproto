@@ -156,7 +156,7 @@ impl Default for OpenSerialOptions {
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenTcpOptions::new()
 ///     .timeout(Some(Duration::from_millis(50)))
-///     .open("192.168.0.1:7770")?;
+///     .open("192.168.0.1:55550")?;
 /// # Ok(())
 /// # }
 /// ```
@@ -308,9 +308,9 @@ impl Port<TcpStream> {
     /// ```rust
     /// # use zproto::ascii::{OpenTcpOptions, Port};
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mut port = Port::open_tcp("198.168.0.1:7770")?;
+    /// let mut port = Port::open_tcp("198.168.0.1:55550")?;
     /// // Or equivalently
-    /// let mut port = OpenTcpOptions::new().open("198.168.0.1:7770")?;
+    /// let mut port = OpenTcpOptions::new().open("198.168.0.1:55550")?;
     /// # Ok(())
     /// # }
     /// ```
