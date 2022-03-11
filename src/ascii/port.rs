@@ -1072,7 +1072,7 @@ impl<B: Backend> Port<B> {
 
     /// Get whether the port will include message IDs or not in commands.
     pub fn id(&self) -> bool {
-        self.generate_checksum
+        self.generate_id
     }
 }
 
@@ -1351,6 +1351,26 @@ mod test {
         let _ = port.response_with_check::<AnyResponse, _>(default());
         let _ = port.response_n_with_check::<AnyResponse, _>(2, default());
         let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(default());
+    }
+
+    #[test]
+    fn set_id() {
+        let mut port = Port::open_mock();
+        assert_eq!(port.id(), false);
+        assert_eq!(port.set_id(true), false);
+        assert_eq!(port.id(), true);
+        assert_eq!(port.set_id(false), true);
+        assert_eq!(port.id(), false);
+    }
+
+    #[test]
+    fn set_checksum() {
+        let mut port = Port::open_mock();
+        assert_eq!(port.checksum(), false);
+        assert_eq!(port.set_checksum(true), false);
+        assert_eq!(port.checksum(), true);
+        assert_eq!(port.set_checksum(false), true);
+        assert_eq!(port.checksum(), false);
     }
 
     // Poison a port
