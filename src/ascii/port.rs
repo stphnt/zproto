@@ -82,7 +82,7 @@ impl OpenSerialOptions {
     /// Set whether commands sent on the port should include a checksum or not.
     ///
     /// The default is `true` (checksums will be included).
-    pub fn checksum(&mut self, checksum: bool) -> &mut Self {
+    pub fn checksums(&mut self, checksum: bool) -> &mut Self {
         self.generate_checksum = checksum;
         self
     }
@@ -90,7 +90,7 @@ impl OpenSerialOptions {
     /// Set whether commands sent on the port should include a message ID or not.
     ///
     /// The default is `true` (message IDs will be included).
-    pub fn id(&mut self, id: bool) -> &mut Self {
+    pub fn message_ids(&mut self, id: bool) -> &mut Self {
         self.generate_id = id;
         self
     }
@@ -195,7 +195,7 @@ impl OpenTcpOptions {
     /// Set whether commands sent on the port should include a checksum or not.
     ///
     /// The default is `true` (checksums will be included).
-    pub fn checksum(&mut self, checksum: bool) -> &mut Self {
+    pub fn checksums(&mut self, checksum: bool) -> &mut Self {
         self.generate_checksum = checksum;
         self
     }
@@ -203,7 +203,7 @@ impl OpenTcpOptions {
     /// Set whether commands sent on the port should include a message ID or not.
     ///
     /// The default is `true` (message IDs will be included).
-    pub fn id(&mut self, id: bool) -> &mut Self {
+    pub fn message_ids(&mut self, id: bool) -> &mut Self {
         self.generate_checksum = id;
         self
     }
@@ -507,9 +507,9 @@ impl<B: Backend> Port<B> {
 
         let target = cmd.as_ref().target();
         let reply = self.command_reply(cmd)?;
-        let old_generate_id = self.set_id(true);
+        let old_generate_id = self.set_message_ids(true);
         let sentinel_id = self.command((target, ""));
-        self.set_id(old_generate_id);
+        self.set_message_ids(old_generate_id);
         let sentinel_id = sentinel_id?;
         let mut infos = Vec::new();
         let header_check = |response: &AnyResponse| match response {
@@ -1054,24 +1054,24 @@ impl<B: Backend> Port<B> {
     /// Set whether commands sent on this port should include a checksum or not.
     ///
     /// The previous value is returned.
-    pub fn set_checksum(&mut self, value: bool) -> bool {
+    pub fn set_checksums(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_checksum, value)
     }
 
     /// Get whether the port will include checksums or not in commands.
-    pub fn checksum(&self) -> bool {
+    pub fn checksums(&self) -> bool {
         self.generate_checksum
     }
 
     /// Set whether commands sent on this port should include an automatically generated message ID or not.
     ///
     /// The previous value is returned.
-    pub fn set_id(&mut self, value: bool) -> bool {
+    pub fn set_message_ids(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_id, value)
     }
 
     /// Get whether the port will include message IDs or not in commands.
-    pub fn id(&self) -> bool {
+    pub fn message_ids(&self) -> bool {
         self.generate_id
     }
 }
@@ -1356,21 +1356,21 @@ mod test {
     #[test]
     fn set_id() {
         let mut port = Port::open_mock();
-        assert_eq!(port.id(), false);
-        assert_eq!(port.set_id(true), false);
-        assert_eq!(port.id(), true);
-        assert_eq!(port.set_id(false), true);
-        assert_eq!(port.id(), false);
+        assert_eq!(port.message_ids(), false);
+        assert_eq!(port.set_message_ids(true), false);
+        assert_eq!(port.message_ids(), true);
+        assert_eq!(port.set_message_ids(false), true);
+        assert_eq!(port.message_ids(), false);
     }
 
     #[test]
-    fn set_checksum() {
+    fn set_checksums() {
         let mut port = Port::open_mock();
-        assert_eq!(port.checksum(), false);
-        assert_eq!(port.set_checksum(true), false);
-        assert_eq!(port.checksum(), true);
-        assert_eq!(port.set_checksum(false), true);
-        assert_eq!(port.checksum(), false);
+        assert_eq!(port.checksums(), false);
+        assert_eq!(port.set_checksums(true), false);
+        assert_eq!(port.checksums(), true);
+        assert_eq!(port.set_checksums(false), true);
+        assert_eq!(port.checksums(), false);
     }
 
     // Poison a port

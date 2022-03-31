@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Open the port and set up the chain
     let mut port = Port::open_serial(&port_path)?;
     port.tx_rx_until_timeout((0, RENUMBER, 0))?;
-    port.message_ids(true)?;
+    port.set_message_ids(true)?;
 
     // Home device 1
     port.tx_rx((device, HOME))?;

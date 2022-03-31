@@ -638,6 +638,8 @@ impl<B: Backend> Port<B> {
     /// By default message ids are not enabled as it consumes one of the 4 data
     /// bytes in a message, potentially truncating larger data values.
     ///
+    /// On success, whether message IDs were previously enabled is returned.
+    ///
     /// ## Example
     ///
     /// ```
@@ -646,19 +648,25 @@ impl<B: Backend> Port<B> {
     /// #   binary::{DeviceMessage, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// port.message_ids(true)?;
+    /// port.set_message_ids(true)?;
     /// // Message Ids will be used in all future messages.
     /// # Ok(())
     /// # }
     /// ```
-    pub fn message_ids(&mut self, enable: bool) -> Result<(), BinaryError> {
+    pub fn set_message_ids(&mut self, enable: bool) -> Result<bool, BinaryError> {
+        let prev = self.id.is_enabled();
         self.tx_rx_until_timeout((0, command::SET_MESSAGE_ID_MODE, enable))?;
         if enable {
             self.id.enable();
         } else {
             self.id.disable();
         }
-        Ok(())
+        Ok(prev)
+    }
+
+    /// Return whether message IDs will be transmitted and parsed.
+    pub fn message_ids(&self) -> bool {
+        self.id.is_enabled()
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the
@@ -948,6 +956,18 @@ mod test {
             assert_eq!(reply.target(), i as u8 + 1);
             assert_eq!(reply.data().unwrap(), 0);
         }
+    }
+
+    #[test]
+    fn message_ids() {
+        let mut port = Port::open_mock();
+        assert_eq!(port.message_ids(), false);
+        // Enable message IDs
+        port.backend
+            .append_data([1, command::untyped::SET_MESSAGE_ID_MODE, 0, 0, 0, 0]);
+        let last_state = port.set_message_ids(true).unwrap();
+        assert_eq!(last_state, false);
+        assert_eq!(port.message_ids(), true);
     }
 
     #[test]
