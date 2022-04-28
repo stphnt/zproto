@@ -3,6 +3,8 @@
 use nom::{bytes::complete::take_till, IResult};
 
 mod packet;
+#[cfg(test)]
+mod test;
 mod token;
 mod visitor;
 
@@ -121,27 +123,4 @@ pub fn take_till_reserved(input: &[u8]) -> IResult<&[u8], &[u8]> {
 /// Consume `input` until a tab, space, or reserved character is found.
 pub fn take_till_tab_space_reserved(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take_till(|byte: u8| byte == b' ' || byte == b'\t' || byte.is_reserved())(input)
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_get_packet_contents() {
-        let expected = b"1 2 OK IDLE --";
-        let cases = &[
-            b"  /1 2 OK IDLE --\r    ",
-            b"  /1 2 OK IDLE --\n    ",
-            b"  /1 2 OK IDLE --\r\n   ",
-            b"  /1 2 OK IDLE --:12\r\n",
-            b"  @1 2 OK IDLE --\r\n   ",
-            b"  !1 2 OK IDLE --\r\n   ",
-            b"  #1 2 OK IDLE --\r\n   ",
-        ];
-
-        for (i, case) in cases.iter().enumerate() {
-            assert_eq!(get_packet_contents(*case), expected, "Case {} failed", i);
-        }
-    }
 }
