@@ -6,10 +6,10 @@ use crate::ascii::Alert;
 use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
-    ascii::check,
-    ascii::checksum::Lrc,
-    ascii::id,
-    ascii::{AnyResponse, Command, CommandInstance, Info, Packet, Reply, Response, Status, Target},
+    ascii::{
+        check, checksum::Lrc, id, AnyResponse, Command, CommandInstance, Info, Packet, Reply,
+        Response, Status, Target,
+    },
     error::*,
     timeout_guard::TimeoutGuard,
 };
