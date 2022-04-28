@@ -1323,6 +1323,16 @@ mod test {
             .append_data(b"@01 0 OK IDLE -- 0\r\n");
         let reply = port.command_reply("").unwrap();
         assert_eq!(reply.target(), (1, 0).into());
+
+        // Multi-packet Reply
+        {
+            let backend = port.backend.get_mut();
+            backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
+            backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
+            backend.append_data(b"#01 0 cont part3\r\n");
+        }
+        let reply = port.command_reply("").unwrap();
+        assert_eq!(reply.data(), "part1 part2a part2b part3");
     }
 
     #[test]
@@ -1339,25 +1349,25 @@ mod test {
         let err = port.command_reply((1, "")).unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 
+        // Unexpected Alert interleaved in reply packets.
         {
-            let backend = port.backend
-                .get_mut();
-                backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
-                backend.append_data(b"!02 0 IDLE -- 0\r\n");  // Unexpected Alert
-                backend.append_data(b"#01 0 part2\r\n");
+            let backend = port.backend.get_mut();
+            backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
+            backend.append_data(b"!02 0 IDLE -- 0\r\n");
+            backend.append_data(b"#01 0 cont part2\r\n");
         }
-        let err = port.command_reply("").unwrap_err();
-        assert!(matches!(dbg!(err), AsciiError::UnexpectedResponse(_)));
+        let err = port.command_reply((1, "")).unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 
+        // Unexpected and incomplete Alert interleaved in reply packets.
         {
-            let backend = port.backend
-                .get_mut();
-                backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
-                backend.append_data(b"!02 0 IDLE -- something\\\r\n");  // Unexpected and incomplete Alert
-                backend.append_data(b"#01 0 part2\r\n");
+            let backend = port.backend.get_mut();
+            backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
+            backend.append_data(b"!02 0 IDLE -- something\\\r\n");
+            backend.append_data(b"#01 0 cont part2\r\n");
         }
-        let err = port.command_reply("").unwrap_err();
-        assert!(matches!(dbg!(err), AsciiError::UnexpectedPacket(_)));
+        let err = port.command_reply((1, "")).unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
     }
 
     #[test]
@@ -1369,6 +1379,18 @@ mod test {
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
         let _ = port.command_reply_n("", 2).unwrap();
+
+        // Interleaved multi-packet replies
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 1part1\\\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 2part1\\\r\n");
+            buf.append_data(b"#02 0 cont 2part2\r\n");
+            buf.append_data(b"#01 0 cont 1part2\r\n");
+        }
+        let replies = port.command_reply_n("", 2).unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
     }
 
     #[test]
@@ -1382,6 +1404,15 @@ mod test {
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
         let err = port.command_reply_n("", 3).unwrap_err();
+        assert!(err.is_timeout());
+
+        // Timeout waiting for non-existent packet.
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\\\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let err = port.command_reply_n("", 2).unwrap_err();
         assert!(err.is_timeout());
     }
 
@@ -1399,6 +1430,8 @@ mod test {
 
     #[test]
     fn command_replies_mixed_cont_until_timeout_ok() {
+        let expected = &["part 1a part 1b", "part 2a part 2b"];
+
         let mut port = Port::open_mock();
         {
             let buf = port.backend.get_mut();
@@ -1408,9 +1441,8 @@ mod test {
             buf.append_data(b"#02 0 cont part 2b\r\n");
         }
         let replies = port.command_replies_until_timeout("").unwrap();
-        assert_eq!(replies.len(), 2);
-        assert_eq!(replies[0].data(), "part 1a part 1b");
-        assert_eq!(replies[1].data(), "part 2a part 2b");
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, expected);
 
         {
             let buf = port.backend.get_mut();
@@ -1420,9 +1452,9 @@ mod test {
             buf.append_data(b"#01 0 cont part 1b\r\n");
         }
         let replies = port.command_replies_until_timeout("").unwrap();
-        assert_eq!(replies.len(), 2);
-        assert_eq!(replies[0].data(), "part 1a part 1b");
-        assert_eq!(replies[1].data(), "part 2a part 2b");
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        // When the continuations come shouldn't change the response order.
+        assert_eq!(reply_data, expected);
 
         {
             let buf = port.backend.get_mut();
@@ -1432,9 +1464,12 @@ mod test {
             buf.append_data(b"#01 0 cont part 1b\r\n");
         }
         let replies = port.command_replies_until_timeout("").unwrap();
-        assert_eq!(replies.len(), 2);
-        assert_eq!(replies[0].data(), "part 2a part 2b");
-        assert_eq!(replies[1].data(), "part 1a part 1b");
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        // The initial packet order should change the response order.
+        assert_eq!(
+            reply_data,
+            expected.iter().copied().rev().collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -1462,7 +1497,20 @@ mod test {
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
         let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
-        assert_eq!(replies.len(), 2);
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, &["0", "0"]);
+
+        // Multi-packet info messages
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"#01 0 part 1a\\\r\n");
+            buf.append_data(b"#02 0 part 2a\\\r\n");
+            buf.append_data(b"#01 0 cont part 1b\r\n");
+            buf.append_data(b"#02 0 cont part 2b\r\n");
+        }
+        let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, &["part 1a part 1b", "part 2a part 2b"]);
     }
 
     #[test]
@@ -1478,7 +1526,17 @@ mod test {
         }
         let err = port.responses_until_timeout::<Reply>().unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
+        // Can read the final reply
         let _ = port.response::<Reply>().unwrap();
+
+        // Invalid continuation packet
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"#01 0 cont something\r\n");
+        }
+        let err = port.responses_until_timeout::<Reply>().unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
     }
 
     /// Ensure that setting explicit types is possible for all `*_with_check`
