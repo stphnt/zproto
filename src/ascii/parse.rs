@@ -82,23 +82,6 @@ impl AsciiExt for u8 {
     }
 }
 
-/// Get the contents of an ASCII message.
-///
-/// The contents of a message those after the packet start marker but before
-/// the checksum marker (`:`) or packet end marker;
-pub(crate) fn get_packet_contents(input: &[u8]) -> &[u8] {
-    let start = input
-        .iter()
-        .position(|c| c.is_packet_start())
-        .map(|i| i + 1)
-        .unwrap_or(input.len());
-    let len = input[start..]
-        .iter()
-        .position(|c| *c == CHECKSUM_MARKER || c.is_packet_end())
-        .unwrap_or_else(|| input[start..].len());
-    &input[start..start + len]
-}
-
 /// A trait for parsing a type from a byte slice using `nom`.
 pub(crate) trait Nom: Sized {
     /// Parse an instance of `Self` from the `input` bytes.

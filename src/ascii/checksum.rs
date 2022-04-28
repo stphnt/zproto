@@ -1,5 +1,4 @@
 //! Types for producing and verifying ASCII packet checksums
-use crate::ascii::parse::get_packet_contents;
 
 /// A Longitudinal Redundancy Check hasher.
 #[derive(Debug, Default)]
@@ -32,12 +31,8 @@ impl Lrc {
         hasher.finish()
     }
 
-    /// Verify if the hash matches the contents of the ASCII packet.
-    ///
-    /// The `input` is expected to be a valid ASCII packet. Only the
-    /// appropriate contents of the message are hashed.
-    pub fn verify_packet(input: &[u8], hash: u32) -> bool {
-        let input = get_packet_contents(input);
+    /// Verif if the hash matches the input.
+    pub fn verify(input: &[u8], hash: u32) -> bool {
         let sum: u32 = input.iter().fold(0u32, |sum, b| *b as u32 + sum);
         0 == ((sum + hash) & 0xFF)
     }
@@ -49,7 +44,7 @@ mod test {
 
     #[test]
     fn test_lrc() {
-        assert!(Lrc::verify_packet(b"/01 tools echo:8F\r\n", 143));
-        assert!(!Lrc::verify_packet(b"/01 tools echo:8F\r\n", 142));
+        assert!(Lrc::verify(b"01 tools echo", 143));
+        assert!(!Lrc::verify(b"01 tools echo", 142));
     }
 }

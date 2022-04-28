@@ -1,7 +1,6 @@
 //! Parsing tests
 
 use super::{
-    get_packet_contents,
     packet::{InnerPacket, RefPacket},
     token::{RefTokens, Token, Tokens},
     visitor::{Client, PacketKind, Visitor},
@@ -1088,23 +1087,5 @@ fn parse() {
         let input_str = input_str.as_ref().trim_end();
         println!("Case {i}: {input_str}");
         assert_eq!(parse_combined(case.input), case.expected);
-    }
-}
-
-#[test]
-fn test_get_packet_contents() {
-    let expected = b"1 2 OK IDLE --";
-    let cases = &[
-        b"  /1 2 OK IDLE --\r    ",
-        b"  /1 2 OK IDLE --\n    ",
-        b"  /1 2 OK IDLE --\r\n   ",
-        b"  /1 2 OK IDLE --:12\r\n",
-        b"  @1 2 OK IDLE --\r\n   ",
-        b"  !1 2 OK IDLE --\r\n   ",
-        b"  #1 2 OK IDLE --\r\n   ",
-    ];
-
-    for (i, case) in cases.iter().enumerate() {
-        assert_eq!(get_packet_contents(*case), expected, "Case {} failed", i);
     }
 }

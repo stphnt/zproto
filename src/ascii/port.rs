@@ -700,7 +700,7 @@ impl<B: Backend> Port<B> {
             // Verify the checksum, if one exists
             .and_then(|packet| {
                 if let Some(checksum) = packet.checksum() {
-                    if !Lrc::verify_packet(packet.as_bytes(), checksum) {
+                    if !Lrc::verify(packet.hashed_content(), checksum) {
                         return Err(AsciiInvalidChecksumError::new(packet).into());
                     }
                 }
