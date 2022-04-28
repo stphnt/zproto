@@ -88,10 +88,10 @@ pub(crate) trait Visitor<'a> {
     ///
     /// This callback reports data already passed to [`data_word`] and [`separator`].
     fn data(&mut self, bytes: &'a [u8]);
-    /// Called with the contents of the entire packet (everything between the packet kind marker and the checksum/termination).
+    /// Called with the hashed contents of the entire packet (everything between the packet kind marker and the checksum/termination).
     ///
     /// This callback reports data already passed to most other methods in this trait.
-    fn content(&mut self, bytes: &'a [u8]);
+    fn hashed_content(&mut self, bytes: &'a [u8]);
     /// Called with the `\` character.
     fn more_packets_marker(&mut self, bytes: &'a [u8]);
     /// Called with the `:` character.
@@ -263,7 +263,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 
         let content_end_index = content_end_index.unwrap_or(self.index - termination.len());
         self.visitor
-            .content(&self.packet[content_start_index..content_end_index]);
+            .hashed_content(&self.packet[content_start_index..content_end_index]);
 
         // Make sure there isn't anything else
         if !self.rest().is_empty() {

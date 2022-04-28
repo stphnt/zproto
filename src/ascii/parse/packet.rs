@@ -22,8 +22,8 @@ pub(super) struct InnerPacket<T> {
     pub warning: Option<Warning>,
     /// The data field (may be empty).
     pub data: T,
-    /// The contents of the packet.
-    pub content: T,
+    /// The hashed contents of the packet.
+    pub hashed_content: T,
     /// Whether this packet continues a previous one (i.e., `cont` keyword is present).
     pub cont: bool,
     /// The number of the continuation packet, if specified.
@@ -118,7 +118,7 @@ where
             status: None,
             warning: None,
             data: Default::default(),
-            content: Default::default(),
+            hashed_content: Default::default(),
             cont: false,
             cont_count: None,
             more_packets: false,
@@ -190,11 +190,11 @@ where
         std::str::from_utf8(self.0.data.as_ref()).unwrap()
     }
 
-    /// Return the content of the packet (everything between the packet kind marker and the checksum marker/termination).
+    /// Return the hashed contents of the packet (everything between the packet kind marker and the checksum marker/termination).
     ///
     /// This is only useful for validating checksums.
-    fn content(&self) -> &[u8] {
-        self.0.content.as_ref()
+    pub(crate) fn hashed_content(&self) -> &[u8] {
+        self.0.hashed_content.as_ref()
     }
 
     /// Return whether the packet is the last one in a message.
@@ -255,8 +255,8 @@ where
     fn data(&mut self, bytes: &'a [u8]) {
         self.0.data = bytes.into();
     }
-    fn content(&mut self, bytes: &'a [u8]) {
-        self.0.content = bytes.into();
+    fn hashed_content(&mut self, bytes: &'a [u8]) {
+        self.0.hashed_content = bytes.into();
     }
     fn more_packets_marker(&mut self, _: &[u8]) {
         self.0.more_packets = true;

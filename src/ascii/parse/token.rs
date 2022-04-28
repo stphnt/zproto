@@ -178,7 +178,7 @@ where
     fn data(&mut self, _: &'a [u8]) {
         // Skipped because it overlaps with `data_word` and `separator`
     }
-    fn content(&mut self, _: &'a [u8]) {
+    fn hashed_content(&mut self, _: &'a [u8]) {
         // Skipped because it overlaps with other methods.
     }
     fn more_packets_marker(&mut self, bytes: &[u8]) {
