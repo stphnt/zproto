@@ -25,10 +25,10 @@
 //! [`From`]/[`Into`] to retrieve the offending response.
 //!
 //! ```
-//! # use zproto::{ascii, error::AsciiUnexpectedError};
+//! # use zproto::{ascii, error::AsciiUnexpectedResponseError};
 //! #
 //! # fn wrapper() {
-//! let error: AsciiUnexpectedError = //...
+//! let error: AsciiUnexpectedResponseError = //...
 //! # todo!();
 //! let response: &ascii::AnyResponse = error.as_ref();
 //! // OR

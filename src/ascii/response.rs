@@ -1,10 +1,12 @@
 //! Types and traits for parsing ASCII response messages.
 
 mod alert;
+mod builder;
 pub mod check;
 mod info;
 mod reply;
 pub use alert::*;
+pub(crate) use builder::ResponseBuilder;
 pub use info::*;
 pub use reply::*;
 

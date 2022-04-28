@@ -1,7 +1,9 @@
 //! Error types related to Zaber's ASCII protocol.
 
 use super::SerialDeviceInUseOrDisconnectedError;
-use crate::ascii::{Alert, AnyResponse, Flag, Info, Reply, Response, SpecificResponse, Status};
+use crate::ascii::{
+    parse::Packet, Alert, AnyResponse, Flag, Info, Reply, Response, SpecificResponse, Status,
+};
 
 /// Implement the `new()` and `as_bytes()` methods errors storing bytes.
 macro_rules! impl_for_type_containing_bytes {
@@ -17,6 +19,25 @@ macro_rules! impl_for_type_containing_bytes {
             /// Get the bytes of the invalid packet.
             pub fn as_bytes(&self) -> &[u8] {
                 &*self.0
+            }
+        }
+    };
+}
+
+/// Implement the `new()` and `packet()` methods for errors storing an owned packet.
+macro_rules! impl_for_type_containing_packet {
+    (
+        $name:ident
+    ) => {
+        impl $name {
+            /// Create a instance of the error
+            pub(crate) fn new(packet: Packet) -> Self {
+                $name(packet)
+            }
+
+            /// Get the packet
+            pub fn packet(&self) -> &Packet {
+                &self.0
             }
         }
     };
@@ -148,70 +169,54 @@ error_enum! {
     }
 }
 
-/// A response had an invalid checksum, indicating it was corrupt.
+/// A response packet had an invalid checksum, indicating it was corrupt.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiInvalidChecksumError(AnyResponse);
+pub struct AsciiInvalidChecksumError(Packet);
 
 impl_error_display! {
     AsciiInvalidChecksumError,
     self => "invalid checksum: {}", self.0
 }
 
-impl_traits_to_access_inner_response! { (AsciiInvalidChecksumError) -> AnyResponse { 0 } }
-impl_new_for_into_any_response! { AsciiInvalidChecksumError }
+impl_for_type_containing_packet! { AsciiInvalidChecksumError }
 
-/// A response came from an unexpected target.
+/// An unexpected response was received.
+///
+/// There are many reasons a response may be considered unexpected, including but not limited to:
+/// * it had the wrong target
+/// * it had the wrong message ID
+/// * it was the wrong kind of response
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiUnexpectedTargetError(AnyResponse);
+pub struct AsciiUnexpectedResponseError(AnyResponse);
 
 impl_error_display! {
-    AsciiUnexpectedTargetError,
-    self => "unexpected response target: {}", self.0
+    AsciiUnexpectedResponseError,
+    self => "unexpected response: {}", self.0
 }
 
-impl_traits_to_access_inner_response! { (AsciiUnexpectedTargetError) -> AnyResponse { 0 } }
-impl_new_for_into_any_response! { AsciiUnexpectedTargetError }
+impl_traits_to_access_inner_response! { (AsciiUnexpectedResponseError) -> AnyResponse { 0 } }
+impl_new_for_into_any_response! { AsciiUnexpectedResponseError }
 
-/// A response had an unexpected message ID.
+/// An unexpected packet was received.
+///
+/// There are many reasons a packet may be considered unexpected, including but not limited to:
+/// * it had the wrong target
+/// * it had the wrong message ID
+/// * it was the wrong kind of packet
+/// * it did not properly continue a previous packet
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiUnexpectedIdError(AnyResponse);
+pub struct AsciiUnexpectedPacketError(Packet);
 
 impl_error_display! {
-    AsciiUnexpectedIdError,
-    self => "unexpected response message ID: {}", self.0
+    AsciiUnexpectedPacketError,
+    self => "unexpected packet: {}", self.0
 }
 
-impl_traits_to_access_inner_response! { (AsciiUnexpectedIdError) -> AnyResponse { 0 } }
-impl_new_for_into_any_response! { AsciiUnexpectedIdError }
-
-/// A response had an unexpected message kind.
-#[derive(Debug, PartialEq)]
-#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiUnexpectedKindError(AnyResponse);
-
-impl_error_display! {
-    AsciiUnexpectedKindError,
-    self => "unexpected kind of response: {}", self.0
-}
-
-impl_traits_to_access_inner_response! { (AsciiUnexpectedKindError) -> AnyResponse { 0 } }
-impl_new_for_into_any_response! { AsciiUnexpectedKindError }
-
-/// A response was expected to be a continuation info message but it was not.
-#[derive(Debug, PartialEq)]
-#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiUnexpectedContinuationError(AnyResponse);
-
-impl_error_display! {
-    AsciiUnexpectedContinuationError,
-    self => "unexpected non-continuation message: {}", self.0
-}
-
-impl_traits_to_access_inner_response! { (AsciiUnexpectedContinuationError) -> AnyResponse { 0 } }
-impl_new_for_into_any_response! { AsciiUnexpectedContinuationError }
+impl_traits_to_access_inner_response! { (AsciiUnexpectedPacketError) -> Packet { 0 } }
+impl_for_type_containing_packet! { AsciiUnexpectedPacketError }
 
 /// A [`Reply`] was received with an unexpected reply flag.
 #[derive(Debug, PartialEq)]
@@ -338,34 +343,8 @@ error_enum! {
     doc(cfg(feature = "ascii"))
 )]
     pub enum AsciiUnexpectedError {
-        Target(AsciiUnexpectedTargetError),
-        Id(AsciiUnexpectedIdError),
-        Kind(AsciiUnexpectedKindError),
-        Continuation(AsciiUnexpectedContinuationError),
-    }
-}
-
-impl From<AsciiUnexpectedError> for AnyResponse {
-    /// Consume the error and get the underlying response.
-    fn from(other: AsciiUnexpectedError) -> Self {
-        match other {
-            AsciiUnexpectedError::Target(e) => e.into(),
-            AsciiUnexpectedError::Id(e) => e.into(),
-            AsciiUnexpectedError::Kind(e) => e.into(),
-            AsciiUnexpectedError::Continuation(e) => e.into(),
-        }
-    }
-}
-
-impl AsRef<AnyResponse> for AsciiUnexpectedError {
-    /// Get access to the response associated with this error.
-    fn as_ref(&self) -> &AnyResponse {
-        match self {
-            AsciiUnexpectedError::Target(e) => e.as_ref(),
-            AsciiUnexpectedError::Id(e) => e.as_ref(),
-            AsciiUnexpectedError::Kind(e) => e.as_ref(),
-            AsciiUnexpectedError::Continuation(e) => e.as_ref(),
-        }
+        Response(AsciiUnexpectedResponseError),
+        Packet(AsciiUnexpectedPacketError),
     }
 }
 
@@ -516,10 +495,8 @@ error_enum! {
         PacketMissingEnd(AsciiPacketMissingEndError),
         PacketMalformed(AsciiPacketMalformedError),
         InvalidChecksum(AsciiInvalidChecksumError),
-        UnexpectedTarget(AsciiUnexpectedTargetError),
-        UnexpectedId(AsciiUnexpectedIdError),
-        UnexpectedKind(AsciiUnexpectedKindError),
-        UnexpectedContinuation(AsciiUnexpectedContinuationError),
+        UnexpectedResponse(AsciiUnexpectedResponseError),
+        UnexpectedPacket(AsciiUnexpectedPacketError),
         CheckFlag(AsciiCheckFlagError),
         CheckStatus(AsciiCheckStatusError<AnyResponse>),
         CheckWarning(AsciiCheckWarningError<AnyResponse>),
@@ -534,10 +511,8 @@ error_enum! {
     }
 
     impl From<AsciiUnexpectedError> {
-        Target => UnexpectedTarget,
-        Id => UnexpectedId,
-        Kind => UnexpectedKind,
-        Continuation => UnexpectedContinuation,
+        Response => UnexpectedResponse,
+        Packet => UnexpectedPacket,
     }
 }
 impl_is_timeout! { AsciiError }
@@ -584,17 +559,14 @@ mod test {
     // Check that error types and responses they wrap implement AsRef and From,
     // respectively.
     macro_rules! assert_accessor_traits_to_response {
-        ($type:path => $response:ident) => {
+        ($type:path => $response:path) => {
             assert_impl_all!($response: From<$type>);
             assert_impl_all!($type: AsRef<$response>);
         };
     }
 
-    assert_accessor_traits_to_response!(AsciiUnexpectedError => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiUnexpectedTargetError => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiUnexpectedIdError => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiUnexpectedKindError => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiUnexpectedContinuationError => AnyResponse);
+    assert_accessor_traits_to_response!(AsciiUnexpectedResponseError => AnyResponse);
+    assert_accessor_traits_to_response!(AsciiUnexpectedPacketError => parse::Packet);
 
     // Because the `AsciiCheckError::<R>::Flag` variant always holds a `Reply`,
     // `AsciiCheckError<R>` can only implement `AsRef` when R == Reply. Similarly,

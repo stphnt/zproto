@@ -18,10 +18,8 @@ error_enum! {
         AsciiPacketMissingEnd(AsciiPacketMissingEndError),
         AsciiPacketMalformed(AsciiPacketMalformedError),
         AsciiInvalidChecksum(AsciiInvalidChecksumError),
-        AsciiUnexpectedTarget(AsciiUnexpectedTargetError),
-        AsciiUnexpectedId(AsciiUnexpectedIdError),
-        AsciiUnexpectedKind(AsciiUnexpectedKindError),
-        AsciiUnexpectedContinuation(AsciiUnexpectedContinuationError),
+        AsciiUnexpectedResponse(AsciiUnexpectedResponseError),
+        AsciiUnexpectedPacket(AsciiUnexpectedPacketError),
         AsciiCheckFlag(AsciiCheckFlagError),
         AsciiCheckStatus(AsciiCheckStatusError<AnyResponse>),
         AsciiCheckWarning(AsciiCheckWarningError<AnyResponse>),
@@ -40,10 +38,8 @@ error_enum! {
     }
 
     impl From<AsciiUnexpectedError> {
-        Target => AsciiUnexpectedTarget,
-        Id => AsciiUnexpectedId,
-        Kind => AsciiUnexpectedKind,
-        Continuation => AsciiUnexpectedContinuation,
+        Response => AsciiUnexpectedResponse,
+        Packet => AsciiUnexpectedPacket,
     }
 
     impl From<AsciiError> {
@@ -53,10 +49,8 @@ error_enum! {
         PacketMissingEnd => AsciiPacketMissingEnd,
         PacketMalformed => AsciiPacketMalformed,
         InvalidChecksum => AsciiInvalidChecksum,
-        UnexpectedTarget => AsciiUnexpectedTarget,
-        UnexpectedId => AsciiUnexpectedId,
-        UnexpectedKind => AsciiUnexpectedKind,
-        UnexpectedContinuation => AsciiUnexpectedContinuation,
+        UnexpectedResponse => AsciiUnexpectedResponse,
+        UnexpectedPacket => AsciiUnexpectedPacket,
         CheckFlag => AsciiCheckFlag,
         CheckStatus => AsciiCheckStatus,
         CheckWarning => AsciiCheckWarning,
