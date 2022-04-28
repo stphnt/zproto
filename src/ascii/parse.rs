@@ -1,7 +1,5 @@
 //! Utilities for parsing ASCII messages from bytes.
 
-use nom::{bytes::complete::take_till, IResult};
-
 mod packet;
 #[cfg(test)]
 mod test;
@@ -80,30 +78,4 @@ impl AsciiExt for u8 {
             COMMAND_MARKER | REPLY_MARKER | ALERT_MARKER | INFO_MARKER
         )
     }
-}
-
-/// A trait for parsing a type from a byte slice using `nom`.
-pub(crate) trait Nom: Sized {
-    /// Parse an instance of `Self` from the `input` bytes.
-    ///
-    /// This conforms to `nom`'s parser interface and can be used with other
-    /// `nom` parsers.
-    fn nom(input: &[u8]) -> IResult<&[u8], Self>;
-}
-
-/// Parse a `u8` from some bytes, assuming that it a number in base 10 and utf8.
-pub(crate) fn u8_from_base_10(input: &[u8]) -> Result<u8, ()> {
-    std::str::from_utf8(input)
-        .map_err(|_| ())
-        .and_then(|string| string.parse::<u8>().map_err(|_| ()))
-}
-
-/// Consume `input` until a reserved character is found
-pub(crate) fn take_till_reserved(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    take_till(|byte: u8| byte.is_reserved())(input)
-}
-
-/// Consume `input` until a tab, space, or reserved character is found.
-pub(crate) fn take_till_tab_space_reserved(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    take_till(|byte: u8| byte == b' ' || byte == b'\t' || byte.is_reserved())(input)
 }

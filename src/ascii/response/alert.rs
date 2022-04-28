@@ -1,19 +1,10 @@
 //! The ASCII Alert message type.
 
 use crate::ascii::{
-    response::{
-        parse, protocol_error_from_nom_error, AnyResponse, Footer, Header, Packet, Response,
-        SpecificResponse, Status, Warning,
-    },
+    response::{parse, AnyResponse, Footer, Header, Response, SpecificResponse, Status, Warning},
     Target,
 };
 use crate::error::*;
-use nom::{
-    bytes::complete::tag,
-    character::complete::{line_ending, space1},
-    combinator::{map_res, opt},
-    sequence::{delimited, preceded, tuple},
-};
 
 /// The contents of an [`Alert`] message
 #[derive(Debug, Clone, PartialEq)]
@@ -77,70 +68,6 @@ impl Alert {
 impl From<AlertInner> for Alert {
     fn from(inner: AlertInner) -> Self {
         Alert(Box::new(inner))
-    }
-}
-
-impl parse::Nom for Packet<Alert> {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(
-            delimited(
-                tag(&[parse::ALERT_MARKER]),
-                tuple((
-                    Header::nom,
-                    preceded(space1, Status::nom),
-                    preceded(space1, Warning::nom),
-                    opt(preceded(
-                        space1,
-                        map_res(
-                            parse::take_till_reserved,
-                            |bytes: &[u8]| -> Result<&str, std::str::Utf8Error> {
-                                std::str::from_utf8(bytes)
-                            },
-                        ),
-                    )),
-                    Footer::nom,
-                )),
-                line_ending,
-            ),
-            |(header, status, warning, data, footer): (
-                Header,
-                Status,
-                Warning,
-                Option<&str>,
-                Footer,
-            )|
-             -> Result<Packet<Alert>, std::convert::Infallible> {
-                Ok(Packet {
-                    complete: true,
-                    response: AlertInner {
-                        target: Target(header.address, header.axis),
-                        status,
-                        warning,
-                        data: data.unwrap_or("").to_string(),
-                        checksum: footer.checksum,
-                    }
-                    .into(),
-                })
-            },
-        )(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Packet<Alert> {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Packet<Alert> {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
     }
 }
 

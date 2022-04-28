@@ -1,19 +1,10 @@
 //! The ASCII reply message type.
 
 use crate::ascii::{
-    response::{
-        parse, protocol_error_from_nom_error, AnyResponse, Footer, Header, Packet, Response,
-        SpecificResponse, Status, Warning,
-    },
+    response::{parse, AnyResponse, Footer, Header, Response, SpecificResponse, Status, Warning},
     Target,
 };
 use crate::error::*;
-use nom::{
-    bytes::complete::tag,
-    character::complete::{line_ending, space1},
-    combinator::{map_res, opt},
-    sequence::{delimited, preceded, tuple},
-};
 
 /// A reply flag.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -22,37 +13,6 @@ pub enum Flag {
     Ok,
     /// The `RJ` flag, indicating the previous command was rejected.
     Rj,
-}
-
-impl parse::Nom for Flag {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(
-            parse::take_till_tab_space_reserved,
-            |bytes: &[u8]| match bytes {
-                b"OK" => Ok(Flag::Ok),
-                b"RJ" => Ok(Flag::Rj),
-                _ => Err(()),
-            },
-        )(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Flag {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Flag {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
-    }
 }
 
 impl std::fmt::Display for Flag {
@@ -136,61 +96,6 @@ impl Reply {
 impl From<ReplyInner> for Reply {
     fn from(inner: ReplyInner) -> Self {
         Reply(Box::new(inner))
-    }
-}
-
-impl parse::Nom for Packet<Reply> {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(
-            delimited(
-                 tag(&[parse::REPLY_MARKER]),
-                tuple((
-                    Header::nom,
-                    preceded(space1, Flag::nom),
-                    preceded(space1, Status::nom),
-                    preceded(space1, Warning::nom),
-                    map_res(
-                        preceded(space1, parse::take_till_reserved),
-                        |bytes: &[u8]| -> Result<String, std::str::Utf8Error> {Ok(std::str::from_utf8(bytes)?.to_string())},
-                    ),
-                    opt(tag(&[parse::MORE_PACKETS_MARKER])),
-                    Footer::nom,
-                )),
-                line_ending,
-            ),
-            |(header, flag, status, warning, data, continuation, footer)| -> Result<Packet<Reply>, std::convert::Infallible>{
-                Ok(Packet {
-					complete: continuation.is_none(),
-					response: ReplyInner {
-						target: Target(header.address, header.axis),
-						id: header.id,
-						flag,
-						status,
-						warning,
-						data,
-						checksum: footer.checksum,
-					}.into()
-				})
-            },
-        )(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Packet<Reply> {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Packet<Reply> {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
     }
 }
 

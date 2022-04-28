@@ -1,19 +1,10 @@
 //! The ASCII info message type.
 
 use crate::ascii::{
-    response::{
-        parse, protocol_error_from_nom_error, AnyResponse, Footer, Header, Packet, Response,
-        SpecificResponse,
-    },
+    response::{parse, AnyResponse, Footer, Header, Response, SpecificResponse},
     Target,
 };
 use crate::error::*;
-use nom::{
-    bytes::complete::tag,
-    character::complete::{line_ending, space1},
-    combinator::{map_res, opt},
-    sequence::{delimited, preceded, tuple},
-};
 
 /// The contents of an [`Info`] message.
 #[derive(Debug, Clone, PartialEq)]
@@ -71,57 +62,6 @@ impl Info {
 impl From<InfoInner> for Info {
     fn from(inner: InfoInner) -> Self {
         Info(Box::new(inner))
-    }
-}
-
-impl parse::Nom for Packet<Info> {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(
-            delimited(
-                tag(&[parse::INFO_MARKER]),
-                tuple((
-                    Header::nom,
-                    map_res(
-                        preceded(space1, parse::take_till_reserved),
-                        |bytes: &[u8]| -> Result<String, std::str::Utf8Error> {
-                            Ok(std::str::from_utf8(bytes)?.to_string())
-                        },
-                    ),
-                    opt(tag(&[parse::MORE_PACKETS_MARKER])),
-                    Footer::nom,
-                )),
-                line_ending,
-            ),
-            |(header, data, continuation, footer)| -> Result<Packet<Info>, std::convert::Infallible> {
-                Ok(Packet {
-                    complete: continuation.is_none(),
-					response: InfoInner {
-						target: Target(header.address, header.axis),
-						id: header.id,
-						data,
-						checksum: footer.checksum,
-					}.into()
-				})
-            },
-        )(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Packet<Info> {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Packet<Info> {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
     }
 }
 
