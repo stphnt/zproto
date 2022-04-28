@@ -1,4 +1,13 @@
-//! Utilities for parsing ASCII messages from bytes.
+//! Types for parsing ASCII packets from bytes.
+//!
+//! There are two main types for parsing packets: [`Packet`] and [`Tokens`].
+//! A `Packet` parses the bytes into usable types, such as [`Target`](crate::ascii::Target)
+//! or [`Status`](crate::ascii::Status), while `Tokens` parse the packet into a
+//! stream of [`Token`]s. `Tokens` does not parse the bytes into other data
+//! types, but merely associates subslices of the packet's bytes with a
+//! particular meaning, such as `Token::Kind` or `Token::DataWord`.
+//!
+//! See each type's documentation for more information.
 
 mod packet;
 #[cfg(test)]
