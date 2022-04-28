@@ -3,8 +3,8 @@
 use super::SerialDeviceInUseOrDisconnectedError;
 use crate::ascii::{Alert, AnyResponse, Flag, Info, Reply, Response, SpecificResponse, Status};
 
-/// Implement the `new()` and `packet()` methods for `AsciiPacket*` error types.
-macro_rules! impl_ascii_packet {
+/// Implement the `new()` and `as_bytes()` methods errors storing bytes.
+macro_rules! impl_for_type_containing_bytes {
     (
         $name:ident
     ) => {
@@ -14,8 +14,8 @@ macro_rules! impl_ascii_packet {
                 $name(Box::from(bytes.as_ref()))
             }
 
-            /// Get the contents of the invalid packet.
-            pub fn packet(&self) -> &[u8] {
+            /// Get the bytes of the invalid packet.
+            pub fn as_bytes(&self) -> &[u8] {
                 &*self.0
             }
         }
@@ -109,7 +109,7 @@ impl_error_display! {
     AsciiPacketMissingStartError,
     self => "ASCII packet missing a start byte: {}", String::from_utf8_lossy(&self.0)
 }
-impl_ascii_packet! { AsciiPacketMissingStartError }
+impl_for_type_containing_bytes! { AsciiPacketMissingStartError }
 
 /// An ASCII packet was missing the end byte(s).
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -120,7 +120,7 @@ impl_error_display! {
     AsciiPacketMissingEndError,
     self => "ASCII packet missing end byte(s): {}", String::from_utf8_lossy(&self.0)
 }
-impl_ascii_packet! { AsciiPacketMissingEndError }
+impl_for_type_containing_bytes! { AsciiPacketMissingEndError }
 
 /// An ASCII packet is malformed.
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -131,7 +131,7 @@ impl_error_display! {
     AsciiPacketMalformedError,
     self => "ASCII packet is malformed: {}", String::from_utf8_lossy(&self.0)
 }
-impl_ascii_packet! { AsciiPacketMalformedError }
+impl_for_type_containing_bytes! { AsciiPacketMalformedError }
 
 error_enum! {
     /// Received data that did not conform to the ASCII protocol.
