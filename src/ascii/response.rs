@@ -392,6 +392,20 @@ impl std::fmt::Display for Kind {
     }
 }
 
+impl TryFrom<parse::PacketKind> for Kind {
+    type Error = parse::PacketKind;
+
+    fn try_from(other: parse::PacketKind) -> Result<Self, Self::Error> {
+        use parse::PacketKind as PK;
+        match other {
+            PK::Command => Err(other),
+            PK::Reply => Ok(Kind::Reply),
+            PK::Info => Ok(Kind::Info),
+            PK::Alert => Ok(Kind::Alert),
+        }
+    }
+}
+
 mod private {
     use super::{Alert, AnyResponse, Info, Reply};
     pub trait Sealed {}
