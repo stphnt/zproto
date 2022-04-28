@@ -100,11 +100,16 @@ pub enum Status {
     Idle,
 }
 
+impl Status {
+    pub(crate) const BUSY_STR: &'static str = "BUSY";
+    pub(crate) const IDLE_STR: &'static str = "IDLE";
+}
+
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Status::Busy => write!(f, "BUSY"),
-            Status::Idle => write!(f, "IDLE"),
+            Status::Busy => write!(f, "{}", Status::BUSY_STR),
+            Status::Idle => write!(f, "{}", Status::IDLE_STR),
         }
     }
 }

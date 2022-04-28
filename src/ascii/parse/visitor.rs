@@ -204,9 +204,9 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
             PK::Reply | PK::Alert => {
                 if kind == PK::Reply {
                     // Parse flag
-                    if let Some(word) = self.word(b"OK")? {
+                    if let Some(word) = self.word(Flag::OK_STR.as_bytes())? {
                         self.visitor.flag(Flag::Ok, word);
-                    } else if let Some(word) = self.word(b"RJ")? {
+                    } else if let Some(word) = self.word(Flag::RJ_STR.as_bytes())? {
                         self.visitor.flag(Flag::Rj, word);
                     } else {
                         return Err(ParseError::MissingOrInvalidFlag);
@@ -214,9 +214,9 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
                 }
 
                 // Parse Status
-                if let Some(word) = self.word(b"IDLE")? {
+                if let Some(word) = self.word(Status::IDLE_STR.as_bytes())? {
                     self.visitor.status(Status::Idle, word);
-                } else if let Some(word) = self.word(b"BUSY")? {
+                } else if let Some(word) = self.word(Status::BUSY_STR.as_bytes())? {
                     self.visitor.status(Status::Busy, word);
                 } else {
                     return Err(ParseError::MissingOrInvalidStatus);

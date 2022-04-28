@@ -15,11 +15,16 @@ pub enum Flag {
     Rj,
 }
 
+impl Flag {
+    pub(crate) const OK_STR: &'static str = "OK";
+    pub(crate) const RJ_STR: &'static str = "RJ";
+}
+
 impl std::fmt::Display for Flag {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Flag::Ok => write!(f, "OK"),
-            Flag::Rj => write!(f, "RJ"),
+            Flag::Ok => write!(f, "{}", Flag::OK_STR),
+            Flag::Rj => write!(f, "{}", Flag::RJ_STR),
         }
     }
 }
