@@ -26,8 +26,6 @@ pub trait Response:
     fn target(&self) -> Target;
     /// Return the message's ID, if there is one.
     fn id(&self) -> Option<u8>;
-    /// Return the message's checksum, if there is one.
-    fn checksum(&self) -> Option<u32>;
     /// Return the message's data.
     fn data(&self) -> &str;
     /// Return a mutable reference the message's data
@@ -348,13 +346,6 @@ impl Response for AnyResponse {
             AnyResponse::Reply(reply) => reply.id(),
             AnyResponse::Info(info) => info.id(),
             AnyResponse::Alert(alert) => alert.id(),
-        }
-    }
-    fn checksum(&self) -> Option<u32> {
-        match self {
-            AnyResponse::Reply(reply) => reply.checksum(),
-            AnyResponse::Info(info) => info.checksum(),
-            AnyResponse::Alert(alert) => alert.checksum(),
         }
     }
     fn data(&self) -> &str {

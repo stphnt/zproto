@@ -12,7 +12,6 @@ pub(crate) struct InfoInner {
     pub target: Target,
     pub id: Option<u8>,
     pub data: String,
-    pub checksum: Option<u32>,
 }
 
 /// A decoded Zaber ASCII Info message.
@@ -36,7 +35,6 @@ impl Info {
             target: packet.target(),
             id: packet.id(),
             data: packet.data().to_string(),
-            checksum: packet.checksum(),
         }
         .into())
     }
@@ -52,10 +50,6 @@ impl Info {
     /// The message's data.
     pub fn data(&self) -> &str {
         self.0.data.as_str()
-    }
-    /// The message's checksum, if any.
-    pub fn checksum(&self) -> Option<u32> {
-        self.0.checksum
     }
 }
 
@@ -89,7 +83,7 @@ impl std::fmt::Display for Info {
             write!(f, " {}", self.data())?;
         }
         Footer {
-            checksum: self.checksum(),
+            checksum: None,
         }
         .fmt(f)
     }
@@ -101,9 +95,6 @@ impl Response for Info {
     }
     fn id(&self) -> Option<u8> {
         self.id()
-    }
-    fn checksum(&self) -> Option<u32> {
-        self.checksum()
     }
     fn data(&self) -> &str {
         self.data()

@@ -32,7 +32,6 @@ pub(crate) struct ReplyInner {
     pub status: Status,
     pub warning: Warning,
     pub data: String,
-    pub checksum: Option<u32>,
 }
 
 /// A decoded ASCII Reply message.
@@ -59,7 +58,6 @@ impl Reply {
             status: packet.status().ok_or(packet)?,
             warning: packet.warning().ok_or(packet)?,
             data: packet.data().to_string(),
-            checksum: packet.checksum(),
         }
         .into())
     }
@@ -86,10 +84,6 @@ impl Reply {
     /// The message's data.
     pub fn data(&self) -> &str {
         self.0.data.as_str()
-    }
-    /// The message's checksum, if any.
-    pub fn checksum(&self) -> Option<u32> {
-        self.0.checksum
     }
 }
 
@@ -129,7 +123,7 @@ impl std::fmt::Display for Reply {
             write!(f, " {}", self.data())?;
         }
         Footer {
-            checksum: self.checksum(),
+            checksum: None,
         }
         .fmt(f)
     }
@@ -141,9 +135,6 @@ impl Response for Reply {
     }
     fn id(&self) -> Option<u8> {
         self.id()
-    }
-    fn checksum(&self) -> Option<u32> {
-        self.checksum()
     }
     fn data(&self) -> &str {
         self.data()
