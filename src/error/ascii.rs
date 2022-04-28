@@ -11,15 +11,11 @@ macro_rules! impl_ascii_packet {
         impl $name {
             /// Create a instance of the error
             pub(crate) fn new<R: AsRef<[u8]>>(bytes: R) -> Self {
-                $name(
-                    String::from_utf8_lossy(bytes.as_ref())
-                        .into_owned()
-                        .into_boxed_str(),
-                )
+                $name(Box::from(bytes.as_ref()))
             }
 
             /// Get the contents of the invalid packet.
-            pub fn packet(&self) -> &str {
+            pub fn packet(&self) -> &[u8] {
                 &*self.0
             }
         }
@@ -107,33 +103,33 @@ macro_rules! impl_from_specific_to_any_response {
 /// An ASCII packet was missing a start byte.
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiPacketMissingStartError(Box<str>);
+pub struct AsciiPacketMissingStartError(Box<[u8]>);
 
 impl_error_display! {
     AsciiPacketMissingStartError,
-    self => "ASCII packet missing a start byte: {}", self.0
+    self => "ASCII packet missing a start byte: {}", String::from_utf8_lossy(&self.0)
 }
 impl_ascii_packet! { AsciiPacketMissingStartError }
 
 /// An ASCII packet was missing the end byte(s).
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiPacketMissingEndError(Box<str>);
+pub struct AsciiPacketMissingEndError(Box<[u8]>);
 
 impl_error_display! {
     AsciiPacketMissingEndError,
-    self => "ASCII packet missing end byte(s): {}", self.0
+    self => "ASCII packet missing end byte(s): {}", String::from_utf8_lossy(&self.0)
 }
 impl_ascii_packet! { AsciiPacketMissingEndError }
 
 /// An ASCII packet is malformed.
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
-pub struct AsciiPacketMalformedError(Box<str>);
+pub struct AsciiPacketMalformedError(Box<[u8]>);
 
 impl_error_display! {
     AsciiPacketMalformedError,
-    self => "ASCII packet is malformed: {}", self.0
+    self => "ASCII packet is malformed: {}", String::from_utf8_lossy(&self.0)
 }
 impl_ascii_packet! { AsciiPacketMalformedError }
 
