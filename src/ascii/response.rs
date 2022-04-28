@@ -392,50 +392,6 @@ impl std::fmt::Display for Kind {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct Packet<R> {
-    /// Whether this packet completes the message.
-    ///
-    /// If the message is not complete, further content should be read from
-    /// subsequent [`Info`] messages until they are complete.
-    pub complete: bool,
-    /// The response
-    pub response: R,
-}
-
-impl std::convert::TryFrom<Packet<Reply>> for Packet<AnyResponse> {
-    type Error = <AnyResponse as std::convert::TryFrom<Reply>>::Error;
-
-    fn try_from(other: Packet<Reply>) -> Result<Self, Self::Error> {
-        Ok(Packet {
-            complete: other.complete,
-            response: AnyResponse::try_from(other.response)?,
-        })
-    }
-}
-
-impl std::convert::TryFrom<Packet<Info>> for Packet<AnyResponse> {
-    type Error = <AnyResponse as std::convert::TryFrom<Info>>::Error;
-
-    fn try_from(other: Packet<Info>) -> Result<Self, Self::Error> {
-        Ok(Packet {
-            complete: other.complete,
-            response: AnyResponse::try_from(other.response)?,
-        })
-    }
-}
-
-impl std::convert::TryFrom<Packet<Alert>> for Packet<AnyResponse> {
-    type Error = <AnyResponse as std::convert::TryFrom<Alert>>::Error;
-
-    fn try_from(other: Packet<Alert>) -> Result<Self, Self::Error> {
-        Ok(Packet {
-            complete: other.complete,
-            response: AnyResponse::try_from(other.response)?,
-        })
-    }
-}
-
 mod private {
     use super::{Alert, AnyResponse, Info, Reply};
     pub trait Sealed {}
