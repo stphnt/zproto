@@ -684,36 +684,28 @@ impl<B: Backend> Port<B> {
 
         let buf = self.backend.fill_buf()?;
         let (consumed, result) = extract_response_bytes(buf);
-        let result = result
-            .map_err(From::from)
+        let result = result.map_err(From::from).and_then(|raw_packet| {
             // Log the packet
-            .map(|raw_packet| {
-                log::debug!(
-                    "{} RX: {}",
-                    &backend_name,
-                    String::from_utf8_lossy(raw_packet).trim_end()
-                );
-                raw_packet
-            })
-            // Parse the packet. Accept any response even if it isn't the one we're expecting.
-            .and_then(|raw_packet| Packet::try_from(raw_packet).map_err(From::from))
+            log::debug!(
+                "{} RX: {}",
+                &backend_name,
+                String::from_utf8_lossy(raw_packet).trim_end()
+            );
+            // Parse the packet.
+            let packet = Packet::try_from(raw_packet).map_err(AsciiError::from)?;
             // Verify the checksum, if one exists
-            .and_then(|packet| {
-                if let Some(checksum) = packet.checksum() {
-                    if !Lrc::verify(packet.hashed_content(), checksum) {
-                        return Err(AsciiInvalidChecksumError::new(packet).into());
-                    }
+            if let Some(checksum) = packet.checksum() {
+                if !Lrc::verify(packet.hashed_content(), checksum) {
+                    return Err(AsciiInvalidChecksumError::new(packet).into());
                 }
+            }
+            // Make sure it isn't a command packet
+            if packet.kind() == PacketKind::Command {
+                Err(AsciiUnexpectedPacketError::new(packet).into())
+            } else {
                 Ok(packet)
-            })
-            // If specified, check the packet header.
-            .and_then(|packet| {
-                if packet.kind() == PacketKind::Command {
-                    Err(AsciiUnexpectedPacketError::new(packet).into())
-                } else {
-                    Ok(packet)
-                }
-            });
+            }
+        });
         self.backend.consume(consumed);
         result
     }
