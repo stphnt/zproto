@@ -30,6 +30,8 @@ pub const LINE_FEED: u8 = b'\n';
 pub trait AsciiExt {
     /// The character is a reserved character
     fn is_reserved(&self) -> bool;
+    /// The character is a word separator
+    fn is_separator(&self) -> bool;
     /// The character is the end of a packet
     fn is_packet_end(&self) -> bool;
     /// The character is the start of a packet
@@ -49,6 +51,13 @@ impl AsciiExt for u8 {
                 | CARRIAGE_RETURN
                 | LINE_FEED
         )
+    }
+
+    fn is_separator(&self) -> bool {
+        matches! {
+            *self,
+            b' ' | b'\t'
+        }
     }
 
     fn is_packet_end(&self) -> bool {
