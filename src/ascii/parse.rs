@@ -5,8 +5,8 @@ use nom::{bytes::complete::take_till, IResult};
 /// The byte preceding a checksum.
 pub const CHECKSUM_MARKER: u8 = b':';
 
-/// The byte indicating the message is continued in a subsequent info message.
-pub const CONTINUATION_MARKER: u8 = b'\\';
+/// The byte indicating the message is incomplete and continued in a subsequent info message.
+pub const MORE_PACKETS_MARKER: u8 = b'\\';
 
 /// The first byte of a command message.
 pub const COMMAND_MARKER: u8 = b'/';
@@ -41,7 +41,7 @@ impl AsciiExt for u8 {
         matches!(
             *self,
             CHECKSUM_MARKER
-                | CONTINUATION_MARKER
+                | MORE_PACKETS_MARKER
                 | COMMAND_MARKER
                 | REPLY_MARKER
                 | INFO_MARKER

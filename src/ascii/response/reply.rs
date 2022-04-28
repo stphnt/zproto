@@ -130,7 +130,7 @@ impl parse::Nom for Packet<Reply> {
                         preceded(space1, parse::take_till_reserved),
                         |bytes: &[u8]| -> Result<String, std::str::Utf8Error> {Ok(std::str::from_utf8(bytes)?.to_string())},
                     ),
-                    opt(tag(&[parse::CONTINUATION_MARKER])),
+                    opt(tag(&[parse::MORE_PACKETS_MARKER])),
                     Footer::nom,
                 )),
                 line_ending,

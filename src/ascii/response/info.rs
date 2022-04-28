@@ -66,7 +66,7 @@ impl parse::Nom for Packet<Info> {
                             Ok(std::str::from_utf8(bytes)?.to_string())
                         },
                     ),
-                    opt(tag(&[parse::CONTINUATION_MARKER])),
+                    opt(tag(&[parse::MORE_PACKETS_MARKER])),
                     Footer::nom,
                 )),
                 line_ending,
