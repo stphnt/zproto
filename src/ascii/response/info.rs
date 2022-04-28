@@ -29,6 +29,27 @@ pub(crate) struct InfoInner {
 pub struct Info(Box<InfoInner>);
 
 impl Info {
+    /// Try to convert a packet into an Info message.
+    ///
+    /// The conversion will fail if the packet is the wrong kind or if the packet
+    /// is not the start of a message. The packet does not need to complete the
+    /// message.
+    pub(crate) fn try_from_packet<T>(packet: &parse::Packet<T>) -> Result<Self, &parse::Packet<T>>
+    where
+        T: AsRef<[u8]>,
+    {
+        if packet.kind() != parse::PacketKind::Info || packet.cont() {
+            return Err(packet);
+        }
+        Ok(InfoInner {
+            target: packet.target(),
+            id: packet.id(),
+            data: packet.data().to_string(),
+            checksum: packet.checksum(),
+        }
+        .into())
+    }
+
     /// The device and axis number the Info message came from.
     pub fn target(&self) -> Target {
         self.0.target

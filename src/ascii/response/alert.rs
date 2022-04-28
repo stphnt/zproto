@@ -30,6 +30,28 @@ pub(crate) struct AlertInner {
 pub struct Alert(Box<AlertInner>);
 
 impl Alert {
+    /// Try to convert a packet into an Alert message.
+    ///
+    /// The conversion will fail if the packet is the wrong kind or if the packet
+    /// is not the start of a message. The packet does not need to complete the
+    /// message.
+    pub(crate) fn try_from_packet<T>(packet: &parse::Packet<T>) -> Result<Self, &parse::Packet<T>>
+    where
+        T: AsRef<[u8]>,
+    {
+        if packet.kind() != parse::PacketKind::Alert || packet.cont() {
+            return Err(packet);
+        }
+        Ok(AlertInner {
+            target: packet.target(),
+            status: packet.status().ok_or(packet)?,
+            warning: packet.warning().ok_or(packet)?,
+            data: packet.data().to_string(),
+            checksum: packet.checksum(),
+        }
+        .into())
+    }
+
     /// The device and axis number the Alert came from.
     pub fn target(&self) -> Target {
         self.0.target

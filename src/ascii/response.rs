@@ -380,6 +380,21 @@ pub enum AnyResponse {
 }
 
 impl AnyResponse {
+    /// Try to convert a packet into an AnyResponse message.
+    ///
+    /// The conversion will fail if the packet is the wrong kind or if the packet
+    /// is not the start of a message. The packet does not need to complete the
+    /// message.
+    pub(crate) fn try_from_packet<T>(packet: &parse::Packet<T>) -> Result<Self, &parse::Packet<T>>
+    where
+        T: AsRef<[u8]>,
+    {
+        Reply::try_from_packet(packet)
+            .map(From::from)
+            .or_else(|packet| Info::try_from_packet(packet).map(From::from))
+            .or_else(|packet| Alert::try_from_packet(packet).map(From::from))
+    }
+
     /// The kind of Zaber ASCII response.
     pub fn kind(&self) -> Kind {
         match self {
