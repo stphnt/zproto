@@ -1,7 +1,7 @@
 //! The ASCII info message type.
 
 use crate::ascii::{
-    response::{parse, AnyResponse, Footer, Header, Response, SpecificResponse},
+    response::{parse, AnyResponse, Header, Response, SpecificResponse},
     Target,
 };
 use crate::error::*;
@@ -82,10 +82,7 @@ impl std::fmt::Display for Info {
         if !self.data().is_empty() {
             write!(f, " {}", self.data())?;
         }
-        Footer {
-            checksum: None,
-        }
-        .fmt(f)
+        Ok(())
     }
 }
 

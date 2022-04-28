@@ -1,7 +1,7 @@
 //! The ASCII Alert message type.
 
 use crate::ascii::{
-    response::{parse, AnyResponse, Footer, Header, Response, SpecificResponse, Status, Warning},
+    response::{parse, AnyResponse, Header, Response, SpecificResponse, Status, Warning},
     Target,
 };
 use crate::error::*;
@@ -92,10 +92,7 @@ impl std::fmt::Display for Alert {
         if !self.data().is_empty() {
             write!(f, " {}", self.data())?;
         }
-        Footer {
-            checksum: None,
-        }
-        .fmt(f)
+        Ok(())
     }
 }
 

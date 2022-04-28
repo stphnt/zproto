@@ -226,22 +226,6 @@ impl std::fmt::Display for Header {
     }
 }
 
-/// A Zaber ASCII message footer.
-#[derive(Debug, Clone, PartialEq)]
-struct Footer {
-    /// The optional message checksum.
-    pub checksum: Option<u32>,
-}
-
-impl std::fmt::Display for Footer {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if let Some(checksum) = self.checksum {
-            write!(f, ":{:02X}", checksum)?;
-        }
-        Ok(())
-    }
-}
-
 /// Any Zaber ASCII response.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AnyResponse {
