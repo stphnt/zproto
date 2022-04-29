@@ -1,8 +1,8 @@
 error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:6:42
   |
-6 |     let _: DeviceMessage<types::Reset> = port.tx_rx((0, HOME))?;
-  |                                          ^^^^^^^^^^^^^^^^^^^^^^ expected struct `Reset`, found struct `Home`
+6 |     let _: DeviceMessage<types::Reset> = port.tx_recv((0, HOME))?;
+  |                                          ^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Reset`, found struct `Home`
   |
   = note: `?` operator cannot convert from `DeviceMessage<Home>` to `DeviceMessage<Reset>`
   = note: expected struct `DeviceMessage<Reset>`
@@ -11,8 +11,8 @@ error[E0308]: `?` operator has incompatible types
 error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:7:41
   |
-7 |     let _: DeviceMessage<types::Home> = port.tx_rx((0, untyped::HOME, 0i32))?;
-  |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Home`, found `u8`
+7 |     let _: DeviceMessage<types::Home> = port.tx_recv((0, untyped::HOME, 0i32))?;
+  |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Home`, found `u8`
   |
   = note: `?` operator cannot convert from `DeviceMessage<u8>` to `DeviceMessage<Home>`
   = note: expected struct `DeviceMessage<Home>`
@@ -21,8 +21,8 @@ error[E0308]: `?` operator has incompatible types
 error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:8:50
   |
-8 |     let _: DeviceMessage<types::ReturnSetting> = port.tx_rx((0, RETURN_SETTING, RETURN_CURRENT_POSITION))?;
-  |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `ReturnCurrentPosition`
+8 |     let _: DeviceMessage<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, RETURN_CURRENT_POSITION))?;
+  |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `ReturnCurrentPosition`
   |
   = note: `?` operator cannot convert from `DeviceMessage<ReturnCurrentPosition>` to `DeviceMessage<ReturnSetting>`
   = note: expected struct `DeviceMessage<ReturnSetting>`
@@ -31,8 +31,8 @@ error[E0308]: `?` operator has incompatible types
 error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:9:50
   |
-9 |     let _: DeviceMessage<types::ReturnSetting> = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
-  |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `SetTargetSpeed`
+9 |     let _: DeviceMessage<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
+  |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `SetTargetSpeed`
   |
   = note: `?` operator cannot convert from `DeviceMessage<SetTargetSpeed>` to `DeviceMessage<ReturnSetting>`
   = note: expected struct `DeviceMessage<ReturnSetting>`
