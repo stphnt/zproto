@@ -159,7 +159,7 @@
 pub(crate) mod checksum;
 mod command;
 mod id;
-mod parse; // Should never be public (contains private traits)
+pub mod parse;
 mod port;
 mod response;
 

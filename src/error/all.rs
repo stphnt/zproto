@@ -18,10 +18,8 @@ error_enum! {
         AsciiPacketMissingEnd(AsciiPacketMissingEndError),
         AsciiPacketMalformed(AsciiPacketMalformedError),
         AsciiInvalidChecksum(AsciiInvalidChecksumError),
-        AsciiUnexpectedTarget(AsciiUnexpectedTargetError),
-        AsciiUnexpectedId(AsciiUnexpectedIdError),
-        AsciiUnexpectedKind(AsciiUnexpectedKindError),
-        AsciiUnexpectedContinuation(AsciiUnexpectedContinuationError),
+        AsciiUnexpectedResponse(AsciiUnexpectedResponseError),
+        AsciiUnexpectedPacket(AsciiUnexpectedPacketError),
         AsciiCheckFlag(AsciiCheckFlagError),
         AsciiCheckStatus(AsciiCheckStatusError<AnyResponse>),
         AsciiCheckWarning(AsciiCheckWarningError<AnyResponse>),
@@ -39,13 +37,6 @@ error_enum! {
         PacketMalformed => AsciiPacketMalformed,
     }
 
-    impl From<AsciiUnexpectedError> {
-        Target => AsciiUnexpectedTarget,
-        Id => AsciiUnexpectedId,
-        Kind => AsciiUnexpectedKind,
-        Continuation => AsciiUnexpectedContinuation,
-    }
-
     impl From<AsciiError> {
         SerialDeviceInUseOrDisconnected => SerialDeviceInUseOrDisconnected,
         Io => Io,
@@ -53,10 +44,8 @@ error_enum! {
         PacketMissingEnd => AsciiPacketMissingEnd,
         PacketMalformed => AsciiPacketMalformed,
         InvalidChecksum => AsciiInvalidChecksum,
-        UnexpectedTarget => AsciiUnexpectedTarget,
-        UnexpectedId => AsciiUnexpectedId,
-        UnexpectedKind => AsciiUnexpectedKind,
-        UnexpectedContinuation => AsciiUnexpectedContinuation,
+        UnexpectedResponse => AsciiUnexpectedResponse,
+        UnexpectedPacket => AsciiUnexpectedPacket,
         CheckFlag => AsciiCheckFlag,
         CheckStatus => AsciiCheckStatus,
         CheckWarning => AsciiCheckWarning,
@@ -118,7 +107,6 @@ mod test {
 
     // Make sure that error enum types are properly convertible
     assert_impl_all!(Error: From<AsciiProtocolError>);
-    assert_impl_all!(Error: From<AsciiUnexpectedError>);
     assert_impl_all!(Error: From<AsciiCheckError<AnyResponse>>);
     assert_impl_all!(Error: From<AsciiCheckError<Reply>>);
     assert_impl_all!(Error: From<AsciiCheckError<Info>>);
@@ -129,7 +117,6 @@ mod test {
     assert_impl_all!(AsciiError: TryFrom<Error>);
 
     assert_impl_all!(AsciiProtocolError: TryFrom<Error>);
-    assert_impl_all!(AsciiUnexpectedError: TryFrom<Error>);
     assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<Error>);
 
     assert_impl_all!(BinaryError: TryFrom<Error>);

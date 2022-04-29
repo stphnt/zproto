@@ -572,20 +572,18 @@ impl<T: WarningList> WarningList for &T {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ascii::{Packet, Reply};
+    use crate::ascii::{parse::Packet, Reply};
 
     #[test]
     fn test() {
-        use std::convert::TryFrom as _;
-
         let checker = all((
             flag_is(Flag::Ok),
             warning_in(&["--"]),
             status_is(Status::Busy),
         ));
 
-        let Packet { response, .. } =
-            Packet::<Reply>::try_from("@01 1 12 OK BUSY -- 0\r\n").unwrap();
+        let packet = Packet::new_ref(b"@01 1 12 OK BUSY -- 0\r\n").unwrap();
+        let response = Reply::try_from_packet(&packet).unwrap();
         let result = dbg!(checker.check(response));
         assert!(result.is_ok())
     }

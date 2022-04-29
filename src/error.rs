@@ -7,9 +7,9 @@
 //! higher level enums, allowing them to be used with `?`:
 //!
 //! ```
-//! use zproto::error::{AsciiUnexpectedError, Error};
+//! use zproto::error::{AsciiProtocolError, Error};
 //!
-//! fn foo() -> Result<(), AsciiUnexpectedError> {
+//! fn foo() -> Result<(), AsciiProtocolError> {
 //!     // ...
 //! # unimplemented!();
 //! }
@@ -25,10 +25,10 @@
 //! [`From`]/[`Into`] to retrieve the offending response.
 //!
 //! ```
-//! # use zproto::{ascii, error::AsciiUnexpectedError};
+//! # use zproto::{ascii, error::AsciiUnexpectedResponseError};
 //! #
 //! # fn wrapper() {
-//! let error: AsciiUnexpectedError = //...
+//! let error: AsciiUnexpectedResponseError = //...
 //! # todo!();
 //! let response: &ascii::AnyResponse = error.as_ref();
 //! // OR

@@ -6,10 +6,14 @@ use crate::ascii::Alert;
 use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
-    ascii::check,
-    ascii::checksum::Lrc,
-    ascii::id,
-    ascii::{AnyResponse, Command, CommandInstance, Info, Packet, Reply, Response, Status, Target},
+    ascii::{
+        check,
+        checksum::Lrc,
+        id,
+        parse::{Packet, PacketKind},
+        AnyResponse, Command, CommandInstance, Info, Reply, Response, ResponseBuilder, Status,
+        Target,
+    },
     error::*,
     timeout_guard::TimeoutGuard,
 };
@@ -275,6 +279,8 @@ pub struct Port<B> {
     /// certainly cause the program to abort rather than unwind the stack) it
     /// can poison the port.
     poison: Option<io::Error>,
+    /// The builder used to concatenate packets in to responses.
+    builder: ResponseBuilder,
 }
 
 impl Port<Serial> {
@@ -339,6 +345,7 @@ impl<B: Backend> Port<B> {
             generate_id,
             generate_checksum,
             poison: None,
+            builder: ResponseBuilder::default(),
         }
     }
 
@@ -429,7 +436,16 @@ impl<B: Backend> Port<B> {
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.internal_response_with_check(|_| Some((cmd.target(), id)), checker)
+        self.builder.clear();
+        let response = self.internal_response_with_check(
+            |_| HeaderCheckAction::Check {
+                target: cmd.target(),
+                id,
+            },
+            checker,
+        )?;
+        self.handle_extra_data()?;
+        Ok(response)
     }
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
@@ -448,10 +464,9 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Errors
     ///
-    /// If any response other than the single reply and info messages elicited
-    /// by the command are received, an [`AsciiUnexpected*`](AsciiUnexpectedError)
-    /// is returned. If a reply to the final empty command is never received, an
-    /// [`Error`] indicating a timeout is returned.
+    /// An error is returned if
+    ///   * any response other than the single reply and info messages elicited by the command are received or
+    ///   * a reply to the final empty command is never received.
     ///
     /// ## Example
     /// ```rust
@@ -513,20 +528,27 @@ impl<B: Backend> Port<B> {
         let sentinel_id = sentinel_id?;
         let mut infos = Vec::new();
         let header_check = |response: &AnyResponse| match response {
-            AnyResponse::Info(_) => Some((target, reply.id())),
-            AnyResponse::Reply(_) => Some((target, sentinel_id)),
-            _ => None,
+            AnyResponse::Info(_) => HeaderCheckAction::Check {
+                target,
+                id: reply.id(),
+            },
+            AnyResponse::Reply(_) => HeaderCheckAction::Check {
+                target,
+                id: sentinel_id,
+            },
+            _ => HeaderCheckAction::Unexpected,
         };
         loop {
-            match self.internal_response_with_check(header_check, gen_new_checker(&checker))? {
+            match self.internal_response_with_check(&header_check, gen_new_checker(&checker))? {
                 AnyResponse::Info(info) => infos.push(info),
                 AnyResponse::Reply(_) => {
                     // This is the reply we've been waiting for. Stop.
                     break;
                 }
-                response => return Err(AsciiUnexpectedKindError::new(response).into()),
+                _ => unreachable!(),
             }
         }
+        self.handle_extra_data()?;
         Ok((reply, infos))
     }
 
@@ -576,8 +598,16 @@ impl<B: Backend> Port<B> {
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        let replies =
-            self.internal_response_n_with_check(n, |_| Some((cmd.target(), id)), checker)?;
+        self.builder.clear();
+        let replies = self.internal_response_n_with_check(
+            n,
+            |_| HeaderCheckAction::Check {
+                target: cmd.target(),
+                id,
+            },
+            checker,
+        )?;
+        self.handle_extra_data()?;
         Ok(replies)
     }
 
@@ -628,24 +658,23 @@ impl<B: Backend> Port<B> {
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.internal_responses_until_timeout_with_check(|_| Some((cmd.target(), id)), checker)
+        self.builder.clear();
+        let response = self.internal_responses_until_timeout_with_check(
+            |_| HeaderCheckAction::Check {
+                target: cmd.target(),
+                id,
+            },
+            checker,
+        )?;
+        self.handle_extra_data()?;
+        Ok(response)
     }
 
     /// Receive a response [`Packet`]
     ///
-    /// The packet's LRC is verified, then the header is validated using `header_check`, and finally the packet is
-    /// converted to the appropriate kind.
+    /// The packet's LRC is verified, and guaranteed not to be a Command packet.
     /// The contents of the packet are otherwise unchecked.
-    ///
-    /// If `header_check` should return `None`, the header will not be validated. Otherwise the header will be validated
-    /// against the target and optional message ID `header_check` returns. The target should be that of the command that
-    /// *elicited* the response packet.
-    fn response_packet<R, F>(&mut self, mut header_check: F) -> Result<Packet<R>, AsciiError>
-    where
-        R: Response,
-        AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
-        F: FnMut(&AnyResponse) -> Option<(Target, Option<u8>)>,
-    {
+    fn response_packet(&mut self) -> Result<Packet, AsciiError> {
         let backend_name = self
             .backend
             .get_ref()
@@ -654,104 +683,79 @@ impl<B: Backend> Port<B> {
 
         let buf = self.backend.fill_buf()?;
         let (consumed, result) = extract_response_bytes(buf);
-        let result = result
-            .map_err(From::from)
+        let result = result.map_err(From::from).and_then(|raw_packet| {
             // Log the packet
-            .map(|raw_packet| {
-                log::debug!(
-                    "{} RX: {}",
-                    &backend_name,
-                    String::from_utf8_lossy(raw_packet).trim_end()
-                );
-                raw_packet
-            })
-            // Parse the packet. Accept any response even if it isn't the one we're expecting.
-            .and_then(|raw_packet| Ok((raw_packet, Packet::<AnyResponse>::try_from(raw_packet)?)))
+            log::debug!(
+                "{} RX: {}",
+                &backend_name,
+                String::from_utf8_lossy(raw_packet).trim_end()
+            );
+            // Parse the packet.
+            let packet = Packet::try_from(raw_packet).map_err(AsciiError::from)?;
             // Verify the checksum, if one exists
-            .and_then(|(raw_packet, packet)| {
-                if let Some(checksum) = packet.response.checksum() {
-                    if !Lrc::verify_packet(raw_packet, checksum) {
-                        return Err(AsciiInvalidChecksumError::new(packet.response).into());
-                    }
+            if let Some(checksum) = packet.checksum() {
+                if !Lrc::verify(packet.hashed_content(), checksum) {
+                    return Err(AsciiInvalidChecksumError::new(packet).into());
                 }
+            }
+            // Make sure it isn't a command packet
+            if packet.kind() == PacketKind::Command {
+                Err(AsciiUnexpectedPacketError::new(packet).into())
+            } else {
                 Ok(packet)
-            })
-            // If specified, check the packet header.
-            .and_then(|packet| {
-                if let Some((target, id)) = header_check(&packet.response) {
-                    if !packet.response.target().elicited_by_command_to(target) {
-                        Err(AsciiUnexpectedTargetError::new(packet.response).into())
-                    } else if packet.response.id() != id {
-                        Err(AsciiUnexpectedIdError::new(packet.response).into())
-                    } else {
-                        Ok(packet)
-                    }
-                } else {
-                    Ok(packet)
-                }
-            })
-            // Try to convert to the message kind we want.
-            .and_then(|packet| {
-                Ok(Packet {
-                    complete: packet.complete,
-                    response: R::try_from(packet.response)
-                        .map_err(AsciiUnexpectedKindError::new)?,
-                })
-            });
+            }
+        });
         self.backend.consume(consumed);
         result
+    }
+
+    /// Read packets until we build up a complete response message.
+    fn build_response(&mut self) -> Result<AnyResponse, AsciiError> {
+        loop {
+            // See if we already have a response built.
+            if let Some(response) = self.builder.get_complete_response() {
+                return Ok(response);
+            }
+
+            // There is no response built so we we need to read in another packet.
+            // If doing so causes the port to timeout, or produce any other error,
+            // we should report it immediately. At most we have a partially
+            // completed response that will be lost.
+            let packet = self.response_packet()?;
+            self.builder.push(packet)?;
+        }
     }
 
     /// Receive a response.
     ///
     /// If the response is spread across multiple packets, continuation packets will be read.
-    /// `header_check` should be a function that produces data for validating the response's header. See
-    /// [`response_packet`] for more details.
+    /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
     /// `checker` to validate the contents of the message.
     fn internal_response_with_check<R, F, K>(
         &mut self,
-        header_check: F,
+        mut header_check: F,
         checker: K,
     ) -> Result<R, AsciiError>
     where
         R: Response,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
-        F: FnMut(&AnyResponse) -> Option<(Target, Option<u8>)>,
+        F: FnMut(&AnyResponse) -> HeaderCheckAction,
         K: check::Check<R>,
     {
         self.check_poisoned()?;
-
-        let mut packet = self.response_packet::<AnyResponse, _>(header_check)?;
-
-        while !packet.complete {
-            // Read all subsequent Info message packets until they are complete
-            let continuation = self.response_packet::<Info, _>(|_| {
-                Some((packet.response.target(), packet.response.id()))
-            })?;
-            let cont_data = continuation.response.data();
-            if let Some(rest) = cont_data.strip_prefix("cont ") {
-                let data = packet.response.data_mut();
-                if !data.is_empty() {
-                    data.push(' ');
-                }
-                data.push_str(rest);
-                packet.complete = continuation.complete;
-            } else {
-                return Err(AsciiUnexpectedContinuationError::new(continuation.response).into());
-            }
-        }
-        let response = R::try_from(packet.response).map_err(AsciiUnexpectedKindError::new)?;
+        let mut response = self.build_response()?;
+        response = header_check(&response).check(response)?;
+        let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
         checker.check(response).map_err(Into::into)
     }
 
     /// Receive `n` responses.
     ///
     /// If any response is spread across multiple packets, continuation packets will be read.
-    /// `header_check` should be a function that produces data for validating the response's header. See
-    /// [`response_packet`] for more details.
+    /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
     /// `checker` to validate the contents of the message.
@@ -765,7 +769,7 @@ impl<B: Backend> Port<B> {
         R: Response,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
-        F: FnMut(&AnyResponse) -> Option<(Target, Option<u8>)>,
+        F: FnMut(&AnyResponse) -> HeaderCheckAction,
         K: check::Check<R>,
     {
         #[inline]
@@ -780,14 +784,14 @@ impl<B: Backend> Port<B> {
                 self.internal_response_with_check(|r| header_check(r), gen_new_checker(&checker))?,
             );
         }
+        self.handle_extra_data()?;
         Ok(responses)
     }
 
     /// Receive responses until the port times out.
     ///
     /// If any response is spread across multiple packets, continuation packets will be read.
-    /// `header_check` should be a function that produces data for validating the response's header. See
-    /// [`response_packet`] for more details.
+    /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
     /// `checker` to validate the contents of the message.
@@ -800,7 +804,7 @@ impl<B: Backend> Port<B> {
         R: Response,
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
-        F: FnMut(&AnyResponse) -> Option<(Target, Option<u8>)>,
+        F: FnMut(&AnyResponse) -> HeaderCheckAction,
         K: check::Check<R>,
     {
         #[inline]
@@ -811,13 +815,33 @@ impl<B: Backend> Port<B> {
         }
         let mut responses = Vec::new();
         loop {
-            match self.internal_response_with_check(|r| header_check(r), gen_new_checker(&check)) {
+            match self.internal_response_with_check(
+                |response| header_check(response),
+                gen_new_checker(&check),
+            ) {
                 Ok(r) => responses.push(r),
                 Err(e) if e.is_timeout() => break,
                 Err(e) => return Err(e),
             }
         }
         Ok(responses)
+    }
+
+    /// If the builder has any remaining data, raise an error. Otherwise,
+    /// do nothing.
+    ///
+    /// All data in the builder will be removed.
+    fn handle_extra_data(&mut self) -> Result<(), AsciiError> {
+        if let Some(response) = self.builder.get_complete_response() {
+            self.builder.clear();
+            return Err(AsciiUnexpectedResponseError::new(response).into());
+        }
+        if let Some(packet) = self.builder.get_incomplete_response_packet() {
+            self.builder.clear();
+            return Err(AsciiUnexpectedPacketError::new(packet).into());
+        }
+        // There must not be any data remaining.
+        Ok(())
     }
 
     /// Receive a response and check it with the [`default`](check::default) checks.
@@ -842,7 +866,11 @@ impl<B: Backend> Port<B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_response_with_check(|_| None, check::default())
+        self.builder.clear();
+        let response =
+            self.internal_response_with_check(|_| HeaderCheckAction::DoNotCheck, check::default())?;
+        self.handle_extra_data()?;
+        Ok(response)
     }
 
     /// Same as [`Port::response`] except that the response is validated with the custom [`Check`](check::Check).
@@ -864,7 +892,11 @@ impl<B: Backend> Port<B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_response_with_check(|_| None, checker)
+        self.builder.clear();
+        let response =
+            self.internal_response_with_check(|_| HeaderCheckAction::DoNotCheck, checker)?;
+        self.handle_extra_data()?;
+        Ok(response)
     }
 
     /// Receive `n` responses and check each one with the [`default`](check::default) checks.
@@ -888,7 +920,14 @@ impl<B: Backend> Port<B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_response_n_with_check(n, |_| None, check::default())
+        self.builder.clear();
+        let response = self.internal_response_n_with_check(
+            n,
+            |_| HeaderCheckAction::DoNotCheck,
+            check::default(),
+        )?;
+        self.handle_extra_data()?;
+        Ok(response)
     }
 
     /// Same as [`Port::response_n`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -915,7 +954,11 @@ impl<B: Backend> Port<B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_response_n_with_check(n, |_| None, checker)
+        self.builder.clear();
+        let response =
+            self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, checker)?;
+        self.handle_extra_data()?;
+        Ok(response)
     }
 
     /// Receive responses until the port times out and check each one with the [`default`](check::default) checks.
@@ -940,7 +983,13 @@ impl<B: Backend> Port<B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_responses_until_timeout_with_check(|_| None, check::default())
+        self.builder.clear();
+        let response = self.internal_responses_until_timeout_with_check(
+            |_| HeaderCheckAction::DoNotCheck,
+            check::default(),
+        )?;
+        self.handle_extra_data()?;
+        Ok(response)
     }
 
     /// Same as [`Port::responses_until_timeout`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -966,7 +1015,13 @@ impl<B: Backend> Port<B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_responses_until_timeout_with_check(|_| None, check)
+        self.builder.clear();
+        let responses = self.internal_responses_until_timeout_with_check(
+            |_| HeaderCheckAction::DoNotCheck,
+            check,
+        )?;
+        self.handle_extra_data()?;
+        Ok(responses)
     }
 
     /// Send the specified command repeatedly until the predicate returns true for a reply.
@@ -1155,6 +1210,33 @@ fn extract_response_bytes(buf: &[u8]) -> (usize, Result<&[u8], AsciiProtocolErro
     }
 }
 
+#[derive(Debug, Clone)]
+enum HeaderCheckAction {
+    /// Check the response against the specified target and optional message ID.
+    Check { target: Target, id: Option<u8> },
+    /// Do not check the response's header
+    DoNotCheck,
+    /// The response is unexpected, return an error.
+    Unexpected,
+}
+
+impl HeaderCheckAction {
+    fn check(&self, response: AnyResponse) -> Result<AnyResponse, AsciiError> {
+        use HeaderCheckAction::*;
+        match self {
+            Check { target, id } => {
+                if !response.target().elicited_by_command_to(*target) || response.id() != *id {
+                    Err(AsciiUnexpectedResponseError::new(response).into())
+                } else {
+                    Ok(response)
+                }
+            }
+            Unexpected => Err(AsciiUnexpectedResponseError::new(response).into()),
+            DoNotCheck => Ok(response),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{
@@ -1240,21 +1322,51 @@ mod test {
             .append_data(b"@01 0 OK IDLE -- 0\r\n");
         let reply = port.command_reply("").unwrap();
         assert_eq!(reply.target(), (1, 0).into());
+
+        // Multi-packet Reply
+        {
+            let backend = port.backend.get_mut();
+            backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
+            backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
+            backend.append_data(b"#01 0 cont part3\r\n");
+        }
+        let reply = port.command_reply("").unwrap();
+        assert_eq!(reply.data(), "part1 part2a part2b part3");
     }
 
     #[test]
     fn command_reply_fail() {
         let mut port = Port::open_mock();
 
-        // UnexpectedKind errors come before Check* errors.
+        // Incorrect kind
         port.backend.get_mut().append_data(b"!01 0 IDLE FF 0\r\n");
         let err = port.command_reply("").unwrap_err();
-        assert!(matches!(err, AsciiError::UnexpectedKind(_)));
+        assert!(matches!(err, AsciiError::UnexpectedResponse(_)), "{err:?}");
 
-        // UnexpectedTarget comes before UnexpectedKind/Check* errors.
+        // Incorrect target
         port.backend.get_mut().append_data(b"!02 0 IDLE FF 0\r\n");
         let err = port.command_reply((1, "")).unwrap_err();
-        assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
+        assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
+
+        // Unexpected Alert interleaved in reply packets.
+        {
+            let backend = port.backend.get_mut();
+            backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
+            backend.append_data(b"!02 0 IDLE -- 0\r\n");
+            backend.append_data(b"#01 0 cont part2\r\n");
+        }
+        let err = port.command_reply((1, "")).unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
+
+        // Unexpected and incomplete Alert interleaved in reply packets.
+        {
+            let backend = port.backend.get_mut();
+            backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
+            backend.append_data(b"!02 0 IDLE -- something\\\r\n");
+            backend.append_data(b"#01 0 cont part2\r\n");
+        }
+        let err = port.command_reply((1, "")).unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
     }
 
     #[test]
@@ -1266,6 +1378,18 @@ mod test {
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
         let _ = port.command_reply_n("", 2).unwrap();
+
+        // Interleaved multi-packet replies
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 1part1\\\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 2part1\\\r\n");
+            buf.append_data(b"#02 0 cont 2part2\r\n");
+            buf.append_data(b"#01 0 cont 1part2\r\n");
+        }
+        let replies = port.command_reply_n("", 2).unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
     }
 
     #[test]
@@ -1279,6 +1403,15 @@ mod test {
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
         let err = port.command_reply_n("", 3).unwrap_err();
+        assert!(err.is_timeout());
+
+        // Timeout waiting for non-existent packet.
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\\\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let err = port.command_reply_n("", 2).unwrap_err();
         assert!(err.is_timeout());
     }
 
@@ -1295,6 +1428,50 @@ mod test {
     }
 
     #[test]
+    fn command_replies_mixed_cont_until_timeout_ok() {
+        let expected = &["part 1a part 1b", "part 2a part 2b"];
+
+        let mut port = Port::open_mock();
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
+            buf.append_data(b"#01 0 cont part 1b\r\n");
+            buf.append_data(b"#02 0 cont part 2b\r\n");
+        }
+        let replies = port.command_replies_until_timeout("").unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, expected);
+
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
+            buf.append_data(b"#02 0 cont part 2b\r\n");
+            buf.append_data(b"#01 0 cont part 1b\r\n");
+        }
+        let replies = port.command_replies_until_timeout("").unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        // When the continuations come shouldn't change the response order.
+        assert_eq!(reply_data, expected);
+
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
+            buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
+            buf.append_data(b"#02 0 cont part 2b\r\n");
+            buf.append_data(b"#01 0 cont part 1b\r\n");
+        }
+        let replies = port.command_replies_until_timeout("").unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        // The initial packet order should change the response order.
+        assert_eq!(
+            reply_data,
+            expected.iter().copied().rev().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn command_replies_until_timeout_fail() {
         let mut port = Port::open_mock();
         {
@@ -1306,8 +1483,7 @@ mod test {
         let err = port
             .command_replies_until_timeout(((0, 1), "get pos")) // To all first axes
             .unwrap_err();
-        // UnexpectedTarget should take precedence over UnexpectedKind
-        assert!(matches!(err, AsciiError::UnexpectedTarget(_)));
+        assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
     }
 
     #[test]
@@ -1320,7 +1496,20 @@ mod test {
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
         let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
-        assert_eq!(replies.len(), 2);
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, &["0", "0"]);
+
+        // Multi-packet info messages
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"#01 0 part 1a\\\r\n");
+            buf.append_data(b"#02 0 part 2a\\\r\n");
+            buf.append_data(b"#01 0 cont part 1b\r\n");
+            buf.append_data(b"#02 0 cont part 2b\r\n");
+        }
+        let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, &["part 1a part 1b", "part 2a part 2b"]);
     }
 
     #[test]
@@ -1335,8 +1524,18 @@ mod test {
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
         let err = port.responses_until_timeout::<Reply>().unwrap_err();
-        assert!(matches!(err, AsciiError::UnexpectedKind(_)));
+        assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
+        // Can read the final reply
         let _ = port.response::<Reply>().unwrap();
+
+        // Invalid continuation packet
+        {
+            let buf = port.backend.get_mut();
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"#01 0 cont something\r\n");
+        }
+        let err = port.responses_until_timeout::<Reply>().unwrap_err();
+        assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
     }
 
     /// Ensure that setting explicit types is possible for all `*_with_check`

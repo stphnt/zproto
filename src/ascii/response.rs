@@ -1,28 +1,18 @@
 //! Types and traits for parsing ASCII response messages.
 
 mod alert;
+mod builder;
 pub mod check;
 mod info;
 mod reply;
 pub use alert::*;
+pub(crate) use builder::ResponseBuilder;
 pub use info::*;
 pub use reply::*;
 
 use crate::error::*;
 
 use crate::ascii::{parse, Target};
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{digit1, hex_digit1, space1},
-    combinator::{map_res, opt},
-    sequence::{preceded, tuple},
-};
-
-/// Convert a `nom::error::Error` into a `AsciiProtocolError`
-fn protocol_error_from_nom_error(nom_err: nom::error::Error<&[u8]>) -> AsciiProtocolError {
-    AsciiPacketMalformedError::new(nom_err.input).into()
-}
 
 /// A trait that is implemented by ASCII response messages.
 pub trait Response:
@@ -36,8 +26,6 @@ pub trait Response:
     fn target(&self) -> Target;
     /// Return the message's ID, if there is one.
     fn id(&self) -> Option<u8>;
-    /// Return the message's checksum, if there is one.
-    fn checksum(&self) -> Option<u32>;
     /// Return the message's data.
     fn data(&self) -> &str;
     /// Return a mutable reference the message's data
@@ -112,42 +100,16 @@ pub enum Status {
     Idle,
 }
 
-impl parse::Nom for Status {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(
-            parse::take_till_tab_space_reserved,
-            |bytes: &[u8]| match bytes {
-                b"IDLE" => Ok(Status::Idle),
-                b"BUSY" => Ok(Status::Busy),
-                _ => Err(()),
-            },
-        )(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Status {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Status {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
-    }
+impl Status {
+    pub(crate) const BUSY_STR: &'static str = "BUSY";
+    pub(crate) const IDLE_STR: &'static str = "IDLE";
 }
 
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Status::Busy => write!(f, "BUSY"),
-            Status::Idle => write!(f, "IDLE"),
+            Status::Busy => write!(f, "{}", Status::BUSY_STR),
+            Status::Idle => write!(f, "{}", Status::IDLE_STR),
         }
     }
 }
@@ -192,22 +154,6 @@ impl AsRef<[u8]> for Warning {
     }
 }
 
-impl parse::Nom for Warning {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(parse::take_till_tab_space_reserved, |bytes: &[u8]| {
-            use std::convert::TryInto as _;
-
-            if bytes.len() == 2 {
-                // It is safe to unwrap here because we have guaranteed
-                // above that the slice size matches the array.
-                Ok(Warning(bytes.try_into().unwrap()))
-            } else {
-                Err(())
-            }
-        })(input)
-    }
-}
-
 impl std::convert::From<[u8; 2]> for Warning {
     fn from(bytes: [u8; 2]) -> Self {
         Warning(bytes)
@@ -220,21 +166,26 @@ impl std::convert::From<&[u8; 2]> for Warning {
     }
 }
 
-impl std::convert::TryFrom<&[u8]> for Warning {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
+impl<'a> std::convert::TryFrom<&'a [u8]> for Warning {
+    type Error = &'a [u8];
+
+    fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+        use std::convert::TryInto as _;
+
+        if bytes.len() == 2 {
+            // It is safe to unwrap here because we have guaranteed that the
+            // slice size matches the array size.
+            Ok(Warning(bytes.try_into().unwrap()))
+        } else {
+            Err(bytes)
+        }
     }
 }
 
-impl std::convert::TryFrom<&str> for Warning {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
+impl<'a> std::convert::TryFrom<&'a str> for Warning {
+    type Error = &'a str;
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        TryFrom::<&'a [u8]>::try_from(s.as_bytes()).map_err(|_| s)
     }
 }
 
@@ -270,99 +221,11 @@ struct Header {
     pub id: Option<u8>,
 }
 
-impl parse::Nom for Header {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(
-            tuple((
-                // The address
-                map_res(digit1, parse::u8_from_base_10),
-                // The axis
-                map_res(preceded(space1, digit1), parse::u8_from_base_10),
-                // The optional
-                opt(map_res(preceded(space1, digit1), parse::u8_from_base_10)),
-            )),
-            |(address, axis, id)| -> Result<Header, ()> { Ok(Header { address, axis, id }) },
-        )(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Header {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Header {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
-    }
-}
-
 impl std::fmt::Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:02} {}", self.address, self.axis)?;
         if let Some(id) = self.id {
             write!(f, " {:02}", id)?;
-        }
-        Ok(())
-    }
-}
-
-/// A Zaber ASCII message footer.
-#[derive(Debug, Clone, PartialEq)]
-struct Footer {
-    /// The optional message checksum.
-    pub checksum: Option<u32>,
-}
-
-impl parse::Nom for Footer {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        map_res(
-            opt(preceded(tag(&[parse::CHECKSUM_MARKER]), hex_digit1)),
-            |bytes: Option<&[u8]>| -> Result<Footer, std::num::ParseIntError> {
-                match bytes {
-                    Some(bytes) => Ok(Footer {
-                        checksum: {
-                            let s = std::str::from_utf8(bytes).unwrap_or("");
-                            let checksum = u32::from_str_radix(s, 16)?;
-                            Some(checksum)
-                        },
-                    }),
-                    None => Ok(Footer { checksum: None }),
-                }
-            },
-        )(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Footer {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Footer {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
-    }
-}
-
-impl std::fmt::Display for Footer {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if let Some(checksum) = self.checksum {
-            write!(f, ":{:02X}", checksum)?;
         }
         Ok(())
     }
@@ -380,6 +243,21 @@ pub enum AnyResponse {
 }
 
 impl AnyResponse {
+    /// Try to convert a packet into an AnyResponse message.
+    ///
+    /// The conversion will fail if the packet is the wrong kind or if the packet
+    /// is not the start of a message. The packet does not need to complete the
+    /// message.
+    pub(crate) fn try_from_packet<T>(packet: &parse::Packet<T>) -> Result<Self, &parse::Packet<T>>
+    where
+        T: AsRef<[u8]>,
+    {
+        Reply::try_from_packet(packet)
+            .map(From::from)
+            .or_else(|packet| Info::try_from_packet(packet).map(From::from))
+            .or_else(|packet| Alert::try_from_packet(packet).map(From::from))
+    }
+
     /// The kind of Zaber ASCII response.
     pub fn kind(&self) -> Kind {
         match self {
@@ -434,35 +312,6 @@ impl std::convert::From<Alert> for AnyResponse {
     }
 }
 
-impl parse::Nom for Packet<AnyResponse> {
-    fn nom(input: &[u8]) -> nom::IResult<&[u8], Self> {
-        alt((
-            // Try to parse the most common responses first to avoid doing extra work
-            map_res(Packet::<Reply>::nom, Packet::<AnyResponse>::try_from),
-            map_res(Packet::<Info>::nom, Packet::<AnyResponse>::try_from),
-            map_res(Packet::<Alert>::nom, Packet::<AnyResponse>::try_from),
-        ))(input)
-    }
-}
-
-impl std::convert::TryFrom<&[u8]> for Packet<AnyResponse> {
-    type Error = AsciiProtocolError;
-    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        use nom::Finish as _;
-        <Self as parse::Nom>::nom(bytes)
-            .finish()
-            .map(|(_, value)| value)
-            .map_err(protocol_error_from_nom_error)
-    }
-}
-
-impl std::convert::TryFrom<&str> for Packet<AnyResponse> {
-    type Error = AsciiProtocolError;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        Self::try_from(s.as_bytes())
-    }
-}
-
 impl std::fmt::Display for AnyResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -486,13 +335,6 @@ impl Response for AnyResponse {
             AnyResponse::Reply(reply) => reply.id(),
             AnyResponse::Info(info) => info.id(),
             AnyResponse::Alert(alert) => alert.id(),
-        }
-    }
-    fn checksum(&self) -> Option<u32> {
-        match self {
-            AnyResponse::Reply(reply) => reply.checksum(),
-            AnyResponse::Info(info) => info.checksum(),
-            AnyResponse::Alert(alert) => alert.checksum(),
         }
     }
     fn data(&self) -> &str {
@@ -550,47 +392,17 @@ impl std::fmt::Display for Kind {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct Packet<R> {
-    /// Whether this packet completes the message.
-    ///
-    /// If the message is not complete, further content should be read from
-    /// subsequent [`Info`] messages until they are complete.
-    pub complete: bool,
-    /// The response
-    pub response: R,
-}
+impl TryFrom<parse::PacketKind> for Kind {
+    type Error = parse::PacketKind;
 
-impl std::convert::TryFrom<Packet<Reply>> for Packet<AnyResponse> {
-    type Error = <AnyResponse as std::convert::TryFrom<Reply>>::Error;
-
-    fn try_from(other: Packet<Reply>) -> Result<Self, Self::Error> {
-        Ok(Packet {
-            complete: other.complete,
-            response: AnyResponse::try_from(other.response)?,
-        })
-    }
-}
-
-impl std::convert::TryFrom<Packet<Info>> for Packet<AnyResponse> {
-    type Error = <AnyResponse as std::convert::TryFrom<Info>>::Error;
-
-    fn try_from(other: Packet<Info>) -> Result<Self, Self::Error> {
-        Ok(Packet {
-            complete: other.complete,
-            response: AnyResponse::try_from(other.response)?,
-        })
-    }
-}
-
-impl std::convert::TryFrom<Packet<Alert>> for Packet<AnyResponse> {
-    type Error = <AnyResponse as std::convert::TryFrom<Alert>>::Error;
-
-    fn try_from(other: Packet<Alert>) -> Result<Self, Self::Error> {
-        Ok(Packet {
-            complete: other.complete,
-            response: AnyResponse::try_from(other.response)?,
-        })
+    fn try_from(other: parse::PacketKind) -> Result<Self, Self::Error> {
+        use parse::PacketKind as PK;
+        match other {
+            PK::Command => Err(other),
+            PK::Reply => Ok(Kind::Reply),
+            PK::Info => Ok(Kind::Info),
+            PK::Alert => Ok(Kind::Alert),
+        }
     }
 }
 
@@ -602,219 +414,4 @@ mod private {
     impl Sealed for Alert {}
     impl Sealed for Info {}
     impl Sealed for AnyResponse {}
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::ascii::parse::Nom as _;
-
-    #[test]
-    fn test_response_nom() {
-        struct TestCase {
-            input: &'static [u8],
-            expect: nom::IResult<&'static [u8], Packet<AnyResponse>>,
-        }
-
-        let cases = &[
-            TestCase {
-                input: b"@01 1 OK IDLE -- 0\r\nextra ",
-                expect: Ok((
-                    b"extra ",
-                    Packet {
-                        complete: true,
-                        response: AnyResponse::Reply(
-                            ReplyInner {
-                                target: Target(1, 1),
-                                id: None,
-                                flag: Flag::Ok,
-                                status: Status::Idle,
-                                warning: Warning([b'-', b'-']),
-                                data: "0".to_string(),
-                                checksum: None,
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-            TestCase {
-                input: b"@01 1 OK IDLE FF \r\n",
-                expect: Ok((
-                    b"",
-                    Packet {
-                        complete: true,
-                        response: AnyResponse::Reply(
-                            ReplyInner {
-                                target: Target(1, 1),
-                                id: None,
-                                flag: Flag::Ok,
-                                status: Status::Idle,
-                                warning: Warning([b'F', b'F']),
-                                data: "".to_string(),
-                                checksum: None,
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-            TestCase {
-                input: b"@01 1 OK IDLE -- 0\\:AB\r\n",
-                expect: Ok((
-                    b"",
-                    Packet {
-                        complete: false,
-                        response: AnyResponse::Reply(
-                            ReplyInner {
-                                target: Target(1, 1),
-                                id: None,
-                                flag: Flag::Ok,
-                                status: Status::Idle,
-                                warning: Warning([b'-', b'-']),
-                                data: "0".to_string(),
-                                checksum: Some(171),
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-            TestCase {
-                input: b"@01 1 12 OK IDLE -- 0\\:AB\r\n",
-                expect: Ok((
-                    b"",
-                    Packet {
-                        complete: false,
-                        response: AnyResponse::Reply(
-                            ReplyInner {
-                                target: Target(1, 1),
-                                id: Some(12),
-                                flag: Flag::Ok,
-                                status: Status::Idle,
-                                warning: Warning([b'-', b'-']),
-                                data: "0".to_string(),
-                                checksum: Some(171),
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-            TestCase {
-                input: b"@01 OK IDLE -- 0\r\n", // Missing axis number
-                expect: Err(nom::Err::Error(nom::error::Error::new(
-                    b"@01 OK IDLE -- 0\r\n",
-                    nom::error::ErrorKind::Tag,
-                ))),
-            },
-            TestCase {
-                input: b"@01 2 ok IDLE -- 0\r\n", // Invalid flag
-                expect: Err(nom::Err::Error(nom::error::Error::new(
-                    b"@01 2 ok IDLE -- 0\r\n",
-                    nom::error::ErrorKind::Tag,
-                ))),
-            },
-            TestCase {
-                input: b"@01 2 OK 123 -- 0\r\n", // Invalid Status
-                expect: Err(nom::Err::Error(nom::error::Error::new(
-                    b"@01 2 OK 123 -- 0\r\n",
-                    nom::error::ErrorKind::Tag,
-                ))),
-            },
-            TestCase {
-                input: b"#01 1 the body of the info message\r\n",
-                expect: Ok((
-                    b"",
-                    Packet {
-                        complete: true,
-                        response: AnyResponse::Info(
-                            InfoInner {
-                                target: Target(1, 1),
-                                id: None,
-                                data: "the body of the info message".to_string(),
-                                checksum: None,
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-            TestCase {
-                input: b"#01 1 34 the body of the info message\\:12\r\n",
-                expect: Ok((
-                    b"",
-                    Packet {
-                        complete: false,
-                        response: AnyResponse::Info(
-                            InfoInner {
-                                target: Target(1, 1),
-                                id: Some(34),
-                                data: "the body of the info message".to_string(),
-                                checksum: Some(18),
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-            TestCase {
-                input: b"!01 1 BUSY -- something else:56\r\n",
-                expect: Ok((
-                    b"",
-                    Packet {
-                        complete: true,
-                        response: AnyResponse::Alert(
-                            AlertInner {
-                                target: Target(1, 1),
-                                status: Status::Busy,
-                                warning: Warning([b'-', b'-']),
-                                data: "something else".to_string(),
-                                checksum: Some(86),
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-            TestCase {
-                input: b"!01 1 BUSY WR\r\n",
-                expect: Ok((
-                    b"",
-                    Packet {
-                        complete: true,
-                        response: AnyResponse::Alert(
-                            AlertInner {
-                                target: Target(1, 1),
-                                status: Status::Busy,
-                                warning: Warning([b'W', b'R']),
-                                data: "".to_string(),
-                                checksum: None,
-                            }
-                            .into(),
-                        ),
-                    },
-                )),
-            },
-        ];
-        for (i, case) in cases.into_iter().enumerate() {
-            let response = Packet::<AnyResponse>::nom(case.input);
-            assert_eq!(
-                response,
-                case.expect,
-                "Case {}: `{}`",
-                i,
-                std::str::from_utf8(case.input).unwrap()
-            );
-        }
-    }
-
-    #[test]
-    fn test_warning_partial_eq() {
-        let warning = Warning([b'-', b'-']);
-        assert_eq!(warning, b"--");
-        assert_eq!(warning, "--");
-        assert_eq!(warning, b"--".to_vec());
-        assert_eq!(warning, "--".to_string());
-    }
 }
