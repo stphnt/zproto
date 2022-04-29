@@ -331,17 +331,17 @@ impl<B: Backend> Port<B> {
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::binary::command::*;
-    /// let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
+    /// let reply = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
     /// let value = reply.data()?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn tx_rx<M>(&mut self, message: M) -> Result<DeviceMessage<M::Response>, BinaryError>
+    pub fn tx_recv<M>(&mut self, message: M) -> Result<DeviceMessage<M::Response>, BinaryError>
     where
         M: traits::TxMessage + traits::ElicitsResponse,
     {
         let id = self.tx(&message)?;
-        let response = self.rx_internal(|response| {
+        let response = self.recv_internal(|response| {
             check_unexpected_id(response, id)?;
             check_unexpected_target(response, message.command(), message.target())?;
             check_command_failure(response)?;
@@ -353,8 +353,8 @@ impl<B: Backend> Port<B> {
 
     /// Transmit a message and then receive `n` responses.
     ///
-    /// See [`tx_rx`](Port::tx_rx) for more details.
-    pub fn tx_rx_n<M>(
+    /// See [`tx_recv`](Port::tx_recv) for more details.
+    pub fn tx_recv_n<M>(
         &mut self,
         message: M,
         n: usize,
@@ -363,7 +363,7 @@ impl<B: Backend> Port<B> {
         M: traits::TxMessage + traits::ElicitsResponse,
     {
         let id = self.tx(&message)?;
-        let responses = self.rx_n_internal(
+        let responses = self.recv_n_internal(
             |response| {
                 check_unexpected_id(response, id)?;
                 check_unexpected_target(response, message.command(), message.target())?;
@@ -379,8 +379,8 @@ impl<B: Backend> Port<B> {
     /// Transmit a message and then receive messages until the port times out.
     ///
     /// This useful for sending messages to all devices on the chain and collecting
-    /// all of their responses. See [`tx_rx`](Port::tx_rx) for more details.
-    pub fn tx_rx_until_timeout<M>(
+    /// all of their responses. See [`tx_recv`](Port::tx_recv) for more details.
+    pub fn tx_recv_until_timeout<M>(
         &mut self,
         message: M,
     ) -> Result<Vec<DeviceMessage<M::Response>>, BinaryError>
@@ -388,7 +388,7 @@ impl<B: Backend> Port<B> {
         M: traits::TxMessage + traits::ElicitsResponse,
     {
         let id = self.tx(&message)?;
-        let responses = self.rx_until_timeout_internal(|response| {
+        let responses = self.recv_until_timeout_internal(|response| {
             check_unexpected_id(response, id)?;
             check_unexpected_target(response, message.command(), message.target())?;
             check_command_failure(response)?;
@@ -429,7 +429,7 @@ impl<B: Backend> Port<B> {
     /// `checks` will be called after a response has been received and parsed,
     /// but before returning the value. Any error it produces is forwarded to
     /// to the caller.
-    fn rx_internal(
+    fn recv_internal(
         &mut self,
         checks: impl Fn(DeviceMessage) -> Result<(), BinaryError>,
     ) -> Result<DeviceMessage, BinaryError> {
@@ -462,12 +462,15 @@ impl<B: Backend> Port<B> {
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::binary::command::*;
-    /// let reply = port.rx(MANUAL_MOVE_TRACKING)?;
+    /// let reply = port.recv(MANUAL_MOVE_TRACKING)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn rx<C: traits::Command>(&mut self, expected: C) -> Result<DeviceMessage<C>, BinaryError> {
-        let response = self.rx_internal(|response| {
+    pub fn recv<C: traits::Command>(
+        &mut self,
+        expected: C,
+    ) -> Result<DeviceMessage<C>, BinaryError> {
+        let response = self.recv_internal(|response| {
             check_command_failure(response)?;
             check_unexpected_command(response, expected.command())?;
             Ok(())
@@ -476,8 +479,8 @@ impl<B: Backend> Port<B> {
     }
 
     /// Receive a message containing any command.
-    pub fn rx_any(&mut self) -> Result<DeviceMessage, BinaryError> {
-        self.rx_internal(|response| {
+    pub fn recv_any(&mut self) -> Result<DeviceMessage, BinaryError> {
+        self.recv_internal(|response| {
             check_command_failure(response)?;
             Ok(())
         })
@@ -488,14 +491,16 @@ impl<B: Backend> Port<B> {
     /// `checks` will be called immediately after each response has been
     /// received and parsed. If it produces an error, the error is immediately
     /// forwarded to the user and no further messages are received.
-    fn rx_n_internal<C: traits::Command>(
+    fn recv_n_internal<C: traits::Command>(
         &mut self,
         checks: impl Fn(DeviceMessage) -> Result<(), BinaryError>,
         n: usize,
     ) -> Result<Vec<DeviceMessage<C>>, BinaryError> {
         let mut responses = Vec::with_capacity(n);
         for _ in 0..n {
-            responses.push(DeviceMessage::try_from_untyped(self.rx_internal(&checks)?)?);
+            responses.push(DeviceMessage::try_from_untyped(
+                self.recv_internal(&checks)?,
+            )?);
         }
         Ok(responses)
     }
@@ -504,12 +509,12 @@ impl<B: Backend> Port<B> {
     ///
     /// If any of the received messages have a command that does not match
     /// `expected` an error is returned and no further messages are received.
-    pub fn rx_n<C: traits::Command>(
+    pub fn recv_n<C: traits::Command>(
         &mut self,
         expected: C,
         n: usize,
     ) -> Result<Vec<DeviceMessage<C>>, BinaryError> {
-        self.rx_n_internal(
+        self.recv_n_internal(
             |response| {
                 check_command_failure(response)?;
                 check_unexpected_command(response, expected.command())?;
@@ -522,8 +527,8 @@ impl<B: Backend> Port<B> {
     /// Receive `n` messages containing any command.
     ///
     /// Each message may contain a different command.
-    pub fn rx_any_n(&mut self, n: usize) -> Result<Vec<DeviceMessage>, BinaryError> {
-        self.rx_n_internal(
+    pub fn recv_any_n(&mut self, n: usize) -> Result<Vec<DeviceMessage>, BinaryError> {
+        self.recv_n_internal(
             |response| {
                 check_command_failure(response)?;
                 Ok(())
@@ -537,13 +542,13 @@ impl<B: Backend> Port<B> {
     /// `checks` will be called immediately after each response has been
     /// received and parsed. If it produces an error, the error is immediately
     /// forwarded to the user and no further messages are received.
-    fn rx_until_timeout_internal<C: traits::Command>(
+    fn recv_until_timeout_internal<C: traits::Command>(
         &mut self,
         checks: impl Fn(DeviceMessage) -> Result<(), BinaryError>,
     ) -> Result<Vec<DeviceMessage<C>>, BinaryError> {
         let mut responses = Vec::new();
         loop {
-            match self.rx_internal(&checks) {
+            match self.recv_internal(&checks) {
                 Ok(r) => responses.push(DeviceMessage::try_from_untyped(r)?),
                 Err(e) if e.is_timeout() => break,
                 Err(e) => return Err(e),
@@ -556,11 +561,14 @@ impl<B: Backend> Port<B> {
     ///
     /// If any of the received messages have a command that does not match
     /// `expected` an error is returned and no further messages are received.
-    pub fn rx_until_timeout<C>(&mut self, expected: C) -> Result<Vec<DeviceMessage<C>>, BinaryError>
+    pub fn recv_until_timeout<C>(
+        &mut self,
+        expected: C,
+    ) -> Result<Vec<DeviceMessage<C>>, BinaryError>
     where
         C: traits::Command,
     {
-        self.rx_until_timeout_internal(|response| {
+        self.recv_until_timeout_internal(|response| {
             check_command_failure(response)?;
             check_unexpected_command(response, expected.command())?;
             Ok(())
@@ -570,8 +578,8 @@ impl<B: Backend> Port<B> {
     /// Receive messages containing any command until the port times out.
     ///
     /// Each message may contain a different command.
-    pub fn rx_any_until_timeout(&mut self) -> Result<Vec<DeviceMessage>, BinaryError> {
-        self.rx_until_timeout_internal(|response| {
+    pub fn recv_any_until_timeout(&mut self) -> Result<Vec<DeviceMessage>, BinaryError> {
+        self.recv_until_timeout_internal(|response| {
             check_command_failure(response)?;
             Ok(())
         })
@@ -609,7 +617,7 @@ impl<B: Backend> Port<B> {
     {
         let mut response;
         loop {
-            response = self.tx_rx(&message)?;
+            response = self.tx_recv(&message)?;
             if predicate(&response) {
                 break;
             }
@@ -655,7 +663,7 @@ impl<B: Backend> Port<B> {
     /// ```
     pub fn set_message_ids(&mut self, enable: bool) -> Result<bool, BinaryError> {
         let prev = self.id.is_enabled();
-        self.tx_rx_until_timeout((0, command::SET_MESSAGE_ID_MODE, enable))?;
+        self.tx_recv_until_timeout((0, command::SET_MESSAGE_ID_MODE, enable))?;
         if enable {
             self.id.enable();
         } else {
@@ -686,12 +694,12 @@ impl<B: Backend> Port<B> {
     /// {
     ///     let mut guard = port.timeout_guard(Some(Duration::from_secs(25)))?;
     ///     // All commands within this scope will use a 25 second timeout
-    ///     guard.tx_rx((1, MOVE_ABSOLUTE, 10000))?;
+    ///     guard.tx_recv((1, MOVE_ABSOLUTE, 10000))?;
     ///
     /// }  // The guard is dropped and the timeout is reset.
     ///
     /// // This transaction uses the original timeout
-    /// let speed = port.tx_rx((1, RETURN_SETTING, SET_TARGET_SPEED))?.data()?;
+    /// let speed = port.tx_recv((1, RETURN_SETTING, SET_TARGET_SPEED))?.data()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -798,17 +806,17 @@ mod test {
     use command::*;
 
     #[test]
-    fn tx_rx_ok() {
+    fn tx_recv_ok() {
         let mut port = Port::open_mock();
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
-        let reply = port.tx_rx((0, HOME)).unwrap();
+        let reply = port.tx_recv((0, HOME)).unwrap();
         assert_eq!(reply.command(), HOME);
         assert_eq!(reply.target(), 1);
         assert_eq!(reply.data().unwrap(), 0);
     }
 
     #[test]
-    fn tx_rx_fail() {
+    fn tx_recv_fail() {
         use crate::error::{binary_code, BinaryError};
 
         let mut port = Port::open_mock();
@@ -816,7 +824,7 @@ mod test {
         // Unexpected command in response
         port.backend
             .append_data([1, untyped::MANUAL_MOVE_TRACKING, 0, 0, 0, 0]);
-        let err = port.tx_rx((0, HOME)).unwrap_err();
+        let err = port.tx_recv((0, HOME)).unwrap_err();
         if let BinaryError::UnexpectedCommand(err) = err {
             assert_eq!(err.as_ref().command(), untyped::MANUAL_MOVE_TRACKING);
         } else {
@@ -825,7 +833,7 @@ mod test {
 
         // Unexpected target in reply
         port.backend.append_data([1, untyped::HOME, 0, 0, 0, 0]);
-        let err = port.tx_rx((2, HOME)).unwrap_err();
+        let err = port.tx_recv((2, HOME)).unwrap_err();
         if let BinaryError::UnexpectedTarget(err) = err {
             assert_eq!(err.as_ref().command(), untyped::HOME);
         } else {
@@ -835,7 +843,7 @@ mod test {
         // Command failure
         port.backend
             .append_data([1, untyped::ERROR, binary_code::CANNOT_HOME as u8, 0, 0, 0]);
-        let err = port.tx_rx((1, HOME)).unwrap_err();
+        let err = port.tx_recv((1, HOME)).unwrap_err();
         if let BinaryError::CommandFailure(err) = err {
             assert_eq!(err.code(), binary_code::CANNOT_HOME);
             assert_eq!(err.as_ref().command(), untyped::ERROR);
@@ -847,7 +855,7 @@ mod test {
         port.backend
             .append_data([1, untyped::MOVE_ABSOLUTE, 5, 0, 0, 2]);
         port.id = MessageId::Enabled(0);
-        let err = port.tx_rx((1, MOVE_ABSOLUTE, 5)).unwrap_err();
+        let err = port.tx_recv((1, MOVE_ABSOLUTE, 5)).unwrap_err();
         if let BinaryError::UnexpectedId(err) = err {
             assert_eq!(DeviceMessage::from(err).id().unwrap(), 2);
         } else {
@@ -856,11 +864,11 @@ mod test {
     }
 
     #[test]
-    fn tx_rx_n_ok() {
+    fn tx_recv_n_ok() {
         let mut port = Port::open_mock();
 
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
-        let replies = port.tx_rx_n((0, HOME), 1).unwrap();
+        let replies = port.tx_recv_n((0, HOME), 1).unwrap();
         assert_eq!(replies.len(), 1);
         let reply = replies[0];
         assert_eq!(reply.command(), HOME);
@@ -869,7 +877,7 @@ mod test {
 
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
         port.backend.append_data([2, 1, 0, 0, 0, 0]);
-        let replies = port.tx_rx_n((0, HOME), 2).unwrap();
+        let replies = port.tx_recv_n((0, HOME), 2).unwrap();
         assert_eq!(replies.len(), 2);
         for (i, reply) in replies.iter().enumerate() {
             eprintln!("{:?}", reply);
@@ -880,19 +888,19 @@ mod test {
     }
 
     #[test]
-    fn tx_rx_n_fail() {
+    fn tx_recv_n_fail() {
         use crate::error::*;
 
         let mut port = Port::open_mock();
 
         // Timeout waiting for second message
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
-        assert!(port.tx_rx_n((0, HOME), 2).unwrap_err().is_timeout());
+        assert!(port.tx_recv_n((0, HOME), 2).unwrap_err().is_timeout());
 
         // Unexpected command in second message
         port.backend.append_data([1, untyped::HOME, 0, 0, 0, 0]);
         port.backend.append_data([2, untyped::RESET, 0, 0, 0, 0]);
-        let err = port.tx_rx_n((0, HOME), 2).unwrap_err();
+        let err = port.tx_recv_n((0, HOME), 2).unwrap_err();
         if let BinaryError::UnexpectedCommand(err) = err {
             assert_eq!(DeviceMessage::from(err).command(), untyped::RESET);
         } else {
@@ -902,7 +910,7 @@ mod test {
         // Unexpected target in second message
         port.backend.append_data([1, untyped::HOME, 0, 0, 0, 0]);
         port.backend.append_data([2, untyped::HOME, 0, 0, 0, 0]);
-        let err = port.tx_rx_n((1, HOME), 2).unwrap_err();
+        let err = port.tx_recv_n((1, HOME), 2).unwrap_err();
         if let BinaryError::UnexpectedTarget(err) = err {
             assert_eq!(DeviceMessage::from(err).target(), 2);
         } else {
@@ -915,7 +923,7 @@ mod test {
         port.backend
             .append_data([3, untyped::SET_TARGET_SPEED, 0, 0, 0, 55]);
         port.id = MessageId::Enabled(0);
-        let err = port.tx_rx_n((0, SET_TARGET_SPEED, 1), 2).unwrap_err();
+        let err = port.tx_recv_n((0, SET_TARGET_SPEED, 1), 2).unwrap_err();
         if let BinaryError::UnexpectedId(err) = err {
             assert_eq!(err.as_ref().id().unwrap(), 55);
         } else {
@@ -926,7 +934,7 @@ mod test {
         port.id.disable();
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
         port.backend.append_data([2, 255, 5, 0, 0, 0]);
-        let err = port.tx_rx_n((0, HOME), 2).unwrap_err();
+        let err = port.tx_recv_n((0, HOME), 2).unwrap_err();
         if let BinaryError::CommandFailure(err) = err {
             assert_eq!(err.code(), 5);
         } else {
@@ -935,11 +943,11 @@ mod test {
     }
 
     #[test]
-    fn tx_rx_until_timeout_ok() {
+    fn tx_recv_until_timeout_ok() {
         let mut port = Port::open_mock();
 
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
-        let replies = port.tx_rx_until_timeout((0, HOME)).unwrap();
+        let replies = port.tx_recv_until_timeout((0, HOME)).unwrap();
         assert_eq!(replies.len(), 1);
         let reply = replies[0];
         assert_eq!(reply.command(), HOME);
@@ -948,7 +956,7 @@ mod test {
 
         port.backend.append_data([1, 1, 0, 0, 0, 0]);
         port.backend.append_data([2, 1, 0, 0, 0, 0]);
-        let replies = port.tx_rx_until_timeout((0, HOME)).unwrap();
+        let replies = port.tx_recv_until_timeout((0, HOME)).unwrap();
         assert_eq!(replies.len(), 2);
         for (i, reply) in replies.iter().enumerate() {
             eprintln!("{:?}", reply);

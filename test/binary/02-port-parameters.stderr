@@ -1,8 +1,8 @@
 error[E0277]: the trait bound `(u8, Reset): ElicitsResponse` is not satisfied
-   --> test/binary/02-port-parameters.rs:9:24
+   --> test/binary/02-port-parameters.rs:9:26
     |
-9   |     let _ = port.tx_rx((0, RESET))?;  // Shouldn't work with tx_rx
-    |                  ----- ^^^^^^^^^^ the trait `ElicitsResponse` is not implemented for `(u8, Reset)`
+9   |     let _ = port.tx_recv((0, RESET))?;  // Shouldn't work with tx_recv
+    |                  ------- ^^^^^^^^^^ the trait `ElicitsResponse` is not implemented for `(u8, Reset)`
     |                  |
     |                  required by a bound introduced by this call
     |
@@ -12,73 +12,73 @@ error[E0277]: the trait bound `(u8, Reset): ElicitsResponse` is not satisfied
               <(u8, ConvertToAscii) as ElicitsResponse>
               <(u8, ConvertToAscii, D) as ElicitsResponse>
             and 153 others
-note: required by a bound in `zproto::binary::Port::<B>::tx_rx`
+note: required by a bound in `zproto::binary::Port::<B>::tx_recv`
    --> src/binary/port.rs
     |
     |         M: traits::TxMessage + traits::ElicitsResponse,
-    |                                ^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_rx`
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_recv`
 
 error[E0277]: the trait bound `Home: TakesData<i32>` is not satisfied
-   --> test/binary/02-port-parameters.rs:10:24
+   --> test/binary/02-port-parameters.rs:10:26
     |
-10  |     let _ = port.tx_rx((0, HOME, 0i32))?;  // Shouldn't take parameters
-    |                  ----- ^^^^^^^^^^^^^^^ the trait `TakesData<i32>` is not implemented for `Home`
+10  |     let _ = port.tx_recv((0, HOME, 0i32))?;  // Shouldn't take parameters
+    |                  ------- ^^^^^^^^^^^^^^^ the trait `TakesData<i32>` is not implemented for `Home`
     |                  |
     |                  required by a bound introduced by this call
     |
     = note: required because of the requirements on the impl of `TxMessage` for `(u8, Home, i32)`
-note: required by a bound in `zproto::binary::Port::<B>::tx_rx`
+note: required by a bound in `zproto::binary::Port::<B>::tx_recv`
    --> src/binary/port.rs
     |
     |         M: traits::TxMessage + traits::ElicitsResponse,
-    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_rx`
+    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_recv`
 
 error[E0277]: the trait bound `MoveAbsolute: TakesNoData` is not satisfied
-   --> test/binary/02-port-parameters.rs:11:24
+   --> test/binary/02-port-parameters.rs:11:26
     |
-11  |     let _ = port.tx_rx((0, MOVE_ABSOLUTE))?;  // Should take parameters
-    |                  ----- ^^^^^^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `MoveAbsolute`
+11  |     let _ = port.tx_recv((0, MOVE_ABSOLUTE))?;  // Should take parameters
+    |                  ------- ^^^^^^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `MoveAbsolute`
     |                  |
     |                  required by a bound introduced by this call
     |
     = note: required because of the requirements on the impl of `TxMessage` for `(u8, MoveAbsolute)`
-note: required by a bound in `zproto::binary::Port::<B>::tx_rx`
+note: required by a bound in `zproto::binary::Port::<B>::tx_recv`
    --> src/binary/port.rs
     |
     |         M: traits::TxMessage + traits::ElicitsResponse,
-    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_rx`
+    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_recv`
 
 error[E0277]: the trait bound `MoveAbsolute: TakesData<bool>` is not satisfied
-   --> test/binary/02-port-parameters.rs:12:24
+   --> test/binary/02-port-parameters.rs:12:26
     |
-12  |     let _ = port.tx_rx((0, MOVE_ABSOLUTE, false))?;  // Wrong parameter type
-    |                  ----- ^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `TakesData<bool>` is not implemented for `MoveAbsolute`
+12  |     let _ = port.tx_recv((0, MOVE_ABSOLUTE, false))?;  // Wrong parameter type
+    |                  ------- ^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `TakesData<bool>` is not implemented for `MoveAbsolute`
     |                  |
     |                  required by a bound introduced by this call
     |
     = help: the following implementations were found:
               <MoveAbsolute as TakesData<i32>>
     = note: required because of the requirements on the impl of `TxMessage` for `(u8, MoveAbsolute, bool)`
-note: required by a bound in `zproto::binary::Port::<B>::tx_rx`
+note: required by a bound in `zproto::binary::Port::<B>::tx_recv`
    --> src/binary/port.rs
     |
     |         M: traits::TxMessage + traits::ElicitsResponse,
-    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_rx`
+    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_recv`
 
 error[E0277]: the trait bound `u8: TakesNoData` is not satisfied
-   --> test/binary/02-port-parameters.rs:14:24
+   --> test/binary/02-port-parameters.rs:14:26
     |
-14  |     let _ = port.tx_rx((0, untyped::HOME))?;  // u8 commands require an explicit data value
-    |                  ----- ^^^^^^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `u8`
+14  |     let _ = port.tx_recv((0, untyped::HOME))?;  // u8 commands require an explicit data value
+    |                  ------- ^^^^^^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `u8`
     |                  |
     |                  required by a bound introduced by this call
     |
     = note: required because of the requirements on the impl of `TxMessage` for `(u8, u8)`
-note: required by a bound in `zproto::binary::Port::<B>::tx_rx`
+note: required by a bound in `zproto::binary::Port::<B>::tx_recv`
    --> src/binary/port.rs
     |
     |         M: traits::TxMessage + traits::ElicitsResponse,
-    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_rx`
+    |            ^^^^^^^^^^^^^^^^^ required by this bound in `zproto::binary::Port::<B>::tx_recv`
 
 error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesNoData` is not satisfied
    --> test/binary/02-port-parameters.rs:16:13

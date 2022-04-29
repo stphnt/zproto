@@ -17,8 +17,8 @@
 //! ```
 //!
 //! You can then transmit a command to and receive a reply from devices
-//! connected to that port with the [`tx_rx`](Port::tx_rx) method, or any of the
-//! other `tx_rx*` methods. Commands are constructed as tuples:
+//! connected to that port with the [`tx_recv`](Port::tx_recv) method, or any of the
+//! other `tx_recv*` methods. Commands are constructed as tuples:
 //! * Commands that do not require data take the form `(u8, Command)`, where
 //!   * `u8` is the device address and
 //!   * `Command` is some type that implements [`Command`](traits::Command) (the
@@ -33,7 +33,7 @@
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! // Send the Home command to all devices (address 0)
 //! use zproto::binary::command::HOME;
-//! let reply = port.tx_rx((0, HOME))?;
+//! let reply = port.tx_recv((0, HOME))?;
 //! # Ok(())
 //! # }
 //! ```
@@ -51,9 +51,9 @@
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! // Move device 1 to the absolute position 10,000.
 //! use zproto::binary::command::*;
-//! let reply = port.tx_rx((1, MOVE_ABSOLUTE, 10000))?;
+//! let reply = port.tx_recv((1, MOVE_ABSOLUTE, 10000))?;
 //! // OR
-//! let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
+//! let reply = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
 //! # Ok(())
 //! # }
 //! ```
@@ -63,21 +63,21 @@
 //!
 //! **NOTE**: Address aliases other than 0 (all devices) are presently not
 //! supported. Responses to such messages will be treated as unexpected by the
-//! [`tx_rx*`](Port::tx_rx) methods.
+//! [`tx_recv*`](Port::tx_recv) methods.
 //!
 //! ## Other `Port` Methods
 //!
-//! [`tx_rx`](Port::tx_rx) works great when you need to send one command and
+//! [`tx_recv`](Port::tx_recv) works great when you need to send one command and
 //! receive one response. But, when you have a chain of devices, you may need to
 //! read a response from all devices in the chain. When you know the number of
-//! devices in the chain, you can use [`tx_rx_n`](Port::tx_rx_n) to read `n`
+//! devices in the chain, you can use [`tx_recv_n`](Port::tx_recv_n) to read `n`
 //! responses to a command. If you don't know the number of devices in the chain
-//! you can use [`tx_rx_until_timeout`](Port::tx_rx_until_timeout) to read as
+//! you can use [`tx_recv_until_timeout`](Port::tx_recv_until_timeout) to read as
 //! many responses as possible.
 //!
 //! Sometimes you only want to transmit or receive data, but not both. In those
-//! cases the [`tx`](Port::tx), [`rx`](Port::rx), [`rx_n`](Port::rx_n),
-//! and [`rx_until_timeout`](Port::rx_until_timeout) are very helpful.
+//! cases the [`tx`](Port::tx), [`recv`](Port::recv), [`recv_n`](Port::recv_n),
+//! and [`recv_until_timeout`](Port::recv_until_timeout) are very helpful.
 //!
 //! Finally, a common pattern is to poll a device until it is in a desired
 //! state, which you can do with the [`poll_until`](Port::poll_until) and
@@ -97,9 +97,9 @@
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::binary::command::*;
-//! let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
+//! let reply = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
 //! let speed = reply.data()?; // `speed` is an `i32`
-//! let reply = port.tx_rx((0, RETURN_SETTING, SET_HOME_STATUS))?;
+//! let reply = port.tx_recv((0, RETURN_SETTING, SET_HOME_STATUS))?;
 //! let homed = reply.data()?;  // `homed` is a `bool`.
 //! # Ok(())
 //! # }
@@ -119,9 +119,9 @@
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::binary::command::*;
-//! let reply = port.tx_rx((0, MOVE_ABSOLUTE))?;  // ERROR: the data field is missing!
-//! let reply = port.tx_rx((0, MOVE_ABSOLUTE, true))?;  // ERROR: the data has the incorrect type!
-//! let reply = port.tx_rx((0, RESET));  // ERROR: Devices do not respond to the RESET command!
+//! let reply = port.tx_recv((0, MOVE_ABSOLUTE))?;  // ERROR: the data field is missing!
+//! let reply = port.tx_recv((0, MOVE_ABSOLUTE, true))?;  // ERROR: the data has the incorrect type!
+//! let reply = port.tx_recv((0, RESET));  // ERROR: Devices do not respond to the RESET command!
 //! # Ok(())
 //! # }
 //! ```
@@ -160,7 +160,7 @@
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::binary::command::untyped::*;
-//! let reply = port.tx_rx((0, RETURN_SETTING, SET_TARGET_SPEED))?;
+//! let reply = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
 //! let speed: i32 = reply.data()?; // Notice that the type must be specified.
 //! // The compiler cannot tell if you have picked the wrong type so this will
 //! // compile, but the data conversion will fail at run time.
@@ -200,7 +200,7 @@
 //! ```
 //!
 //! This means the command does not elicit a response from a device and the
-//! [`Port::tx_rx`] family of functions would eventually time out waiting for
+//! [`Port::tx_recv`] family of functions would eventually time out waiting for
 //! one. Try transmitting the command without reading a reply with
 //! [`tx`](Port::tx) instead.
 //!
@@ -268,9 +268,9 @@ impl<C: traits::Command> DeviceMessage<C> {
     /// # };
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::binary::command::*;
-    /// let reply = port.tx_rx((0, RETURN_SETTING, SET_HOME_STATUS))?;
+    /// let reply = port.tx_recv((0, RETURN_SETTING, SET_HOME_STATUS))?;
     /// let homed = reply.data()?;  // `homed` is a `bool`
-    /// let reply = port.tx_rx((0, RETURN_SETTING, untyped::SET_HOME_STATUS))?;
+    /// let reply = port.tx_recv((0, RETURN_SETTING, untyped::SET_HOME_STATUS))?;
     /// let homed: bool = reply.data()?;  // The data type must be explicitly defined here
     /// # Ok(())
     /// # }
