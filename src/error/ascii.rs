@@ -335,20 +335,6 @@ impl_from_specific_to_any_response! { AsciiCheckCustomError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckCustomError) -> R { 0.1 } }
 
 error_enum! {
-    /// Received an unexpected ASCII response.
-    #[derive(Debug, PartialEq)]
-    #[non_exhaustive]
-    #[cfg_attr(
-    all(doc, feature = "doc_cfg"),
-    doc(cfg(feature = "ascii"))
-)]
-    pub enum AsciiUnexpectedError {
-        Response(AsciiUnexpectedResponseError),
-        Packet(AsciiUnexpectedPacketError),
-    }
-}
-
-error_enum! {
 /// The contents of a response failed a [`check`](crate::ascii::check).
 ///
 /// This indicates a response did not contain what the caller expected, though
@@ -509,11 +495,6 @@ error_enum! {
         PacketMissingEnd => PacketMissingEnd,
         PacketMalformed => PacketMalformed,
     }
-
-    impl From<AsciiUnexpectedError> {
-        Response => UnexpectedResponse,
-        Packet => UnexpectedPacket,
-    }
 }
 impl_is_timeout! { AsciiError }
 impl_from_serialport_error! { AsciiError }
@@ -540,20 +521,17 @@ mod test {
         std::mem::size_of::<AsciiCheckError<AnyResponse>>(), // AnyResponse is the largests response type
         2 * _WORD_SIZE
     );
-    const_assert_eq!(std::mem::size_of::<AsciiUnexpectedError>(), 3 * _WORD_SIZE);
     const_assert_eq!(std::mem::size_of::<AsciiProtocolError>(), 3 * _WORD_SIZE);
     const_assert_eq!(std::mem::size_of::<AsciiError>(), 3 * _WORD_SIZE);
 
     // Make sure that error enum types are properly convertible
     assert_impl_all!(AsciiError: From<AsciiProtocolError>);
-    assert_impl_all!(AsciiError: From<AsciiUnexpectedError>);
     assert_impl_all!(AsciiError: From<AsciiCheckError<AnyResponse>>);
     assert_impl_all!(AsciiError: From<AsciiCheckError<Reply>>);
     assert_impl_all!(AsciiError: From<AsciiCheckError<Info>>);
     assert_impl_all!(AsciiError: From<AsciiCheckError<Alert>>);
 
     assert_impl_all!(AsciiProtocolError: TryFrom<AsciiError>);
-    assert_impl_all!(AsciiUnexpectedError: TryFrom<AsciiError>);
     assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<AsciiError>);
 
     // Check that error types and responses they wrap implement AsRef and From,

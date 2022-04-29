@@ -7,9 +7,9 @@
 //! higher level enums, allowing them to be used with `?`:
 //!
 //! ```
-//! use zproto::error::{AsciiUnexpectedError, Error};
+//! use zproto::error::{AsciiProtocolError, Error};
 //!
-//! fn foo() -> Result<(), AsciiUnexpectedError> {
+//! fn foo() -> Result<(), AsciiProtocolError> {
 //!     // ...
 //! # unimplemented!();
 //! }

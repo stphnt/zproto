@@ -464,10 +464,9 @@ impl<B: Backend> Port<B> {
     ///
     /// ## Errors
     ///
-    /// If any response other than the single reply and info messages elicited
-    /// by the command are received, an [`AsciiUnexpected*`](AsciiUnexpectedError)
-    /// is returned. If a reply to the final empty command is never received, an
-    /// [`Error`] indicating a timeout is returned.
+    /// An error is returned if
+    ///   * any response other than the single reply and info messages elicited by the command are received or
+    ///   * a reply to the final empty command is never received.
     ///
     /// ## Example
     /// ```rust
