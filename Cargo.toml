@@ -28,7 +28,7 @@ doc_cfg = []
 [dependencies]
 log = "0.4"
 paste = "1.0"
-serialport = "4.0"
+serialport = "4.1.0"
 
 [dev-dependencies]
 simple_logger = "2.1"
