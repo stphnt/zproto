@@ -384,7 +384,7 @@ impl<B: Backend> Port<B> {
         );
         instance.write_into(&mut buffer)?;
         log::debug!(
-            "{} TX: {}",
+            "{} TX:   {}",
             self.backend
                 .get_ref()
                 .name()
@@ -686,7 +686,7 @@ impl<B: Backend> Port<B> {
         let result = result.map_err(From::from).and_then(|raw_packet| {
             // Log the packet
             log::debug!(
-                "{} RX: {}",
+                "{} RECV: {}",
                 &backend_name,
                 String::from_utf8_lossy(raw_packet).trim_end()
             );
