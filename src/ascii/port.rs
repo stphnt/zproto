@@ -19,7 +19,7 @@ use crate::{
 };
 use serialport as sp;
 use std::convert::TryFrom;
-use std::io::{self, BufRead, BufReader};
+use std::io;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
@@ -259,7 +259,7 @@ impl Default for OpenTcpOptions {
 #[derive(Debug)]
 pub struct Port<B> {
     /// The underlying backend
-    backend: BufReader<B>,
+    backend: B,
     /// The message ID generator
     ids: id::Counter,
     /// Whether commands should include message IDs or not.
@@ -334,13 +334,10 @@ impl Port<Mock> {
 }
 
 impl<B: Backend> Port<B> {
-    /// The number of bytes to buffer when reading from the serial port.
-    const BUFFER_SIZE: usize = 1024;
-
     /// Create a `Port` from a [`Backend`] type.
     fn from_backend(backend: B, generate_id: bool, generate_checksum: bool) -> Self {
         Port {
-            backend: BufReader::with_capacity(Self::BUFFER_SIZE, backend),
+            backend,
             ids: id::Counter::default(),
             generate_id,
             generate_checksum,
@@ -386,12 +383,11 @@ impl<B: Backend> Port<B> {
         log::debug!(
             "{} TX:   {}",
             self.backend
-                .get_ref()
                 .name()
                 .unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
             String::from_utf8_lossy(buffer.as_slice()).trim_end()
         );
-        self.backend.get_mut().write_all(buffer.as_slice())?;
+        self.backend.write_all(buffer.as_slice())?;
         Ok(instance.id)
     }
 
@@ -670,6 +666,63 @@ impl<B: Backend> Port<B> {
         Ok(response)
     }
 
+    /// Read the bytes for a packet.
+    fn read_packet_bytes(&mut self) -> Result<Vec<u8>, AsciiError> {
+        use crate::ascii::parse::AsciiExt as _;
+
+        let mut buf = Vec::with_capacity(100);
+        let mut found_start = false;
+
+        // Read the first byte at the original timeout,
+        let byte = std::io::Read::bytes(&mut self.backend).next().unwrap()?;
+        if byte.is_packet_start() {
+            buf.push(byte);
+            found_start = true;
+        }
+
+        // Read the reset of the bytes at the inter-char timeout, unless the
+        // specified timeout is even shorter. Packets should be sent all at
+        // once, so the time between bytes should be smaller than the time
+        // between packets.
+        let timeout = self.backend.read_timeout()?;
+        let inter_char_timeout = Duration::from_millis(300);
+        let effective_timeout = timeout.unwrap_or(Duration::MAX);
+        let use_inter_char_timeout = inter_char_timeout < effective_timeout;
+        if use_inter_char_timeout {
+            self.backend.set_read_timeout(Some(inter_char_timeout))?;
+        }
+        let result = || -> Result<(), AsciiError> {
+            for byte in std::io::Read::bytes(&mut self.backend) {
+                let byte = byte?;
+                if byte.is_packet_start() {
+                    if found_start {
+                        // We are already in the middle of a packet. Something has gone wrong.
+                        return Err(AsciiPacketMissingEndError::new(buf.clone()).into());
+                    }
+                    found_start = true;
+                }
+                if found_start {
+                    buf.push(byte);
+                }
+                if byte == crate::ascii::parse::LINE_FEED {
+                    break;
+                }
+            }
+            Ok(())
+        }();
+        // Make sure to restore the timeout if we need to
+        if use_inter_char_timeout {
+            self.backend.set_read_timeout(timeout)?;
+        }
+        if !found_start {
+            return Err(AsciiPacketMissingStartError::new(buf).into());
+        }
+        if buf.is_empty() || *buf.last().unwrap() != crate::ascii::parse::LINE_FEED {
+            return Err(AsciiPacketMissingEndError::new(buf).into());
+        }
+        result.map(move |_| buf)
+    }
+
     /// Receive a response [`Packet`]
     ///
     /// The packet's LRC is verified, and guaranteed not to be a Command packet.
@@ -677,36 +730,30 @@ impl<B: Backend> Port<B> {
     fn response_packet(&mut self) -> Result<Packet, AsciiError> {
         let backend_name = self
             .backend
-            .get_ref()
             .name()
             .unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string());
 
-        let buf = self.backend.fill_buf()?;
-        let (consumed, result) = extract_response_bytes(buf);
-        let result = result.map_err(From::from).and_then(|raw_packet| {
-            // Log the packet
-            log::debug!(
-                "{} RECV: {}",
-                &backend_name,
-                String::from_utf8_lossy(raw_packet).trim_end()
-            );
-            // Parse the packet.
-            let packet = Packet::try_from(raw_packet).map_err(AsciiError::from)?;
-            // Verify the checksum, if one exists
-            if let Some(checksum) = packet.checksum() {
-                if !Lrc::verify(packet.hashed_content(), checksum) {
-                    return Err(AsciiInvalidChecksumError::new(packet).into());
-                }
+        let raw_packet = self.read_packet_bytes()?;
+        // Log the packet
+        log::debug!(
+            "{} RECV: {}",
+            &backend_name,
+            String::from_utf8_lossy(&*raw_packet).trim_end()
+        );
+        // Parse the packet.
+        let packet = Packet::try_from(&*raw_packet)?;
+        // Verify the checksum, if one exists
+        if let Some(checksum) = packet.checksum() {
+            if !Lrc::verify(packet.hashed_content(), checksum) {
+                return Err(AsciiInvalidChecksumError::new(packet).into());
             }
-            // Make sure it isn't a command packet
-            if packet.kind() == PacketKind::Command {
-                Err(AsciiUnexpectedPacketError::new(packet).into())
-            } else {
-                Ok(packet)
-            }
-        });
-        self.backend.consume(consumed);
-        result
+        }
+        // Make sure it isn't a command packet
+        if packet.kind() == PacketKind::Command {
+            Err(AsciiUnexpectedPacketError::new(packet).into())
+        } else {
+            Ok(packet)
+        }
     }
 
     /// Read packets until we build up a complete response message.
@@ -1134,12 +1181,12 @@ impl<B: Backend> Port<B> {
 impl<B: Backend> io::Write for Port<B> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.check_poisoned()?;
-        self.backend.get_mut().write(buf)
+        self.backend.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
         self.check_poisoned()?;
-        self.backend.get_mut().flush()
+        self.backend.flush()
     }
 }
 
@@ -1152,61 +1199,10 @@ impl<B: Backend> io::Read for Port<B> {
 
 impl<B: Backend> crate::timeout_guard::Port<B> for Port<B> {
     fn backend_mut(&mut self) -> &mut B {
-        self.backend.get_mut()
+        &mut self.backend
     }
     fn poison(&mut self, e: io::Error) {
         self.poison = Some(e)
-    }
-}
-
-/// Extract the bytes for a response from the specified buffer.
-/// Returns the number of bytes to consume, and either the slice containing
-/// the response or an error if a response could not be extracted.
-///
-/// Regardless of whether the response bytes were successfully extracted,
-/// the specified number of bytes should *always* be consumed.
-fn extract_response_bytes(buf: &[u8]) -> (usize, Result<&[u8], AsciiProtocolError>) {
-    use crate::ascii::parse::AsciiExt as _;
-
-    let start = buf.iter().position(|b| b.is_packet_start());
-    match start {
-        Some(start) => {
-            // We found the start of the packet
-            let len = &buf[start + 1..]
-                .iter()
-                .position(|b| b.is_packet_end() || b.is_packet_start());
-            match len {
-                Some(len) => {
-                    let mut end = start + len + 1;
-                    if buf[end].is_packet_end() {
-                        if let Some(next) = buf.get(end + 1) {
-                            if next.is_packet_end() {
-                                end += 1;
-                            }
-                        }
-                        // We found the end of the packet. Everything is good.
-                        // Return the buffer including the terminating byte(s).
-                        (end + 1, Ok(&buf[start..end + 1]))
-                    } else {
-                        // We found the start of a new packet without the end of the first. Something is wrong.
-                        (
-                            end,
-                            Err(AsciiPacketMissingEndError::new(&buf[start..end]).into()),
-                        )
-                    }
-                }
-                // We didn't find the end of this packet or the start of another one. Something is wrong.
-                None => (
-                    buf.len(),
-                    Err(AsciiPacketMissingEndError::new(&buf[start..]).into()),
-                ),
-            }
-        }
-        // We couldn't find the start of a packet. Something is wrong.
-        None => (
-            buf.len(),
-            Err(AsciiPacketMissingStartError::new(buf).into()),
-        ),
     }
 }
 
@@ -1240,92 +1236,21 @@ impl HeaderCheckAction {
 #[cfg(test)]
 mod test {
     use crate::{
-        ascii::{check::unchecked, port, AnyResponse, Port, Reply},
+        ascii::{check::unchecked, AnyResponse, Port, Reply},
         backend::Mock,
         error::*,
     };
 
     #[test]
-    fn extract_response_bytes() {
-        struct Case<'a> {
-            input: &'a [u8],
-            expected: (usize, Result<&'a [u8], AsciiProtocolError>),
-        }
-        let test_cases: &[Case] = &[
-            Case {
-                input: b"/\r\n",
-                expected: (3, Ok(b"/\r\n")),
-            },
-            Case {
-                input: b"/\n",
-                expected: (2, Ok(b"/\n")),
-            },
-            Case {
-                input: b"/\r",
-                expected: (2, Ok(b"/\r")),
-            },
-            Case {
-                input: b"!\r\n",
-                expected: (3, Ok(b"!\r\n")),
-            },
-            Case {
-                input: b"#\r\n",
-                expected: (3, Ok(b"#\r\n")),
-            },
-            Case {
-                input: b"@\r\n",
-                expected: (3, Ok(b"@\r\n")),
-            },
-            Case {
-                input: b"\0\t\r@01 1 OK IDLE --\r\n",
-                expected: (21, Ok(b"@01 1 OK IDLE --\r\n")),
-            },
-            Case {
-                input: b"  /1 1 tools echo / this\n",
-                expected: (
-                    18,
-                    Err(AsciiPacketMissingEndError::new(b"/1 1 tools echo ").into()),
-                ),
-            },
-            Case {
-                input: b"\r\n",
-                expected: (2, Err(AsciiPacketMissingStartError::new(b"\r\n").into())),
-            },
-            Case {
-                input: b"/anything here",
-                expected: (
-                    14,
-                    Err(AsciiPacketMissingEndError::new(b"/anything here").into()),
-                ),
-            },
-        ];
-
-        for (i, case) in test_cases.into_iter().enumerate() {
-            println!("Case {}", i);
-            let actual = port::extract_response_bytes(case.input);
-
-            assert_eq!(
-                actual,
-                case.expected,
-                "Case {}: {}",
-                i,
-                std::str::from_utf8(case.input).unwrap()
-            );
-        }
-    }
-
-    #[test]
     fn command_reply_ok() {
         let mut port = Port::open_mock();
-        port.backend
-            .get_mut()
-            .append_data(b"@01 0 OK IDLE -- 0\r\n");
+        port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
         let reply = port.command_reply("").unwrap();
         assert_eq!(reply.target(), (1, 0).into());
 
         // Multi-packet Reply
         {
-            let backend = port.backend.get_mut();
+            let backend = &mut port.backend;
             backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
             backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
             backend.append_data(b"#01 0 cont part3\r\n");
@@ -1339,18 +1264,18 @@ mod test {
         let mut port = Port::open_mock();
 
         // Incorrect kind
-        port.backend.get_mut().append_data(b"!01 0 IDLE FF 0\r\n");
+        port.backend.append_data(b"!01 0 IDLE FF 0\r\n");
         let err = port.command_reply("").unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedResponse(_)), "{err:?}");
 
         // Incorrect target
-        port.backend.get_mut().append_data(b"!02 0 IDLE FF 0\r\n");
+        port.backend.append_data(b"!02 0 IDLE FF 0\r\n");
         let err = port.command_reply((1, "")).unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 
         // Unexpected Alert interleaved in reply packets.
         {
-            let backend = port.backend.get_mut();
+            let backend = &mut port.backend;
             backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
             backend.append_data(b"!02 0 IDLE -- 0\r\n");
             backend.append_data(b"#01 0 cont part2\r\n");
@@ -1360,7 +1285,7 @@ mod test {
 
         // Unexpected and incomplete Alert interleaved in reply packets.
         {
-            let backend = port.backend.get_mut();
+            let backend = &mut port.backend;
             backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
             backend.append_data(b"!02 0 IDLE -- something\\\r\n");
             backend.append_data(b"#01 0 cont part2\r\n");
@@ -1373,7 +1298,7 @@ mod test {
     fn command_reply_n_ok() {
         let mut port = Port::open_mock();
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
@@ -1381,7 +1306,7 @@ mod test {
 
         // Interleaved multi-packet replies
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 1part1\\\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 2part1\\\r\n");
             buf.append_data(b"#02 0 cont 2part2\r\n");
@@ -1398,7 +1323,7 @@ mod test {
 
         // Timeout waiting for non-existent message.
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
@@ -1407,7 +1332,7 @@ mod test {
 
         // Timeout waiting for non-existent packet.
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 0\\\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
@@ -1419,7 +1344,7 @@ mod test {
     fn command_replies_until_timeout_ok() {
         let mut port = Port::open_mock();
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
@@ -1433,7 +1358,7 @@ mod test {
 
         let mut port = Port::open_mock();
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
             buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
             buf.append_data(b"#01 0 cont part 1b\r\n");
@@ -1444,7 +1369,7 @@ mod test {
         assert_eq!(reply_data, expected);
 
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
             buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
             buf.append_data(b"#02 0 cont part 2b\r\n");
@@ -1456,7 +1381,7 @@ mod test {
         assert_eq!(reply_data, expected);
 
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
             buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
             buf.append_data(b"#02 0 cont part 2b\r\n");
@@ -1475,7 +1400,7 @@ mod test {
     fn command_replies_until_timeout_fail() {
         let mut port = Port::open_mock();
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 1 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 2 OK IDLE -- 0\r\n"); // Wrong axis number
             buf.append_data(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
@@ -1491,7 +1416,7 @@ mod test {
         let mut port = Port::open_mock();
 
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
         }
@@ -1501,7 +1426,7 @@ mod test {
 
         // Multi-packet info messages
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"#01 0 part 1a\\\r\n");
             buf.append_data(b"#02 0 part 2a\\\r\n");
             buf.append_data(b"#01 0 cont part 1b\r\n");
@@ -1518,7 +1443,7 @@ mod test {
 
         // Received an alert part way should not read following messages.
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"!02 1 IDLE -- \r\n");
             buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
@@ -1530,7 +1455,7 @@ mod test {
 
         // Invalid continuation packet
         {
-            let buf = port.backend.get_mut();
+            let buf = &mut port.backend;
             buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
             buf.append_data(b"#01 0 cont something\r\n");
         }
@@ -1572,13 +1497,92 @@ mod test {
         assert_eq!(port.checksums(), false);
     }
 
+    #[test]
+    fn read_packet_bytes() {
+        struct Case<'a> {
+            input: &'a [&'a [u8]],
+            expected: Result<&'a [u8], AsciiError>,
+        }
+        let test_cases: &[Case] = &[
+            Case {
+                input: &[b"/\r\n"],
+                expected: Ok(b"/\r\n"),
+            },
+            Case {
+                input: &[b"/\n"],
+                expected: Ok(b"/\n"),
+            },
+            Case {
+                input: &[b"/\r"],
+                expected: Err(AsciiPacketMissingEndError::new(b"/\r").into()),
+            },
+            Case {
+                input: &[b"!\r\n"],
+                expected: Ok(b"!\r\n"),
+            },
+            Case {
+                input: &[b"#\r\n"],
+                expected: Ok(b"#\r\n"),
+            },
+            Case {
+                input: &[b"@\r\n"],
+                expected: Ok(b"@\r\n"),
+            },
+            Case {
+                input: &[b"\0\t\r@01 1 OK IDLE --\r\n"],
+                expected: Ok(b"@01 1 OK IDLE --\r\n"),
+            },
+            Case {
+                input: &[b"  /1 1 tools echo / this\n"],
+                expected: Err(AsciiPacketMissingEndError::new(b"/1 1 tools echo ").into()),
+            },
+            Case {
+                input: &[b"  /1 1 tools echo\nextra"],
+                expected: Ok(b"/1 1 tools echo\n"),
+            },
+            Case {
+                input: &[b"\r\n"],
+                expected: Err(AsciiPacketMissingStartError::new(b"").into()),
+            },
+            Case {
+                input: &[b"/anything here"],
+                expected: Err(AsciiPacketMissingEndError::new(b"/anything here").into()),
+            },
+        ];
+        let mut port = Port::open_mock();
+        for case in test_cases {
+            port.backend.clear_buffer();
+            for packet in case.input {
+                port.backend.append_data(packet);
+            }
+            let actual = port.read_packet_bytes();
+            match &case.expected {
+                Ok(expected) => {
+                    assert_eq!(*expected, actual.expect("expected OK"));
+                }
+                Err(AsciiError::PacketMissingStart(packet)) => {
+                    match &actual.expect_err("expected Err") {
+                        AsciiError::PacketMissingStart(actual) => assert_eq!(packet, actual),
+                        e => panic!("unexpected error: {e:?}"),
+                    }
+                }
+                Err(AsciiError::PacketMissingEnd(packet)) => {
+                    match &actual.expect_err("expected Err") {
+                        AsciiError::PacketMissingEnd(actual) => assert_eq!(packet, actual),
+                        e => panic!("unexpected error: {e:?}"),
+                    }
+                }
+                Err(_) => panic!("unsupported test case"),
+            }
+        }
+    }
+
     // Poison a port
     fn poison_port(port: &mut Port<Mock>) {
         use std::{io, time::Duration};
         let mut guard = port.timeout_guard(Some(Duration::from_secs(1))).unwrap();
         guard
             .backend
-            .get_mut()
             .set_read_timeout_error(Some(io::Error::new(io::ErrorKind::Other, "OOPS!").into()));
     }
 
