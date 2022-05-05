@@ -4,7 +4,7 @@
 use crate::backend::Mock;
 use crate::{
     backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
-    binary::{command, traits, DeviceMessage},
+    binary::{command, traits, Message},
     error::{
         BinaryCommandFailureError, BinaryError, BinaryUnexpectedCommandError,
         BinaryUnexpectedIdError, BinaryUnexpectedTargetError,
@@ -327,7 +327,7 @@ impl<B: Backend> Port<B> {
     /// ```
     /// # use zproto:: {
     /// #   backend::Backend,
-    /// #   binary::{DeviceMessage, Port},
+    /// #   binary::{Message, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::binary::command::*;
@@ -336,7 +336,7 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn tx_recv<M>(&mut self, message: M) -> Result<DeviceMessage<M::Response>, BinaryError>
+    pub fn tx_recv<M>(&mut self, message: M) -> Result<Message<M::Response>, BinaryError>
     where
         M: traits::TxMessage + traits::ElicitsResponse,
     {
@@ -348,7 +348,7 @@ impl<B: Backend> Port<B> {
             check_unexpected_elicited_command(response, &message)?;
             Ok(())
         })?;
-        DeviceMessage::try_from_untyped(response).map_err(Into::into)
+        Message::try_from_untyped(response).map_err(Into::into)
     }
 
     /// Transmit a message and then receive `n` responses.
@@ -358,7 +358,7 @@ impl<B: Backend> Port<B> {
         &mut self,
         message: M,
         n: usize,
-    ) -> Result<Vec<DeviceMessage<M::Response>>, BinaryError>
+    ) -> Result<Vec<Message<M::Response>>, BinaryError>
     where
         M: traits::TxMessage + traits::ElicitsResponse,
     {
@@ -383,7 +383,7 @@ impl<B: Backend> Port<B> {
     pub fn tx_recv_until_timeout<M>(
         &mut self,
         message: M,
-    ) -> Result<Vec<DeviceMessage<M::Response>>, BinaryError>
+    ) -> Result<Vec<Message<M::Response>>, BinaryError>
     where
         M: traits::TxMessage + traits::ElicitsResponse,
     {
@@ -431,8 +431,8 @@ impl<B: Backend> Port<B> {
     /// to the caller.
     fn recv_internal(
         &mut self,
-        checks: impl Fn(DeviceMessage) -> Result<(), BinaryError>,
-    ) -> Result<DeviceMessage, BinaryError> {
+        checks: impl Fn(Message) -> Result<(), BinaryError>,
+    ) -> Result<Message, BinaryError> {
         self.check_poisoned()?;
 
         let mut buf = [0; 6];
@@ -444,7 +444,7 @@ impl<B: Backend> Port<B> {
                 .unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
             &buf
         );
-        let response = DeviceMessage::from_bytes(&buf, self.id.is_enabled());
+        let response = Message::from_bytes(&buf, self.id.is_enabled());
         checks(response)?;
         Ok(response)
     }
@@ -458,7 +458,7 @@ impl<B: Backend> Port<B> {
     /// ```
     /// # use zproto:: {
     /// #   backend::Backend,
-    /// #   binary::{DeviceMessage, Port},
+    /// #   binary::{Message, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::binary::command::*;
@@ -466,20 +466,17 @@ impl<B: Backend> Port<B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn recv<C: traits::Command>(
-        &mut self,
-        expected: C,
-    ) -> Result<DeviceMessage<C>, BinaryError> {
+    pub fn recv<C: traits::Command>(&mut self, expected: C) -> Result<Message<C>, BinaryError> {
         let response = self.recv_internal(|response| {
             check_command_failure(response)?;
             check_unexpected_command(response, expected.command())?;
             Ok(())
         })?;
-        DeviceMessage::try_from_untyped(response).map_err(Into::into)
+        Message::try_from_untyped(response).map_err(Into::into)
     }
 
     /// Receive a message containing any command.
-    pub fn recv_any(&mut self) -> Result<DeviceMessage, BinaryError> {
+    pub fn recv_any(&mut self) -> Result<Message, BinaryError> {
         self.recv_internal(|response| {
             check_command_failure(response)?;
             Ok(())
@@ -493,14 +490,12 @@ impl<B: Backend> Port<B> {
     /// forwarded to the user and no further messages are received.
     fn recv_n_internal<C: traits::Command>(
         &mut self,
-        checks: impl Fn(DeviceMessage) -> Result<(), BinaryError>,
+        checks: impl Fn(Message) -> Result<(), BinaryError>,
         n: usize,
-    ) -> Result<Vec<DeviceMessage<C>>, BinaryError> {
+    ) -> Result<Vec<Message<C>>, BinaryError> {
         let mut responses = Vec::with_capacity(n);
         for _ in 0..n {
-            responses.push(DeviceMessage::try_from_untyped(
-                self.recv_internal(&checks)?,
-            )?);
+            responses.push(Message::try_from_untyped(self.recv_internal(&checks)?)?);
         }
         Ok(responses)
     }
@@ -513,7 +508,7 @@ impl<B: Backend> Port<B> {
         &mut self,
         expected: C,
         n: usize,
-    ) -> Result<Vec<DeviceMessage<C>>, BinaryError> {
+    ) -> Result<Vec<Message<C>>, BinaryError> {
         self.recv_n_internal(
             |response| {
                 check_command_failure(response)?;
@@ -527,7 +522,7 @@ impl<B: Backend> Port<B> {
     /// Receive `n` messages containing any command.
     ///
     /// Each message may contain a different command.
-    pub fn recv_any_n(&mut self, n: usize) -> Result<Vec<DeviceMessage>, BinaryError> {
+    pub fn recv_any_n(&mut self, n: usize) -> Result<Vec<Message>, BinaryError> {
         self.recv_n_internal(
             |response| {
                 check_command_failure(response)?;
@@ -544,12 +539,12 @@ impl<B: Backend> Port<B> {
     /// forwarded to the user and no further messages are received.
     fn recv_until_timeout_internal<C: traits::Command>(
         &mut self,
-        checks: impl Fn(DeviceMessage) -> Result<(), BinaryError>,
-    ) -> Result<Vec<DeviceMessage<C>>, BinaryError> {
+        checks: impl Fn(Message) -> Result<(), BinaryError>,
+    ) -> Result<Vec<Message<C>>, BinaryError> {
         let mut responses = Vec::new();
         loop {
             match self.recv_internal(&checks) {
-                Ok(r) => responses.push(DeviceMessage::try_from_untyped(r)?),
+                Ok(r) => responses.push(Message::try_from_untyped(r)?),
                 Err(e) if e.is_timeout() => break,
                 Err(e) => return Err(e),
             }
@@ -561,10 +556,7 @@ impl<B: Backend> Port<B> {
     ///
     /// If any of the received messages have a command that does not match
     /// `expected` an error is returned and no further messages are received.
-    pub fn recv_until_timeout<C>(
-        &mut self,
-        expected: C,
-    ) -> Result<Vec<DeviceMessage<C>>, BinaryError>
+    pub fn recv_until_timeout<C>(&mut self, expected: C) -> Result<Vec<Message<C>>, BinaryError>
     where
         C: traits::Command,
     {
@@ -578,7 +570,7 @@ impl<B: Backend> Port<B> {
     /// Receive messages containing any command until the port times out.
     ///
     /// Each message may contain a different command.
-    pub fn recv_any_until_timeout(&mut self) -> Result<Vec<DeviceMessage>, BinaryError> {
+    pub fn recv_any_until_timeout(&mut self) -> Result<Vec<Message>, BinaryError> {
         self.recv_until_timeout_internal(|response| {
             check_command_failure(response)?;
             Ok(())
@@ -594,7 +586,7 @@ impl<B: Backend> Port<B> {
     /// ```
     /// # use zproto:: {
     /// #   backend::Backend,
-    /// #   binary::{DeviceMessage, Port},
+    /// #   binary::{Message, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// use zproto::binary::command::*;
@@ -610,10 +602,10 @@ impl<B: Backend> Port<B> {
         &mut self,
         message: M,
         mut predicate: F,
-    ) -> Result<DeviceMessage<M::Response>, BinaryError>
+    ) -> Result<Message<M::Response>, BinaryError>
     where
         M: traits::TxMessage + traits::ElicitsResponse,
-        F: FnMut(&DeviceMessage<M::Response>) -> bool,
+        F: FnMut(&Message<M::Response>) -> bool,
     {
         let mut response;
         loop {
@@ -630,7 +622,7 @@ impl<B: Backend> Port<B> {
     pub fn poll_until_idle(
         &mut self,
         target: u8,
-    ) -> Result<DeviceMessage<command::types::ReturnStatus>, BinaryError> {
+    ) -> Result<Message<command::types::ReturnStatus>, BinaryError> {
         self.poll_until((target, command::RETURN_STATUS), |reply| {
             reply.data().unwrap() == super::Status::Idle
         })
@@ -653,7 +645,7 @@ impl<B: Backend> Port<B> {
     /// ```
     /// # use zproto:: {
     /// #   backend::Backend,
-    /// #   binary::{DeviceMessage, Port},
+    /// #   binary::{Message, Port},
     /// # };
     /// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), Box<dyn std::error::Error>> {
     /// port.set_message_ids(true)?;
@@ -724,7 +716,7 @@ impl<B: Backend> crate::timeout_guard::Port<B> for Port<B> {
 
 /// Check for an unexpected command in the response.
 fn check_unexpected_command(
-    response: DeviceMessage,
+    response: Message,
     expected: u8,
 ) -> Result<(), BinaryUnexpectedCommandError> {
     // If the response type, C, only encodes one command then because it
@@ -743,7 +735,7 @@ fn check_unexpected_command(
 ///
 /// The expected command is calculated based on the message that was `sent`.
 fn check_unexpected_elicited_command<M>(
-    response: DeviceMessage,
+    response: Message,
     sent: &M,
 ) -> Result<(), BinaryUnexpectedCommandError>
 where
@@ -763,10 +755,7 @@ where
 }
 
 /// Check for an unexpected message ID in the response.
-fn check_unexpected_id(
-    response: DeviceMessage,
-    id: Option<u8>,
-) -> Result<(), BinaryUnexpectedIdError> {
+fn check_unexpected_id(response: Message, id: Option<u8>) -> Result<(), BinaryUnexpectedIdError> {
     if response.id() != id {
         Err(BinaryUnexpectedIdError::new(response))
     } else {
@@ -776,7 +765,7 @@ fn check_unexpected_id(
 
 /// Check for an unexpected target in the response.
 fn check_unexpected_target(
-    response: DeviceMessage,
+    response: Message,
     sent_command: u8,
     sent_target: u8,
 ) -> Result<(), BinaryUnexpectedTargetError> {
@@ -792,7 +781,7 @@ fn check_unexpected_target(
 }
 
 /// Check if the response's command is ERROR (255).
-fn check_command_failure(response: DeviceMessage) -> Result<(), BinaryCommandFailureError> {
+fn check_command_failure(response: Message) -> Result<(), BinaryCommandFailureError> {
     if response.command() == command::ERROR {
         Err(BinaryCommandFailureError::new(response))
     } else {
@@ -857,7 +846,7 @@ mod test {
         port.id = MessageId::Enabled(0);
         let err = port.tx_recv((1, MOVE_ABSOLUTE, 5)).unwrap_err();
         if let BinaryError::UnexpectedId(err) = err {
-            assert_eq!(DeviceMessage::from(err).id().unwrap(), 2);
+            assert_eq!(Message::from(err).id().unwrap(), 2);
         } else {
             panic!("unexpected error {:?}", err)
         }
@@ -902,7 +891,7 @@ mod test {
         port.backend.append_data([2, untyped::RESET, 0, 0, 0, 0]);
         let err = port.tx_recv_n((0, HOME), 2).unwrap_err();
         if let BinaryError::UnexpectedCommand(err) = err {
-            assert_eq!(DeviceMessage::from(err).command(), untyped::RESET);
+            assert_eq!(Message::from(err).command(), untyped::RESET);
         } else {
             panic!("unexpected error: {:?}", err);
         }
@@ -912,7 +901,7 @@ mod test {
         port.backend.append_data([2, untyped::HOME, 0, 0, 0, 0]);
         let err = port.tx_recv_n((1, HOME), 2).unwrap_err();
         if let BinaryError::UnexpectedTarget(err) = err {
-            assert_eq!(DeviceMessage::from(err).target(), 2);
+            assert_eq!(Message::from(err).target(), 2);
         } else {
             panic!("unexpected error: {:?}", err);
         }

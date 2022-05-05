@@ -1,39 +1,39 @@
 error[E0308]: `?` operator has incompatible types
- --> test/binary/01-type-inference.rs:6:42
+ --> test/binary/01-type-inference.rs:6:36
   |
-6 |     let _: DeviceMessage<types::Reset> = port.tx_recv((0, HOME))?;
-  |                                          ^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Reset`, found struct `Home`
+6 |     let _: Message<types::Reset> = port.tx_recv((0, HOME))?;
+  |                                    ^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Reset`, found struct `Home`
   |
-  = note: `?` operator cannot convert from `DeviceMessage<Home>` to `DeviceMessage<Reset>`
-  = note: expected struct `DeviceMessage<Reset>`
-             found struct `DeviceMessage<Home>`
+  = note: `?` operator cannot convert from `Message<Home>` to `Message<Reset>`
+  = note: expected struct `Message<Reset>`
+             found struct `Message<Home>`
 
 error[E0308]: `?` operator has incompatible types
- --> test/binary/01-type-inference.rs:7:41
+ --> test/binary/01-type-inference.rs:7:35
   |
-7 |     let _: DeviceMessage<types::Home> = port.tx_recv((0, untyped::HOME, 0i32))?;
-  |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Home`, found `u8`
+7 |     let _: Message<types::Home> = port.tx_recv((0, untyped::HOME, 0i32))?;
+  |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Home`, found `u8`
   |
-  = note: `?` operator cannot convert from `DeviceMessage<u8>` to `DeviceMessage<Home>`
-  = note: expected struct `DeviceMessage<Home>`
-             found struct `DeviceMessage<u8>`
+  = note: `?` operator cannot convert from `Message<u8>` to `Message<Home>`
+  = note: expected struct `Message<Home>`
+             found struct `Message<u8>`
 
 error[E0308]: `?` operator has incompatible types
- --> test/binary/01-type-inference.rs:8:50
+ --> test/binary/01-type-inference.rs:8:44
   |
-8 |     let _: DeviceMessage<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, RETURN_CURRENT_POSITION))?;
-  |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `ReturnCurrentPosition`
+8 |     let _: Message<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, RETURN_CURRENT_POSITION))?;
+  |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `ReturnCurrentPosition`
   |
-  = note: `?` operator cannot convert from `DeviceMessage<ReturnCurrentPosition>` to `DeviceMessage<ReturnSetting>`
-  = note: expected struct `DeviceMessage<ReturnSetting>`
-             found struct `DeviceMessage<ReturnCurrentPosition>`
+  = note: `?` operator cannot convert from `Message<ReturnCurrentPosition>` to `Message<ReturnSetting>`
+  = note: expected struct `Message<ReturnSetting>`
+             found struct `Message<ReturnCurrentPosition>`
 
 error[E0308]: `?` operator has incompatible types
- --> test/binary/01-type-inference.rs:9:50
+ --> test/binary/01-type-inference.rs:9:44
   |
-9 |     let _: DeviceMessage<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
-  |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `SetTargetSpeed`
+9 |     let _: Message<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
+  |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `SetTargetSpeed`
   |
-  = note: `?` operator cannot convert from `DeviceMessage<SetTargetSpeed>` to `DeviceMessage<ReturnSetting>`
-  = note: expected struct `DeviceMessage<ReturnSetting>`
-             found struct `DeviceMessage<SetTargetSpeed>`
+  = note: `?` operator cannot convert from `Message<SetTargetSpeed>` to `Message<ReturnSetting>`
+  = note: expected struct `Message<ReturnSetting>`
+             found struct `Message<SetTargetSpeed>`
