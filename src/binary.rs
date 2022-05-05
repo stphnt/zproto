@@ -85,7 +85,7 @@
 //!
 //! ## Reading Data
 //!
-//! Reading data from a response is as simple as calling [`data()`](DeviceMessage::data)
+//! Reading data from a response is as simple as calling [`data()`](Message::data)
 //! on the response. If the command was sent using the strongly typed commands
 //! in the [`command`] module, the library will pick the correct type conversion
 //! for you at compile time.
@@ -214,9 +214,9 @@ use std::convert::Infallible;
 use crate::error;
 pub use port::*;
 
-/// An Binary Protocol message received from a device.
+/// A Binary Protocol message.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct DeviceMessage<C = u8> {
+pub struct Message<C = u8> {
     /// The targeted device
     target: u8,
     /// The command code
@@ -227,7 +227,7 @@ pub struct DeviceMessage<C = u8> {
     id: Option<u8>,
 }
 
-impl<C> DeviceMessage<C> {
+impl<C> Message<C> {
     /// Get the message target.
     pub const fn target(&self) -> u8 {
         self.target
@@ -244,7 +244,7 @@ impl<C> DeviceMessage<C> {
     }
 }
 
-impl<C: traits::Command> DeviceMessage<C> {
+impl<C: traits::Command> Message<C> {
     /// Get the message command code.
     pub fn command(&self) -> u8 {
         self.command.command()
@@ -284,8 +284,8 @@ impl<C: traits::Command> DeviceMessage<C> {
     }
 
     /// Get the message without any type constraints on it.
-    pub fn to_untyped(&self) -> DeviceMessage<u8> {
-        DeviceMessage {
+    pub fn to_untyped(&self) -> Message<u8> {
+        Message {
             target: self.target(),
             command: self.command.command(),
             data: self.data,
@@ -293,12 +293,12 @@ impl<C: traits::Command> DeviceMessage<C> {
         }
     }
 
-    /// Try to construct a strongly-typed `DeviceMessage` from an "untyped" one.
+    /// Try to construct a strongly-typed `Message` from an "untyped" one.
     pub fn try_from_untyped(
-        other: DeviceMessage,
-    ) -> Result<DeviceMessage<C>, error::BinaryUnexpectedCommandError> {
+        other: Message,
+    ) -> Result<Message<C>, error::BinaryUnexpectedCommandError> {
         if let Ok(command) = C::try_from(other.command()) {
-            Ok(DeviceMessage {
+            Ok(Message {
                 target: other.target,
                 command,
                 data: other.data,
@@ -310,12 +310,12 @@ impl<C: traits::Command> DeviceMessage<C> {
     }
 }
 
-impl DeviceMessage<u8> {
-    /// Parse an array of 6 bytes into a [`DeviceMessage`].
+impl Message<u8> {
+    /// Parse an array of 6 bytes into a [`Message`].
     ///
     /// Set `id` to `true` if the response is expected to contain a message ID.
-    pub(crate) const fn from_bytes(bytes: &[u8; 6], id: bool) -> DeviceMessage<u8> {
-        DeviceMessage {
+    pub(crate) const fn from_bytes(bytes: &[u8; 6], id: bool) -> Message<u8> {
+        Message {
             target: bytes[0],
             command: bytes[1],
             data: [bytes[2], bytes[3], bytes[4], if id { 0 } else { bytes[5] }],
@@ -324,7 +324,7 @@ impl DeviceMessage<u8> {
     }
 }
 
-impl<C> std::fmt::Display for DeviceMessage<C>
+impl<C> std::fmt::Display for Message<C>
 where
     C: traits::Command,
 {
@@ -575,14 +575,14 @@ mod test {
         use crate::binary::command::{types::*, untyped};
 
         // Incorrect command value results in an error.
-        let err = DeviceMessage::<SetHomeSpeed>::try_from_untyped(DeviceMessage::from_bytes(
+        let err = Message::<SetHomeSpeed>::try_from_untyped(Message::from_bytes(
             &[3, untyped::SET_ACCELERATION, 0, 0, 0, 1],
             false,
         ))
         .unwrap_err();
         assert_eq!(
-            DeviceMessage::from(err),
-            DeviceMessage::from_bytes(&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
+            Message::from(err),
+            Message::from_bytes(&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
         );
     }
 
@@ -591,9 +591,10 @@ mod test {
         use crate::binary::command::{types::*, untyped};
 
         // Parsing a message with an ID works properly.
-        let message: DeviceMessage<SetHomeSpeed> = DeviceMessage::try_from_untyped(
-            DeviceMessage::from_bytes(&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1], true),
-        )
+        let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
+            &[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+            true,
+        ))
         .unwrap();
         assert_eq!(message.target(), 3);
         assert_eq!(message.id(), Some(1));
@@ -606,9 +607,10 @@ mod test {
         use crate::binary::command::{types::*, untyped};
 
         // Parsing a message without an ID works properly.
-        let message: DeviceMessage<SetHomeSpeed> = DeviceMessage::try_from_untyped(
-            DeviceMessage::from_bytes(&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1], false),
-        )
+        let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
+            &[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+            false,
+        ))
         .unwrap();
         assert_eq!(message.target(), 3);
         assert_eq!(message.id(), None);

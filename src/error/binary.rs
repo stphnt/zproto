@@ -1,24 +1,24 @@
 //! Error types for the Zaber's Binary protocol.
 
 use super::SerialDeviceInUseOrDisconnectedError;
-use crate::binary::DeviceMessage;
+use crate::binary::Message;
 
 macro_rules! impl_binary_error {
     ($name:ident) => {
         impl $name {
             /// Create a new error.
-            pub(crate) const fn new(message: DeviceMessage) -> Self {
+            pub(crate) const fn new(message: Message) -> Self {
                 $name(message)
             }
         }
 
-        impl AsRef<DeviceMessage> for $name {
-            fn as_ref(&self) -> &DeviceMessage {
+        impl AsRef<Message> for $name {
+            fn as_ref(&self) -> &Message {
                 &self.0
             }
         }
 
-        impl From<$name> for DeviceMessage {
+        impl From<$name> for Message {
             fn from(other: $name) -> Self {
                 other.0
             }
@@ -29,7 +29,7 @@ macro_rules! impl_binary_error {
 /// A Binary command failed and an Error (`255`) response was received.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
-pub struct BinaryCommandFailureError(DeviceMessage);
+pub struct BinaryCommandFailureError(Message);
 
 impl_error_display! {
     BinaryCommandFailureError,
@@ -56,7 +56,7 @@ impl BinaryCommandFailureError {
 /// A Binary response came from an unexpected target.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
-pub struct BinaryUnexpectedTargetError(DeviceMessage);
+pub struct BinaryUnexpectedTargetError(Message);
 
 impl_error_display! {
     BinaryUnexpectedTargetError,
@@ -67,7 +67,7 @@ impl_binary_error! { BinaryUnexpectedTargetError }
 /// A Binary response had an unexpected message ID.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
-pub struct BinaryUnexpectedIdError(DeviceMessage);
+pub struct BinaryUnexpectedIdError(Message);
 
 impl_error_display! {
     BinaryUnexpectedIdError,
@@ -78,7 +78,7 @@ impl_binary_error! { BinaryUnexpectedIdError }
 /// A Binary response had an unexpected Binary command code.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
-pub struct BinaryUnexpectedCommandError(DeviceMessage);
+pub struct BinaryUnexpectedCommandError(Message);
 
 impl_error_display! {
     BinaryUnexpectedCommandError,
@@ -261,10 +261,9 @@ mod test {
     // Make sure the error enums are at most 3 words large (the same size as a String).
     // This will minimize the size of Result<R, Error>.
     const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
-    const_assert_eq!(std::mem::size_of::<DeviceMessage>(), 8);
+    const_assert_eq!(std::mem::size_of::<Message>(), 8);
     const_assert!(
-        std::mem::size_of::<BinaryUnexpectedError>()
-            < std::mem::size_of::<DeviceMessage>() + _WORD_SIZE
+        std::mem::size_of::<BinaryUnexpectedError>() < std::mem::size_of::<Message>() + _WORD_SIZE
     );
     const_assert_eq!(std::mem::size_of::<BinaryError>(), 3 * _WORD_SIZE);
 
