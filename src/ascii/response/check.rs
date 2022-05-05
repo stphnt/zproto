@@ -244,7 +244,7 @@ pub fn parsed_data_is<
             if parsed == value {
                 Ok(response)
             } else {
-                Err(AsciiCheckDataError::new("expected data {:?}", response).into())
+                Err(AsciiCheckDataError::new(format!("expected data {:?}", value), response).into())
             }
         } else {
             Err(AsciiCheckDataError::new("could not parse data as expected type", response).into())
@@ -575,17 +575,197 @@ mod test {
     use crate::ascii::{parse::Packet, Reply};
 
     #[test]
-    fn test() {
-        let checker = all((
-            flag_is(Flag::Ok),
-            warning_in(&["--"]),
-            status_is(Status::Busy),
-        ));
+    fn check_reply() {
+        struct Case<'a> {
+            reply: Reply,
+            checker: &'a dyn Check<Reply>,
+            expected: Result<(), AsciiCheckError<Reply>>,
+        }
 
-        let packet = Packet::new_ref(b"@01 1 12 OK BUSY -- 0\r\n").unwrap();
-        let response = Reply::try_from_packet(&packet).unwrap();
-        let result = dbg!(checker.check(response));
-        assert!(result.is_ok())
+        let ok_busy_reply =
+            Reply::try_from_packet(&Packet::new(b"@01 1 12 OK BUSY -- 0\r\n").unwrap()).unwrap();
+        let ok_idle_reply =
+            Reply::try_from_packet(&Packet::new(b"@01 1 12 OK IDLE -- 0\r\n").unwrap()).unwrap();
+        let ok_idle_ff_reply =
+            Reply::try_from_packet(&Packet::new(b"@01 1 12 OK IDLE FF 0\r\n").unwrap()).unwrap();
+        let ok_idle_wh_reply =
+            Reply::try_from_packet(&Packet::new(b"@01 1 12 OK IDLE WH 0\r\n").unwrap()).unwrap();
+        let ok_idle_ni_reply =
+            Reply::try_from_packet(&Packet::new(b"@01 1 12 OK IDLE NI 0\r\n").unwrap()).unwrap();
+
+        let predicate_check = predicate(|reply: &Reply| {
+            if reply.flag() == Flag::Ok {
+                reply.status() == Status::Idle
+            } else {
+                reply.data() == "0"
+            }
+        });
+
+        let cases = &[
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &flag_ok(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &flag_is(Flag::Rj),
+                expected: Err(AsciiCheckFlagError::new(Flag::Rj, ok_busy_reply.clone()).into()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &flag_ok_and(status_is(Status::Busy)),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &flag_ok_and(status_is(Status::Idle)),
+                expected: Err(
+                    AsciiCheckStatusError::new(Status::Idle, ok_busy_reply.clone()).into(),
+                ),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &unchecked(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_idle_reply.clone(),
+                checker: &default(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &default(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_idle_ni_reply.clone(),
+                checker: &default(),
+                expected: Err(AsciiCheckWarningError::new(
+                    "expected -- warning flag",
+                    ok_idle_ni_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &warning_is("WR"),
+                expected: Err(AsciiCheckWarningError::new(
+                    "expected WR warning flag",
+                    ok_busy_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: ok_idle_wh_reply.clone(),
+                checker: &warning_is("WH"),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &warning_is_none(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &warning_in(("WR", Warning::NONE)),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_idle_ff_reply.clone(),
+                checker: &warning_in(("WR", Warning::NONE)),
+                expected: Err(AsciiCheckWarningError::new(
+                    "expected one of WR or -- warning flag(s)",
+                    ok_idle_ff_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: ok_idle_ff_reply.clone(),
+                checker: &warning_below_fault(),
+                expected: Err(AsciiCheckWarningError::new(
+                    "expected warning below fault (F) level",
+                    ok_idle_ff_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: ok_idle_wh_reply.clone(),
+                checker: &warning_below_fault(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_idle_wh_reply.clone(),
+                checker: &warning_below_warning(),
+                expected: Err(AsciiCheckWarningError::new(
+                    "expected warning below warning (W) level",
+                    ok_idle_wh_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: ok_idle_ni_reply.clone(),
+                checker: &warning_below_warning(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &all((
+                    flag_is(Flag::Ok),
+                    warning_in(&["--"]),
+                    status_is(Status::Busy),
+                )),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &parsed_data_is(0),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &parsed_data_is(1),
+                expected: Err(
+                    AsciiCheckDataError::new("expected data 1", ok_busy_reply.clone()).into(),
+                ),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &parsed_data_is(std::num::NonZeroIsize::new(1).unwrap()),
+                expected: Err(AsciiCheckDataError::new(
+                    "could not parse data as expected type",
+                    ok_busy_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &predicate_check,
+                expected: Err(AsciiCheckCustomError::new(
+                    "invalid response",
+                    ok_busy_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: ok_idle_reply.clone(),
+                checker: &predicate_check,
+                expected: Ok(()),
+            },
+        ];
+
+        for (i, case) in cases.iter().enumerate() {
+            println!("case {}: {}", i, case.reply);
+            let actual = case.checker.check(case.reply.clone());
+            match &case.expected {
+                Ok(_) => assert!(actual.is_ok()),
+                Err(expected_err) => {
+                    let actual_err = actual.unwrap_err();
+                    assert_eq!(*expected_err, actual_err);
+                }
+            }
+        }
     }
 
     #[test]
