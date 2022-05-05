@@ -92,7 +92,7 @@ impl OpenSerialOptions {
     }
 
     /// Open the port at the specified path with the custom options.
-    pub fn open(&self, path: &str) -> Result<Port<Serial>, BinaryError> {
+    pub fn open<'a>(&self, path: &str) -> Result<Port<'a, Serial>, BinaryError> {
         Ok(Port::from_backend(self.open_serial_port(path)?))
     }
 
@@ -102,7 +102,7 @@ impl OpenSerialOptions {
     /// which does have runtime overhead. [`open`](OpenSerialOptions::open)
     /// should generally be used instead, except when the type of the underlying
     /// backend may not be known at compile time.
-    pub fn open_dyn(&self, path: &str) -> Result<Port<Box<dyn Backend>>, BinaryError> {
+    pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend>>, BinaryError> {
         Ok(Port::from_backend(Box::new(self.open_serial_port(path)?)))
     }
 }
@@ -161,7 +161,7 @@ impl OpenTcpOptions {
     }
 
     /// Open the port at the specified path with the custom options.
-    pub fn open<A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<TcpStream>> {
+    pub fn open<'a, A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<'a, TcpStream>> {
         Ok(Port::from_backend(self.open_tcp_stream(address)?))
     }
 
@@ -171,7 +171,10 @@ impl OpenTcpOptions {
     /// which does have runtime overhead. [`open`](OpenTcpOptions::open) should
     /// generally be used instead, except when the type of the underlying
     /// backend may not be known at compile time.
-    pub fn open_dyn<A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<Box<dyn Backend>>> {
+    pub fn open_dyn<'a, A: ToSocketAddrs>(
+        &self,
+        address: A,
+    ) -> io::Result<Port<'a, Box<dyn Backend>>> {
         Ok(Port::from_backend(Box::new(self.open_tcp_stream(address)?)))
     }
 }
@@ -222,12 +225,37 @@ impl MessageId {
     }
 }
 
+/// A callback that is called after a packet is either transmitted or received.
+///
+/// See [`Port::on_packet`] for more details.
+pub type OnPacketCallback<'a> = Box<dyn FnMut(&[u8], Message, Direction) + 'a>;
+
+/// A wrapper around an [`OnPacketCallback`] that simply implements `Debug` so
+/// that the [`Port`] can implement `Debug`.
+#[repr(transparent)]
+struct OnPacketCallbackDebugWrapper<'a>(OnPacketCallback<'a>);
+
+impl<'a> std::fmt::Debug for OnPacketCallbackDebugWrapper<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "OnPacketCallback")
+    }
+}
+
+/// The direction a packet was sent.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Direction {
+    /// The packet was transmitted to a device.
+    Tx,
+    /// The packet was received from a device.
+    Recv,
+}
+
 /// A Port for transmitting and receiving Zaber Binary protocol messages.
 ///
 /// See the [`binary`](crate::binary) module documentation details on how to use
 /// a `Port`.
 #[derive(Debug)]
-pub struct Port<B> {
+pub struct Port<'a, B> {
     /// The backend to transmit/receive commands with
     backend: B,
     /// The message ID state
@@ -245,9 +273,11 @@ pub struct Port<B> {
     /// certainly cause the program to abort rather than unwind the stack) it
     /// can poison the port.
     poison: Option<io::Error>,
+    /// Optional hook to call after a packet is sent/received.
+    packet_hook: Option<OnPacketCallbackDebugWrapper<'a>>,
 }
 
-impl Port<Serial> {
+impl<'a> Port<'a, Serial> {
     /// Open the serial port at the specified path using the default options.
     ///
     /// Alternatively, use [`OpenSerialOptions`] to customize how the port is opened.
@@ -261,12 +291,12 @@ impl Port<Serial> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn open_serial(path: &str) -> Result<Port<Serial>, BinaryError> {
+    pub fn open_serial(path: &str) -> Result<Port<'a, Serial>, BinaryError> {
         OpenSerialOptions::new().open(path)
     }
 }
 
-impl Port<TcpStream> {
+impl<'a> Port<'a, TcpStream> {
     /// Open the TCP port at the specified address using the default options.
     ///
     /// Alternatively, use [`OpenTcpOptions`] to customize how the port is opened.
@@ -280,26 +310,27 @@ impl Port<TcpStream> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<TcpStream>, io::Error> {
+    pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream>, io::Error> {
         OpenTcpOptions::new().open(address)
     }
 }
 
 #[cfg(test)]
-impl Port<Mock> {
+impl<'a> Port<'a, Mock> {
     /// Open a mock port.
-    pub fn open_mock() -> Port<Mock> {
+    pub fn open_mock() -> Port<'a, Mock> {
         Port::from_backend(Mock::new())
     }
 }
 
-impl<B: Backend> Port<B> {
+impl<'a, B: Backend> Port<'a, B> {
     /// Get a `Port` from the given backend.
-    fn from_backend(backend: B) -> Port<B> {
+    fn from_backend(backend: B) -> Port<'a, B> {
         Port {
             backend,
             id: MessageId::Disabled(0),
             poison: None,
+            packet_hook: None,
         }
     }
 
@@ -420,6 +451,14 @@ impl<B: Backend> Port<B> {
             buffer
         );
 
+        if let Some(ref mut callback) = self.packet_hook {
+            (callback.0)(
+                &buffer,
+                Message::from_bytes(&buffer, id.is_some()),
+                Direction::Tx,
+            );
+        }
+
         self.backend.write_all(&buffer[..])?;
         Ok(id)
     }
@@ -445,6 +484,10 @@ impl<B: Backend> Port<B> {
             &buf
         );
         let response = Message::from_bytes(&buf, self.id.is_enabled());
+
+        if let Some(ref mut callback) = self.packet_hook {
+            (callback.0)(&buf, response, Direction::Recv);
+        }
         checks(response)?;
         Ok(response)
     }
@@ -669,6 +712,84 @@ impl<B: Backend> Port<B> {
         self.id.is_enabled()
     }
 
+    /// Set a callback that will be called immediately after any Binary packet
+    /// is sent or received.
+    ///
+    /// If a previous callback was set, it is returned.
+    ///
+    /// To clear a previously registered callback use [`clear_on_packet`](Port::clear_on_packet).
+    ///
+    /// The callback will be passed the packet bytes, the parsed version of the
+    /// bytes, and the direction of the packet.
+    ///
+    /// Note, the Port already logs packets (along with other metadata) via the
+    /// [`log`] crate, so logging is best handled via a log handler, such as
+    /// [`simple_logger`](https://crates.io/crates/simple_logger), rather than
+    /// a packet callback. However, there are instances when you need access to
+    /// the packets directly (for instance, to show them in an application),
+    /// which is when a packet callback is most useful.
+    ///
+    /// ## Examples
+    ///
+    /// Any closure can be used as a callback.
+    ///
+    /// ```
+    /// # use zproto::binary::Port;
+    /// #
+    /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let mut port = Port::open_serial("...")?;
+    /// port.on_packet(|bytes, message, dir| {
+    ///     println!("{:?} {:?} {:?}", bytes, message, dir);
+    /// });
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// However, if the closure captures any variables those variables must
+    /// either be moved into the closure with the `move` keyword (e.g., `move |bytes, message, dir| {...}`)
+    /// or live at least as long as the `Port` instance. Additionally, if those
+    /// variables are mutated but also accessed outside of the closure, then a
+    /// [`RefCell`](std::cell::RefCell)/[`Mutex`](std::sync::Mutex) should be
+    /// used to facilitate the sharing.
+    ///
+    /// ```
+    /// # use zproto::binary::{command, Port};
+    /// # use std::cell::RefCell;
+    /// #
+    /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+    /// let packet_list = RefCell::new(Vec::new());
+    /// let mut port = Port::open_serial("...")?;
+    ///
+    /// port.on_packet(|_bytes, message, _dir| {
+    ///     if let Ok(mut packets) = packet_list.try_borrow_mut() {
+    ///         packets.push(message);
+    ///     }
+    /// });
+    ///
+    /// port.tx_recv((1, command::HOME));
+    ///
+    /// for packet in packet_list.borrow().iter() {
+    ///     println!("{:?}", packet);
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn on_packet<F>(&mut self, callback: F) -> Option<OnPacketCallback>
+    where
+        F: FnMut(&[u8], Message, Direction) + 'a,
+    {
+        std::mem::replace(
+            &mut self.packet_hook,
+            Some(OnPacketCallbackDebugWrapper(Box::new(callback))),
+        )
+        .map(|wrapper| wrapper.0)
+    }
+
+    /// Clear any callback registered via [`on_packet`](Port::on_packet) and return it.
+    pub fn clear_on_packet(&mut self) -> Option<OnPacketCallback> {
+        self.packet_hook.take().map(|wrapper| wrapper.0)
+    }
+
     /// Set the port timeout and return a "scope guard" that will reset the
     /// timeout when it goes out of scope.
     ///
@@ -704,7 +825,7 @@ impl<B: Backend> Port<B> {
     }
 }
 
-impl<B: Backend> crate::timeout_guard::Port<B> for Port<B> {
+impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
     fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
@@ -965,6 +1086,46 @@ mod test {
         let last_state = port.set_message_ids(true).unwrap();
         assert_eq!(last_state, false);
         assert_eq!(port.message_ids(), true);
+    }
+
+    #[test]
+    fn on_packet() {
+        use std::{cell::RefCell, rc::Rc};
+        let packets = Rc::new(RefCell::new(Vec::new()));
+        let packets_handle = Rc::clone(&packets);
+
+        let mut port = Port::open_mock();
+        port.set_message_ids(true).unwrap();
+        port.on_packet(move |raw, packet, dir| {
+            if let Ok(mut packets) = packets_handle.try_borrow_mut() {
+                packets.push((raw.to_vec(), packet, dir));
+            }
+        });
+
+        port.backend.append_data([1, 1, 0, 0, 0, 1]);
+        port.backend.append_data([2, 1, 0, 0, 0, 1]);
+        let _ = port.tx_recv_until_timeout((0, HOME)).unwrap();
+
+        assert_eq!(
+            *packets.borrow(),
+            vec![
+                (
+                    [0, 1, 0, 0, 0, 1].to_vec(),
+                    Message::from_bytes(&[0, 1, 0, 0, 0, 1], true),
+                    Direction::Tx
+                ),
+                (
+                    [1, 1, 0, 0, 0, 1].to_vec(),
+                    Message::from_bytes(&[1, 1, 0, 0, 0, 1], true),
+                    Direction::Recv
+                ),
+                (
+                    [2, 1, 0, 0, 0, 1].to_vec(),
+                    Message::from_bytes(&[2, 1, 0, 0, 0, 1], true),
+                    Direction::Recv
+                ),
+            ]
+        );
     }
 
     #[test]
