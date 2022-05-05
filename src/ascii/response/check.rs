@@ -244,7 +244,7 @@ pub fn parsed_data_is<
             if parsed == value {
                 Ok(response)
             } else {
-                Err(AsciiCheckDataError::new("expected data {:?}", response).into())
+                Err(AsciiCheckDataError::new(format!("expected data {:?}", value), response).into())
             }
         } else {
             Err(AsciiCheckDataError::new("could not parse data as expected type", response).into())
