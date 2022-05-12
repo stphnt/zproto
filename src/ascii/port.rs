@@ -810,20 +810,20 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Perform any work necessary to start reading responses with [`receive_response`].
     /// In particular it clears the `builder`.
     ///
-    /// This function should be called before the first time
-    /// [`receive_response`] is called.
+    /// This function should be called before the first time [`receive_response`]
+    /// is called.
     #[inline]
     fn pre_receive_response(&mut self) {
         self.builder.clear();
     }
 
     /// Perform any work necessary to clean up after receiving one or more
-    /// responses with [`receive_response`]. In particular, it will
-    /// ensure the builder is empty and raise an error for any data remaining in
-    /// the builder.
+    /// responses with [`receive_response`]. In particular, it will ensure the
+    /// builder is empty and raise an error for any data remaining in the
+    /// builder.
     ///
-    /// This function should be called after the last time
-    /// [`receive_response`] is called
+    /// This function should be called after the last time [`receive_response`]
+    /// is called.
     fn post_receive_response(&mut self) -> Result<(), AsciiError> {
         if let Some(response) = self.builder.get_complete_response() {
             self.builder.clear();
