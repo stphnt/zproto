@@ -466,15 +466,15 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.builder.clear();
-        let response = self.internal_response_with_check(
+        self.pre_receive_response();
+        let response = self.receive_response(
             |_| HeaderCheckAction::Check {
                 target: cmd.target(),
                 id,
             },
             checker,
         )?;
-        self.handle_extra_data()?;
+        self.post_receive_response()?;
         Ok(response)
     }
 
@@ -568,8 +568,9 @@ impl<'a, B: Backend> Port<'a, B> {
             },
             _ => HeaderCheckAction::Unexpected,
         };
+        self.pre_receive_response();
         loop {
-            match self.internal_response_with_check(&header_check, gen_new_checker(&checker))? {
+            match self.receive_response(&header_check, gen_new_checker(&checker))? {
                 AnyResponse::Info(info) => infos.push(info),
                 AnyResponse::Reply(_) => {
                     // This is the reply we've been waiting for. Stop.
@@ -578,7 +579,7 @@ impl<'a, B: Backend> Port<'a, B> {
                 _ => unreachable!(),
             }
         }
-        self.handle_extra_data()?;
+        self.post_receive_response()?;
         Ok((reply, infos))
     }
 
@@ -628,17 +629,14 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.builder.clear();
-        let replies = self.internal_response_n_with_check(
+        self.internal_response_n_with_check(
             n,
             |_| HeaderCheckAction::Check {
                 target: cmd.target(),
                 id,
             },
             checker,
-        )?;
-        self.handle_extra_data()?;
-        Ok(replies)
+        )
     }
 
     /// Transmit a command, receive replies until the port times out, and check each reply with the [`default`](check::default) checks.
@@ -688,16 +686,13 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
-        self.builder.clear();
-        let response = self.internal_responses_until_timeout_with_check(
+        self.internal_responses_until_timeout_with_check(
             |_| HeaderCheckAction::Check {
                 target: cmd.target(),
                 id,
             },
             checker,
-        )?;
-        self.handle_extra_data()?;
-        Ok(response)
+        )
     }
 
     /// Read the bytes for a packet.
@@ -812,14 +807,50 @@ impl<'a, B: Backend> Port<'a, B> {
         }
     }
 
-    /// Receive a response.
+    /// Perform any work necessary to start reading responses with [`receive_response`].
+    /// In particular it clears the `builder`.
+    ///
+    /// This function should be called before the first time
+    /// [`receive_response`] is called.
+    #[inline]
+    fn pre_receive_response(&mut self) {
+        self.builder.clear();
+    }
+
+    /// Perform any work necessary to clean up after receiving one or more
+    /// responses with [`receive_response`]. In particular, it will
+    /// ensure the builder is empty and raise an error for any data remaining in
+    /// the builder.
+    ///
+    /// This function should be called after the last time
+    /// [`receive_response`] is called
+    fn post_receive_response(&mut self) -> Result<(), AsciiError> {
+        if let Some(response) = self.builder.get_complete_response() {
+            self.builder.clear();
+            return Err(AsciiUnexpectedResponseError::new(response).into());
+        }
+        if let Some(packet) = self.builder.get_incomplete_response_packet() {
+            self.builder.clear();
+            return Err(AsciiUnexpectedPacketError::new(packet).into());
+        }
+        // There must not be any data remaining.
+        Ok(())
+    }
+
+    /// Receiving a response.
+    ///
+    /// Prior to calling this function for the first time, `pre_receive_response`
+    /// should be called. After the last call to this function,
+    /// `post_receive_response` should be called. Both of these functions
+    /// ensure `self.builder` is in the appropriate state and that all errors
+    /// are appropriately handled.
     ///
     /// If the response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
     /// `checker` to validate the contents of the message.
-    fn internal_response_with_check<R, F, K>(
+    fn receive_response<R, F, K>(
         &mut self,
         mut header_check: F,
         checker: K,
@@ -864,13 +895,12 @@ impl<'a, B: Backend> Port<'a, B> {
         ) -> impl check::Check<R> + 'a {
             move |response| checker.check(response)
         }
+        self.pre_receive_response();
         let mut responses = Vec::new();
         for _ in 0..n {
-            responses.push(
-                self.internal_response_with_check(|r| header_check(r), gen_new_checker(&checker))?,
-            );
+            responses.push(self.receive_response(|r| header_check(r), gen_new_checker(&checker))?);
         }
-        self.handle_extra_data()?;
+        self.post_receive_response()?;
         Ok(responses)
     }
 
@@ -899,35 +929,18 @@ impl<'a, B: Backend> Port<'a, B> {
         ) -> impl check::Check<R> + 'a {
             move |response| checker.check(response)
         }
+        self.pre_receive_response();
         let mut responses = Vec::new();
         loop {
-            match self.internal_response_with_check(
-                |response| header_check(response),
-                gen_new_checker(&check),
-            ) {
+            match self.receive_response(|response| header_check(response), gen_new_checker(&check))
+            {
                 Ok(r) => responses.push(r),
                 Err(e) if e.is_timeout() => break,
                 Err(e) => return Err(e),
             }
         }
+        self.post_receive_response()?;
         Ok(responses)
-    }
-
-    /// If the builder has any remaining data, raise an error. Otherwise,
-    /// do nothing.
-    ///
-    /// All data in the builder will be removed.
-    fn handle_extra_data(&mut self) -> Result<(), AsciiError> {
-        if let Some(response) = self.builder.get_complete_response() {
-            self.builder.clear();
-            return Err(AsciiUnexpectedResponseError::new(response).into());
-        }
-        if let Some(packet) = self.builder.get_incomplete_response_packet() {
-            self.builder.clear();
-            return Err(AsciiUnexpectedPacketError::new(packet).into());
-        }
-        // There must not be any data remaining.
-        Ok(())
     }
 
     /// Receive a response and check it with the [`default`](check::default) checks.
@@ -952,10 +965,10 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.builder.clear();
+        self.pre_receive_response();
         let response =
-            self.internal_response_with_check(|_| HeaderCheckAction::DoNotCheck, check::default())?;
-        self.handle_extra_data()?;
+            self.receive_response(|_| HeaderCheckAction::DoNotCheck, check::default())?;
+        self.post_receive_response()?;
         Ok(response)
     }
 
@@ -978,10 +991,9 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.builder.clear();
-        let response =
-            self.internal_response_with_check(|_| HeaderCheckAction::DoNotCheck, checker)?;
-        self.handle_extra_data()?;
+        self.pre_receive_response();
+        let response = self.receive_response(|_| HeaderCheckAction::DoNotCheck, checker)?;
+        self.post_receive_response()?;
         Ok(response)
     }
 
@@ -1006,14 +1018,7 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.builder.clear();
-        let response = self.internal_response_n_with_check(
-            n,
-            |_| HeaderCheckAction::DoNotCheck,
-            check::default(),
-        )?;
-        self.handle_extra_data()?;
-        Ok(response)
+        self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, check::default())
     }
 
     /// Same as [`Port::response_n`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -1040,11 +1045,7 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.builder.clear();
-        let response =
-            self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, checker)?;
-        self.handle_extra_data()?;
-        Ok(response)
+        self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, checker)
     }
 
     /// Receive responses until the port times out and check each one with the [`default`](check::default) checks.
@@ -1069,13 +1070,10 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.builder.clear();
-        let response = self.internal_responses_until_timeout_with_check(
+        self.internal_responses_until_timeout_with_check(
             |_| HeaderCheckAction::DoNotCheck,
             check::default(),
-        )?;
-        self.handle_extra_data()?;
-        Ok(response)
+        )
     }
 
     /// Same as [`Port::responses_until_timeout`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -1101,13 +1099,7 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.builder.clear();
-        let responses = self.internal_responses_until_timeout_with_check(
-            |_| HeaderCheckAction::DoNotCheck,
-            check,
-        )?;
-        self.handle_extra_data()?;
-        Ok(responses)
+        self.internal_responses_until_timeout_with_check(|_| HeaderCheckAction::DoNotCheck, check)
     }
 
     /// Send the specified command repeatedly until the predicate returns true for a reply.
