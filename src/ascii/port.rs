@@ -1,7 +1,5 @@
 //! Types for opening and using a serial port with the ASCII protocol.
 
-#[cfg(doc)]
-use crate::ascii::Alert;
 #[cfg(test)]
 use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
@@ -11,8 +9,8 @@ use crate::{
         checksum::Lrc,
         id,
         parse::{Packet, PacketKind},
-        AnyResponse, Command, CommandInstance, Info, Reply, Response, ResponseBuilder, Status,
-        Target,
+        Alert, AnyResponse, Command, CommandInstance, Info, Reply, Response, ResponseBuilder,
+        Status, Target,
     },
     error::*,
     timeout_guard::TimeoutGuard,
@@ -268,6 +266,22 @@ impl<'a> std::fmt::Debug for OnPacketCallbackDebugWrapper<'a> {
     }
 }
 
+/// A callback that is called when an unexpected Alert is received.
+///
+/// See [`Port::on_unexpected_alert`] for more details.
+pub type OnUnexpectedAlertCallback<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + 'a>;
+
+/// A wrapper around an [`OnUnexpectedAlertCallback`] that simply implements `Debug` so
+/// that the [`Port`] can implement `Debug`.
+#[repr(transparent)]
+struct OnUnexpectedAlertDebugWrapper<'a>(OnUnexpectedAlertCallback<'a>);
+
+impl<'a> std::fmt::Debug for OnUnexpectedAlertDebugWrapper<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "OnUnexpectedAlertCallback")
+    }
+}
+
 /// The direction a packet was sent.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Direction {
@@ -311,6 +325,8 @@ pub struct Port<'a, B> {
     builder: ResponseBuilder,
     /// Optional hook to call after a packet is sent/received.
     packet_hook: Option<OnPacketCallbackDebugWrapper<'a>>,
+    /// Optional hook to call when an unexpected Alert is received.
+    unexpected_alert_hook: Option<OnUnexpectedAlertDebugWrapper<'a>>,
 }
 
 impl<'a> Port<'a, Serial> {
@@ -374,6 +390,7 @@ impl<'a, B: Backend> Port<'a, B> {
             poison: None,
             builder: ResponseBuilder::default(),
             packet_hook: None,
+            unexpected_alert_hook: None,
         }
     }
 
@@ -825,16 +842,55 @@ impl<'a, B: Backend> Port<'a, B> {
     /// This function should be called after the last time [`receive_response`]
     /// is called.
     fn post_receive_response(&mut self) -> Result<(), AsciiError> {
-        if let Some(response) = self.builder.get_complete_response() {
+        let mut inner = || -> Result<(), AsciiError> {
+            if let Some(response) = self.builder.get_complete_response() {
+                return Err(AsciiUnexpectedResponseError::new(response).into());
+            }
+            if let Some(packet) = self.builder.get_incomplete_response_packet() {
+                return Err(AsciiUnexpectedPacketError::new(packet).into());
+            }
+            // There must not be any data remaining.
+            Ok(())
+        };
+
+        if let Some(OnUnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
+            // There is an handler for alerts, check if we need to call it for any remaining responses.
+            loop {
+                match inner() {
+                    Ok(()) => return Ok(()), // There is no data remaining
+                    Err(AsciiError::UnexpectedResponse(err)) => {
+                        let response = err.into();
+                        match response {
+                            AnyResponse::Alert(alert) => match (callback)(alert) {
+                                // The handler accepted the alert, so continue checking any other messages.
+                                Ok(()) => {}
+                                // The handler did not accept the alert, so return the error.
+                                Err(alert) => {
+                                    self.builder.clear();
+                                    return Err(AsciiUnexpectedResponseError::new(alert).into());
+                                }
+                            },
+                            // Although this is an unexpected response, it isn't an alert.
+                            response => {
+                                self.builder.clear();
+                                return Err(AsciiUnexpectedResponseError::new(response).into());
+                            }
+                        }
+                    }
+                    // This isn't an unexpected response
+                    err => {
+                        self.builder.clear();
+                        return err;
+                    }
+                }
+            }
+        } else {
+            // There is no handle for unexpected response, so simply report any
+            // errors directly to the caller.
+            let result = inner();
             self.builder.clear();
-            return Err(AsciiUnexpectedResponseError::new(response).into());
+            result
         }
-        if let Some(packet) = self.builder.get_incomplete_response_packet() {
-            self.builder.clear();
-            return Err(AsciiUnexpectedPacketError::new(packet).into());
-        }
-        // There must not be any data remaining.
-        Ok(())
     }
 
     /// Receiving a response.
@@ -863,10 +919,40 @@ impl<'a, B: Backend> Port<'a, B> {
         K: check::Check<R>,
     {
         self.check_poisoned()?;
-        let mut response = self.build_response()?;
-        response = header_check(&response).check(response)?;
-        let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
-        checker.check(response).map_err(Into::into)
+        loop {
+            let result = || -> Result<R, AsciiError> {
+                let mut response = self.build_response()?;
+                response = header_check(&response).check(response)?;
+                let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
+                checker.check(response).map_err(Into::into)
+            }();
+            let result = dbg!(result);
+            if let Some(OnUnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
+                // There is an handler for alerts, check if we need to call it.
+                match result {
+                    Err(AsciiError::UnexpectedResponse(err)) => {
+                        let response = err.into();
+                        match response {
+                            AnyResponse::Alert(alert) => match (callback)(alert) {
+                                // The handler accepted the alert, so receive another response.
+                                Ok(()) => {}
+                                // The handler did not accept the alert, so return the error.
+                                Err(alert) => {
+                                    return Err(AsciiUnexpectedResponseError::new(alert).into());
+                                }
+                            },
+                            // Although this is an unexpected response, it isn't an alert.
+                            _ => return Err(AsciiUnexpectedResponseError::new(response).into()),
+                        }
+                    }
+                    // This isn't an unexpected response
+                    _ => return result,
+                }
+            } else {
+                // There is no handler to try
+                return result;
+            }
+        }
     }
 
     /// Receive `n` responses.
@@ -1286,6 +1372,61 @@ impl<'a, B: Backend> Port<'a, B> {
     pub fn clear_on_packet(&mut self) -> Option<OnPacketCallback<'a>> {
         self.packet_hook.take().map(|wrapper| wrapper.0)
     }
+
+    /// Set a callback that will be called whenever an unexpected Alert is
+    /// received.
+    ///
+    /// If a previous callback was set, it is returned.
+    ///
+    /// To clear a previously registered callback use [`clear_on_unexpected_alert`](Port::clear_on_unexpected_alert).
+    ///
+    /// If the callback consumes the alert, returning `Ok(())`, the unexpected
+    /// alert will not be reported to the caller of whatever method read the
+    /// alert, and another response will be read in its place. If the callback
+    /// does not consume the alert, returning it as an `Err`, whatever method
+    /// read the alert will return it as an [`AsciiUnexpectedResponseError`].
+    ///
+    /// Note that a `Port` does not try to read a response unless the caller
+    /// explicitly calls a method to do so. So any Alert sent while the `Port`
+    /// is not reading will not trigger this callback. Furthermore, explicitly
+    /// reading an alert will also not trigger this callback -- only unexpected
+    /// alert messages will trigger this callback.
+    ///
+    /// ## Example
+    ///
+    ///
+    /// ```
+    /// # use zproto::ascii::Port;
+    /// # use std::cell::Cell;
+    /// #
+    /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut port = Port::open_serial("...")?;
+    ///
+    /// // Read a potentially large number of info messages. However, to ensure
+    /// // that the read isn't interrupted by any unexpected alerts, first
+    /// // configure the port to effectively ignore the alerts it may receive by
+    /// // dropping them.
+    /// port.on_unexpected_alert(|_alert| Ok(()));
+    /// let (_reply, _infos) = port.command_reply_infos((1, "storage all print"))?;
+    /// // ...
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn on_unexpected_alert<F>(&mut self, callback: F) -> Option<OnUnexpectedAlertCallback<'a>>
+    where
+        F: FnMut(Alert) -> Result<(), Alert> + 'a,
+    {
+        std::mem::replace(
+            &mut self.unexpected_alert_hook,
+            Some(OnUnexpectedAlertDebugWrapper(Box::new(callback))),
+        )
+        .map(|wrapper| wrapper.0)
+    }
+
+    /// Clear any callback registered via [`on_unexpected_alert`](Port::on_unexpected_alert) and return it.
+    pub fn clear_on_unexpected_alert(&mut self) -> Option<OnUnexpectedAlertCallback<'a>> {
+        self.unexpected_alert_hook.take().map(|wrapper| wrapper.0)
+    }
 }
 
 impl<'a, B: Backend> io::Write for Port<'a, B> {
@@ -1345,6 +1486,8 @@ impl HeaderCheckAction {
 
 #[cfg(test)]
 mod test {
+    use std::cell::Cell;
+
     use crate::{
         ascii::{check::unchecked, AnyResponse, Port, Reply},
         backend::Mock,
@@ -1405,6 +1548,36 @@ mod test {
     }
 
     #[test]
+    fn command_reply_unexpected_alert() {
+        let alert_count = Cell::new(0);
+
+        let mut port = Port::open_mock();
+        port.on_unexpected_alert(|_alert| {
+            alert_count.set(alert_count.get() + 1);
+            Ok(()) // Consume any alert
+        });
+
+        port.backend.append_data(b"!01 0 IDLE --\r\n");
+        port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
+        let reply = port.command_reply("").unwrap();
+        assert_eq!(reply.target(), (1, 0).into());
+        assert_eq!(alert_count.get(), 1);
+
+        // Multi-packet Reply
+        {
+            let backend = &mut port.backend;
+            backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
+            backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
+            backend.append_data(b"!02 1 IDLE --\r\n");
+            backend.append_data(b"!02 1 IDLE --\r\n");
+            backend.append_data(b"#01 0 cont part3\r\n");
+        }
+        let reply = port.command_reply("").unwrap();
+        assert_eq!(reply.data(), "part1 part2a part2b part3");
+        assert_eq!(alert_count.get(), 3);
+    }
+
+    #[test]
     fn command_reply_n_ok() {
         let mut port = Port::open_mock();
         {
@@ -1448,6 +1621,42 @@ mod test {
         }
         let err = port.command_reply_n("", 2).unwrap_err();
         assert!(err.is_timeout());
+    }
+
+    #[test]
+    fn command_reply_n_unexpected_alert() {
+        let alert_count = Cell::new(0);
+
+        let mut port = Port::open_mock();
+        port.on_unexpected_alert(|_alert| {
+            alert_count.set(alert_count.get() + 1);
+            Ok(()) // Consume any alert
+        });
+
+        {
+            let buf = &mut port.backend;
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"!03 0 IDLE --\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+        }
+        let _ = port.command_reply_n("", 2).unwrap();
+        assert_eq!(alert_count.get(), 1);
+
+        // Interleaved multi-packet replies
+        {
+            let buf = &mut port.backend;
+            buf.append_data(b"@01 0 OK IDLE -- 1part1\\\r\n");
+            buf.append_data(b"!03 0 IDLE --\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 2part1\\\r\n");
+            buf.append_data(b"!04 0 IDLE --\r\n");
+            buf.append_data(b"#02 0 cont 2part2\r\n");
+            buf.append_data(b"#01 0 cont 1part2\r\n");
+            buf.append_data(b"!05 0 IDLE --\r\n"); // Shouldn't be read
+        }
+        let replies = port.command_reply_n("", 2).unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
+        assert_eq!(alert_count.get(), 3);
     }
 
     #[test]
@@ -1522,6 +1731,56 @@ mod test {
     }
 
     #[test]
+    fn command_replies_until_timeout_unexpected_alert() {
+        let alert_count = Cell::new(0);
+
+        let mut port = Port::open_mock();
+        port.on_unexpected_alert(|_alert| {
+            alert_count.set(alert_count.get() + 1);
+            Ok(()) // Consume any alert
+        });
+
+        {
+            let buf = &mut port.backend;
+            buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"!03 0 IDLE --\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+            buf.append_data(b"!04 0 IDLE --\r\n");
+        }
+        let replies = port.command_replies_until_timeout("").unwrap();
+        assert_eq!(replies.len(), 2);
+        assert_eq!(alert_count.get(), 2);
+    }
+
+    #[test]
+    fn command_replies_mixed_cont_until_timeout_unexpected_alert() {
+        let expected = &["part 1a part 1b", "part 2a part 2b"];
+
+        let alert_count = Cell::new(0);
+
+        let mut port = Port::open_mock();
+        port.on_unexpected_alert(|_alert| {
+            alert_count.set(alert_count.get() + 1);
+            Ok(()) // Consume any alert
+        });
+
+        {
+            let buf = &mut port.backend;
+            buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
+            buf.append_data(b"!03 0 IDLE --\r\n");
+            buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
+            buf.append_data(b"#01 0 cont part 1b\r\n");
+            buf.append_data(b"!04 0 IDLE --\r\n");
+            buf.append_data(b"#02 0 cont part 2b\r\n");
+            buf.append_data(b"!05 0 IDLE --\r\n");
+        }
+        let replies = port.command_replies_until_timeout("").unwrap();
+        let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+        assert_eq!(reply_data, expected);
+        assert_eq!(alert_count.get(), 3);
+    }
+
+    #[test]
     fn response_until_timeout_ok() {
         let mut port = Port::open_mock();
 
@@ -1571,6 +1830,28 @@ mod test {
         }
         let err = port.responses_until_timeout::<Reply>().unwrap_err();
         assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
+    }
+
+    /// Ensure that explicitly reading an alert message while an `on_unexpected_alert`
+    /// callback is configured, does not trigger the callback.
+    #[test]
+    fn explicit_alert_response_does_not_trigger_unexpected_alert_callback() {
+        use crate::ascii::Alert;
+
+        let alert_count = Cell::new(0);
+
+        let mut port = Port::open_mock();
+        port.on_unexpected_alert(|_alert| {
+            alert_count.set(alert_count.get() + 1);
+            Ok(()) // Consume any alert
+        });
+
+        {
+            let buf = &mut port.backend;
+            buf.append_data(b"!01 0 IDLE --\r\n");
+        }
+        let _ = port.response::<Alert>().unwrap();
+        assert_eq!(alert_count.get(), 0);
     }
 
     /// Ensure that setting explicit types is possible for all `*_with_check`
