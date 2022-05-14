@@ -1,6 +1,6 @@
 [package]
 name = "zproto"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Stephen Hunt <stphnhnt.git@gmail.com>"]
 edition = "2021"
 description = "A library from communicating with Zaber products in Rust."
@@ -10,7 +10,7 @@ repository = "https://github.com/stphnt/zproto"
 documentation = "https://docs.rs/zproto"
 homepage = "https://github.com/stphnt/zproto"
 keywords = ["Zaber", "ASCII", "Binary", "serial", "RS232"]
-categories = []
+categories = ["hardware-support"]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -26,14 +26,14 @@ binary = []
 doc_cfg = []
 
 [dependencies]
-log = "0.4"
-paste = "1.0"
+log = "0.4.17"
+paste = "1.0.7"
 serialport = "4.1.0"
 
 [dev-dependencies]
-simple_logger = "2.1"
-static_assertions = "1.1"
-trybuild = "1.0"
+simple_logger = "2.1.0"
+static_assertions = "1.1.0"
+trybuild = "1.0.61"
 
 [[example]]
 name = "ascii"
