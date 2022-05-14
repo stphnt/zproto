@@ -696,14 +696,23 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_message_ids(&mut self, enable: bool) -> Result<bool, BinaryError> {
-        let prev = self.id.is_enabled();
+    pub fn set_message_ids(&mut self, enable: bool) -> Result<(), BinaryError> {
         self.tx_recv_until_timeout((0, command::SET_MESSAGE_ID_MODE, enable))?;
         if enable {
             self.id.enable();
         } else {
             self.id.disable();
         }
+        Ok(())
+    }
+
+    /// Enable/disable transmission and parsing of message IDs.
+    ///
+    /// Behaves the same as [`set_message_ids`](Port::set_message_ids) except
+    /// the previous value is returned.
+    pub fn replace_message_ids(&mut self, enable: bool) -> Result<bool, BinaryError> {
+        let prev = self.id.is_enabled();
+        self.set_message_ids(enable)?;
         Ok(prev)
     }
 
@@ -1083,7 +1092,7 @@ mod test {
         // Enable message IDs
         port.backend
             .append_data([1, command::untyped::SET_MESSAGE_ID_MODE, 0, 0, 0, 0]);
-        let last_state = port.set_message_ids(true).unwrap();
+        let last_state = port.replace_message_ids(true).unwrap();
         assert_eq!(last_state, false);
         assert_eq!(port.message_ids(), true);
     }
