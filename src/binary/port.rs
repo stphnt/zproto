@@ -721,6 +721,57 @@ impl<'a, B: Backend> Port<'a, B> {
         self.id.is_enabled()
     }
 
+    /// Set the read timeout.
+    ///
+    /// If timeout is `None`, reads will block indefinitely.
+    pub fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
+        self.backend.set_read_timeout(timeout)
+    }
+
+    /// Set the read timeout and return the old timeout.
+    ///
+    /// If timeout is `None`, reads will block indefinitely.
+    pub fn replace_read_timeout(
+        &mut self,
+        timeout: Option<Duration>,
+    ) -> Result<Option<Duration>, io::Error> {
+        let old = self.backend.read_timeout()?;
+        self.backend.set_read_timeout(timeout)?;
+        Ok(old)
+    }
+
+    /// Get the read timeout.
+    ///
+    /// If it is `None`, reads will block indefinitely.
+    pub fn read_timeout(&self) -> Result<Option<Duration>, io::Error> {
+        self.backend.read_timeout()
+    }
+
+    /// Get the "name" of the port's backend.
+    ///
+    /// This is often the "name" passed to [`Port::open_serial`] or [`Port::open_tcp`].
+    pub fn name(&self) -> Option<String> {
+        self.backend.name()
+    }
+
+    /// Get a referenced to the backend.
+    pub fn backend(&self) -> &B {
+        &self.backend
+    }
+
+    /// Get a mutable reference to the backend.
+    pub fn backend_mut(&mut self) -> &mut B {
+        &mut self.backend
+    }
+
+    /// Consume the port and return the underlying backend.
+    ///
+    /// Note that any data the port has buffered will be lost. Callers should
+    /// ensure that all expected data has been sent and received.
+    pub fn into_backend(self) -> B {
+        self.backend
+    }
+
     /// Set a callback that will be called immediately after any Binary packet
     /// is sent or received.
     ///
