@@ -26,14 +26,14 @@ binary = []
 doc_cfg = []
 
 [dependencies]
-log = "0.4"
-paste = "1.0"
+log = "0.4.17"
+paste = "1.0.7"
 serialport = "4.1.0"
 
 [dev-dependencies]
-simple_logger = "2.1"
-static_assertions = "1.1"
-trybuild = "1.0"
+simple_logger = "2.1.0"
+static_assertions = "1.1.0"
+trybuild = "1.0.61"
 
 [[example]]
 name = "ascii"
