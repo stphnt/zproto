@@ -569,7 +569,7 @@ impl<'a, B: Backend> Port<'a, B> {
 
         let target = cmd.as_ref().target();
         let reply = self.command_reply(cmd)?;
-        let old_generate_id = self.set_message_ids(true);
+        let old_generate_id = self.replace_message_ids(true);
         let sentinel_id = self.command((target, ""));
         self.set_message_ids(old_generate_id);
         let sentinel_id = sentinel_id?;
@@ -1271,9 +1271,12 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Set whether commands sent on this port should include a checksum or not.
-    ///
-    /// The previous value is returned.
-    pub fn set_checksums(&mut self, value: bool) -> bool {
+    pub fn set_checksums(&mut self, value: bool) {
+        self.generate_checksum = value;
+    }
+
+    /// Set whether commands sent on this port should include a checksum or not and return the previous value.
+    pub fn replace_checksums(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_checksum, value)
     }
 
@@ -1285,7 +1288,14 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Set whether commands sent on this port should include an automatically generated message ID or not.
     ///
     /// The previous value is returned.
-    pub fn set_message_ids(&mut self, value: bool) -> bool {
+    pub fn set_message_ids(&mut self, value: bool) {
+        self.generate_id = value;
+    }
+
+    /// Set whether commands sent on this port should include an automatically generated message ID or not.
+    ///
+    /// The previous value is returned.
+    pub fn replace_message_ids(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_id, value)
     }
 
@@ -1869,23 +1879,25 @@ mod test {
     }
 
     #[test]
-    fn set_id() {
+    fn set_replace_id() {
         let mut port = Port::open_mock();
         assert_eq!(port.message_ids(), false);
-        assert_eq!(port.set_message_ids(true), false);
+        assert_eq!(port.replace_message_ids(true), false);
         assert_eq!(port.message_ids(), true);
-        assert_eq!(port.set_message_ids(false), true);
-        assert_eq!(port.message_ids(), false);
+        port.set_message_ids(false);
+        assert_eq!(port.replace_message_ids(true), false);
+        assert_eq!(port.message_ids(), true);
     }
 
     #[test]
-    fn set_checksums() {
+    fn set_replace_checksums() {
         let mut port = Port::open_mock();
         assert_eq!(port.checksums(), false);
-        assert_eq!(port.set_checksums(true), false);
+        assert_eq!(port.replace_checksums(true), false);
         assert_eq!(port.checksums(), true);
-        assert_eq!(port.set_checksums(false), true);
-        assert_eq!(port.checksums(), false);
+        port.set_checksums(false);
+        assert_eq!(port.replace_checksums(true), false);
+        assert_eq!(port.checksums(), true);
     }
 
     #[test]
