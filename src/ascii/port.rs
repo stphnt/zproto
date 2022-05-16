@@ -926,7 +926,6 @@ impl<'a, B: Backend> Port<'a, B> {
                 let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
                 checker.check(response).map_err(Into::into)
             }();
-            let result = dbg!(result);
             if let Some(OnUnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
                 // There is an handler for alerts, check if we need to call it.
                 match result {
