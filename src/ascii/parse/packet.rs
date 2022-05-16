@@ -136,6 +136,14 @@ where
         self.0.packet.as_ref()
     }
 
+    /// Return the packet as a `str`.
+    pub fn as_str(&self) -> &str {
+        // If the packet was successfully parsed and instantiated, then it is
+        // guaranteed to be valid ASCII, and therefore also valid utf8. So
+        // unwrapping is safe.
+        std::str::from_utf8(self.as_bytes()).unwrap()
+    }
+
     /// Return the kind of packet
     pub fn kind(&self) -> PacketKind {
         self.0.kind
