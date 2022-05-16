@@ -1,6 +1,7 @@
 //! Types and traits for generating ASCII commands.
 
 use crate::ascii::{checksum::Lrc, id, Target};
+use std::borrow::Cow;
 use std::io;
 
 mod private {
@@ -70,7 +71,7 @@ pub trait Command: private::Sealed {
     /// Get the command's target.
     fn target(&self) -> Target;
     /// Get the command's data.
-    fn data(&self) -> &[u8];
+    fn data(&self) -> Cow<[u8]>;
 }
 
 impl Command for str {
@@ -82,8 +83,8 @@ impl Command for str {
     fn target(&self) -> Target {
         Target::all()
     }
-    fn data(&self) -> &[u8] {
-        self.as_bytes()
+    fn data(&self) -> Cow<[u8]> {
+        self.as_bytes().into()
     }
 }
 
@@ -96,8 +97,8 @@ impl Command for [u8] {
     fn target(&self) -> Target {
         Target::all()
     }
-    fn data(&self) -> &[u8] {
-        self
+    fn data(&self) -> Cow<[u8]> {
+        self.into()
     }
 }
 
@@ -110,8 +111,8 @@ impl<const N: usize> Command for [u8; N] {
     fn target(&self) -> Target {
         Target::all()
     }
-    fn data(&self) -> &[u8] {
-        self
+    fn data(&self) -> Cow<[u8]> {
+        self.as_slice().into()
     }
 }
 
@@ -124,8 +125,8 @@ impl Command for String {
     fn target(&self) -> Target {
         Target::all()
     }
-    fn data(&self) -> &[u8] {
-        self.as_bytes()
+    fn data(&self) -> Cow<[u8]> {
+        self.as_bytes().into()
     }
 }
 
@@ -138,8 +139,8 @@ impl Command for Vec<u8> {
     fn target(&self) -> Target {
         Target::all()
     }
-    fn data(&self) -> &[u8] {
-        self.as_slice()
+    fn data(&self) -> Cow<[u8]> {
+        self.as_slice().into()
     }
 }
 
@@ -156,8 +157,8 @@ where
     fn target(&self) -> Target {
         self.0.into()
     }
-    fn data(&self) -> &[u8] {
-        self.1.as_ref()
+    fn data(&self) -> Cow<[u8]> {
+        self.1.as_ref().into()
     }
 }
 
@@ -173,8 +174,8 @@ where
     fn target(&self) -> Target {
         Target::device(self.0).axis(self.1)
     }
-    fn data(&self) -> &[u8] {
-        self.2.as_ref()
+    fn data(&self) -> Cow<[u8]> {
+        self.2.as_ref().into()
     }
 }
 
@@ -190,7 +191,7 @@ where
     fn target(&self) -> Target {
         (**self).target()
     }
-    fn data(&self) -> &[u8] {
+    fn data(&self) -> Cow<[u8]> {
         (**self).data()
     }
 }
@@ -207,7 +208,7 @@ where
     fn target(&self) -> Target {
         (**self).target()
     }
-    fn data(&self) -> &[u8] {
+    fn data(&self) -> Cow<[u8]> {
         (**self).data()
     }
 }
@@ -224,7 +225,7 @@ where
     fn target(&self) -> Target {
         (**self).target()
     }
-    fn data(&self) -> &[u8] {
+    fn data(&self) -> Cow<[u8]> {
         (**self).data()
     }
 }
@@ -236,7 +237,7 @@ pub(crate) struct CommandInstance<'a> {
     /// The message ID
     pub id: Option<u8>,
     /// The command data
-    pub data: &'a [u8],
+    pub data: Cow<'a, [u8]>,
     /// Whether to generate a checksum
     pub checksum: bool,
 }
@@ -305,7 +306,7 @@ impl<'a> CommandInstance<'a> {
             if wrote {
                 write!(writer, " ")?;
             }
-            writer.write_all(self.data)?;
+            writer.write_all(self.data.as_ref())?;
         }
         Ok(())
     }
