@@ -134,6 +134,13 @@ where
             packet_index: 0,
         }
     }
+
+    /// Returns the full packet as a `&str`.
+    pub fn as_str(&self) -> &str {
+        // Once fully constructed, the packet is guaranteed to be valid ASCII
+        // and therefore also valid UTF8.
+        std::str::from_utf8(self.packet.as_ref()).unwrap()
+    }
 }
 
 impl<'a, T> Visitor<'a> for Tokens<T>
