@@ -24,4 +24,5 @@ compile_error!("At least one of the `ascii` or `binary` features must be specifi
 
 // Check the contents of the README (but don't include it in the docs).
 #[doc = include_str!("../README.md")]
+#[allow(unused_doc_comments)]
 extern "C" {}
