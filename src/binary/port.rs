@@ -41,8 +41,8 @@ pub struct OpenSerialOptions {
 }
 
 impl OpenSerialOptions {
-    /// The default baud rate for the ASCII protocol.
-    const DEFAULT_BAUD_RATE: u32 = 9_600;
+    /// The default baud rate for the Binary protocol: 9,600.
+    pub const DEFAULT_BAUD_RATE: u32 = 9_600;
 
     /// Create a blank set of options ready for configuration.
     ///
