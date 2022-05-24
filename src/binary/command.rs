@@ -103,7 +103,7 @@ macro_rules! define_commands {
             fn name_impl(command: u8) -> Option<&'static str> {
                 match command {
                     $(
-                        $value => Some(stringify!( [< $($name_word)+ >] )),
+                        $value => Some(stringify!($($name_word)+)),
                     )+
                     _ => None,
                 }
@@ -434,4 +434,21 @@ define_commands! {
     { 123, Set Protocol, TakesData<i32>, ReplyData<i32>, ElicitsSelf, SetOrReturnCommand },
     { 124, Convert to Ascii, TakesData<i32>, ReplyData<i32>, ElicitsSelf },
     { 255, Error, ReplyData<i32> },
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn command_names() {
+        assert_eq!(name(RESET), Some("Reset"));
+        assert_eq!(name(SET_TARGET_SPEED), Some("Set Target Speed"));
+        assert_eq!(
+            name(SET_AUTO_REPLY_DISABLED_MODE),
+            Some("Set Auto Reply Disabled Mode")
+        );
+        assert_eq!(name(CONVERT_TO_ASCII), Some("Convert to Ascii"));
+        assert_eq!(name(254), None);
+    }
 }
