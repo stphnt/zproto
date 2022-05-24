@@ -171,7 +171,7 @@ macro_rules! define_error_codes {
                 ///
                 /// If the error code is not recognized, `None` is returned.
                 /// The contents of the returned string may change.
-                pub(crate) const fn name(code: i32) -> Option<&'static str> {
+                pub const fn name(code: i32) -> Option<&'static str> {
                     match code {
                         $(
                             $num => Some(stringify!($($name_word)+)),
