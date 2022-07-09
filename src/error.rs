@@ -157,19 +157,22 @@ macro_rules! impl_from_ascii_check_error {
 /// Note, that this has not been implemented for generic enums. If the
 /// conversions are more complex, implement From and TryFrom directly.
 ///
-/// ```
-/// // This defines the enum and From/TryFrom between ThisError and A and B.
-/// #[non_exhaustive]
-/// pub enum ThisError {
-///     VariantA(A),
-///     VariantB(B),
-///     // ...
-/// }
+/// ```compile_fail
+/// # // This fails to compile because the macro is not exported.
+/// error_enum!{
+///     // This defines the enum and From/TryFrom between ThisError and A and B.
+///     #[non_exhaustive]
+///     pub enum ThisError {
+///         VariantA(A),
+///         VariantB(B),
+///         // ...
+///     }
 ///
-/// // This implements a simple From/TryFrom between ThisError and OtherType.
-/// impl From<OtherType> {
-///     FromVariantA => VariantA,
-///     // ...
+///     // This implements a simple From/TryFrom between ThisError and OtherType.
+///     impl From<OtherType> {
+///         FromVariantA => VariantA,
+///         // ...
+///     }
 /// }
 /// ```
 #[cfg(any(feature = "ascii", feature = "binary"))]
