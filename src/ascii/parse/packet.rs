@@ -101,7 +101,7 @@ impl<'a> Packet<&'a [u8]> {
     }
 }
 
-impl<'a, T> Packet<T>
+impl<T> Packet<T>
 where
     T: Default,
 {
@@ -127,7 +127,7 @@ where
     }
 }
 
-impl<'a, T> Packet<T>
+impl<T> Packet<T>
 where
     T: AsRef<[u8]>,
 {
