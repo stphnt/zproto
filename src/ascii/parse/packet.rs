@@ -221,7 +221,7 @@ where
     T: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", String::from_utf8_lossy(self.as_bytes()))
+        write!(f, "{}", self.as_str())
     }
 }
 
