@@ -58,21 +58,21 @@ pub enum Token {
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let packet = b"@01 2 OK IDLE -- 0\r\n";
 /// let tokens = Tokens::new_ref(packet)?;
-/// let pairs: Vec<(Token, &[u8])> = tokens.iter().collect();
+/// let pairs: Vec<(Token, &str)> = tokens.iter().collect();
 /// assert_eq!(pairs, &[
-///     (Token::Kind, b"@".as_slice()),
-///     (Token::DeviceAddress, b"01"),
-///     (Token::Separator, b" "),
-///     (Token::AxisNumber, b"2"),
-///     (Token::Separator, b" "),
-///     (Token::Flag, b"OK"),
-///     (Token::Separator, b" "),
-///     (Token::Status, b"IDLE"),
-///     (Token::Separator, b" "),
-///     (Token::Warning, b"--"),
-///     (Token::Separator, b" "),
-///     (Token::DataWord, b"0"),
-///     (Token::Terminator, b"\r\n"),
+///     (Token::Kind, "@"),
+///     (Token::DeviceAddress, "01"),
+///     (Token::Separator, " "),
+///     (Token::AxisNumber, "2"),
+///     (Token::Separator, " "),
+///     (Token::Flag, "OK"),
+///     (Token::Separator, " "),
+///     (Token::Status, "IDLE"),
+///     (Token::Separator, " "),
+///     (Token::Warning, "--"),
+///     (Token::Separator, " "),
+///     (Token::DataWord, "0"),
+///     (Token::Terminator, "\r\n"),
 /// ]);
 /// # Ok(())
 /// # }
@@ -246,7 +246,7 @@ impl<'a, T> Iterator for TokenIter<'a, T>
 where
     T: AsRef<[u8]>,
 {
-    type Item = (Token, &'a [u8]);
+    type Item = (Token, &'a str);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((token, len)) = self.tokens.items.get(self.token_index as usize) {
@@ -255,7 +255,11 @@ where
             self.token_index += 1;
             Some((
                 *token,
-                &self.tokens.packet.as_ref()[start..start + (*len as usize)],
+                // Since the packet was successfully parsed, it is guaranteed to
+                // only contain ASCII characters and therefore any slice is
+                // valid UTF8.
+                std::str::from_utf8(&self.tokens.packet.as_ref()[start..start + (*len as usize)])
+                    .unwrap(),
             ))
         } else {
             None
@@ -276,34 +280,34 @@ mod test {
     fn iter() {
         struct Case {
             tokens: Tokens<&'static [u8]>,
-            expected: &'static [(Token, &'static [u8])],
+            expected: &'static [(Token, &'static str)],
         }
 
         let cases = &[Case {
             tokens: Tokens::new_ref(b"@01 2 3 OK BUSY WR 0.123 1.234 NA\\:55\r\n").unwrap(),
             expected: &[
-                (Token::Kind, b"@"),
-                (Token::DeviceAddress, b"01"),
-                (Token::Separator, b" "),
-                (Token::AxisNumber, b"2"),
-                (Token::Separator, b" "),
-                (Token::MessageId, b"3"),
-                (Token::Separator, b" "),
-                (Token::Flag, b"OK"),
-                (Token::Separator, b" "),
-                (Token::Status, b"BUSY"),
-                (Token::Separator, b" "),
-                (Token::Warning, b"WR"),
-                (Token::Separator, b" "),
-                (Token::DataWord, b"0.123"),
-                (Token::Separator, b" "),
-                (Token::DataWord, b"1.234"),
-                (Token::Separator, b" "),
-                (Token::DataWord, b"NA"),
-                (Token::MorePacketsMarker, b"\\"),
-                (Token::ChecksumMarker, b":"),
-                (Token::Checksum, b"55"),
-                (Token::Terminator, b"\r\n"),
+                (Token::Kind, "@"),
+                (Token::DeviceAddress, "01"),
+                (Token::Separator, " "),
+                (Token::AxisNumber, "2"),
+                (Token::Separator, " "),
+                (Token::MessageId, "3"),
+                (Token::Separator, " "),
+                (Token::Flag, "OK"),
+                (Token::Separator, " "),
+                (Token::Status, "BUSY"),
+                (Token::Separator, " "),
+                (Token::Warning, "WR"),
+                (Token::Separator, " "),
+                (Token::DataWord, "0.123"),
+                (Token::Separator, " "),
+                (Token::DataWord, "1.234"),
+                (Token::Separator, " "),
+                (Token::DataWord, "NA"),
+                (Token::MorePacketsMarker, "\\"),
+                (Token::ChecksumMarker, ":"),
+                (Token::Checksum, "55"),
+                (Token::Terminator, "\r\n"),
             ],
         }];
 
