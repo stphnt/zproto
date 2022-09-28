@@ -240,7 +240,7 @@ impl AsciiCheckFlagError {
 impl_traits_to_access_inner_response! { (AsciiCheckFlagError) -> Reply { 0.1 } }
 
 /// A response of type `R` was received with an unexpected status.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckStatusError<R>(Box<(Status, R)>);
 
@@ -262,7 +262,7 @@ impl_from_specific_to_any_response! { AsciiCheckStatusError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckStatusError) -> R { 0.1 } }
 
 /// A response of type `R` was received with an unexpected warning flag.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckWarningError<R>(Box<(String, R)>);
 
@@ -284,7 +284,7 @@ impl_from_specific_to_any_response! { AsciiCheckWarningError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckWarningError) -> R { 0.1 } }
 
 /// A response of type `R` was received with unexpected data.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckDataError<R>(Box<(String, R)>);
 
@@ -308,7 +308,7 @@ impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckDataError) -
 /// A response of type `R` was received and is considered invalid for some custom reason.
 ///
 /// This should be used when [`AsciiCheckFlagError`], [`AsciiCheckStatusError`]. [`AsciiCheckWarningError`], or [`AsciiCheckDataError`] are not appropriate.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub struct AsciiCheckCustomError<R>(Box<(String, R)>);
 

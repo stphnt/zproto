@@ -27,7 +27,7 @@ macro_rules! impl_binary_error {
 }
 
 /// A Binary command failed and an Error (`255`) response was received.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryCommandFailureError(Message);
 
@@ -54,7 +54,7 @@ impl BinaryCommandFailureError {
 }
 
 /// A Binary response came from an unexpected target.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryUnexpectedTargetError(Message);
 
@@ -65,7 +65,7 @@ impl_error_display! {
 impl_binary_error! { BinaryUnexpectedTargetError }
 
 /// A Binary response had an unexpected message ID.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryUnexpectedIdError(Message);
 
@@ -76,7 +76,7 @@ impl_error_display! {
 impl_binary_error! { BinaryUnexpectedIdError }
 
 /// A Binary response had an unexpected Binary command code.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub struct BinaryUnexpectedCommandError(Message);
 
@@ -88,7 +88,7 @@ impl_binary_error! { BinaryUnexpectedCommandError }
 
 error_enum! {
 /// Received an unexpected Binary response.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(
     all(doc, feature = "doc_cfg"),
     doc(cfg(feature = "binary"))

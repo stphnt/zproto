@@ -183,7 +183,7 @@ where
     type Response = T::Response;
 
     fn expected_command(&self) -> ExpectedCommandResult<Self::Response> {
-        T::expected_command(&*self)
+        T::expected_command(self)
     }
 }
 

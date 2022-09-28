@@ -215,7 +215,7 @@ use crate::error;
 pub use port::*;
 
 /// A Binary Protocol message.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Message<C = u8> {
     /// The targeted device
     target: u8,
@@ -353,7 +353,7 @@ where
 /// let version = Version::new(7, 24).unwrap();
 /// assert_eq!(version, 7.24);
 /// ```
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Version(i32);
 
 impl Version {
@@ -418,7 +418,7 @@ impl From<Version> for f32 {
 macro_rules! define_status {
     (pub enum $name:ident { $($variant:ident = $value:literal),+ $(,)? }) => {
         /// The status of a device.
-        #[derive(Debug, Copy, Clone, PartialEq)]
+        #[derive(Debug, Copy, Clone, PartialEq, Eq)]
         #[non_exhaustive]
         #[allow(missing_docs)]
         pub enum $name {
@@ -490,7 +490,7 @@ define_status! {
 }
 
 /// The state of multiple digital I/O channels.
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct IoStates(u32);
 
 impl IoStates {
