@@ -5,6 +5,7 @@ use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
     ascii::{
+        chain::sync::Chain,
         check,
         checksum::Lrc,
         id,
@@ -1653,6 +1654,11 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Clear any callback registered via [`set_unexpected_alert_handler`](Port::set_unexpected_alert_handler) and return it.
     pub fn clear_unexpected_alert_handler(&mut self) -> Option<UnexpectedAlertCallback<'a>> {
         self.unexpected_alert_hook.take().map(|wrapper| wrapper.0)
+    }
+
+    /// Create a thread-safe [`Chain`] on this port.
+    pub fn into_chain_sync(self) -> Result<Chain<'a, B>, AsciiError> {
+        Chain::new(self)
     }
 }
 

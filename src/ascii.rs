@@ -154,12 +154,14 @@
 //! # }
 //! ```
 
+pub mod chain;
 pub(crate) mod checksum;
 mod command;
 mod id;
 pub mod parse;
 mod port;
 mod response;
+pub mod setting;
 
 pub use command::*;
 pub use port::*;
