@@ -298,7 +298,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
         let start = self.index + ws_count;
 
         // First see if we've found a termination sequence.
-        let count = (&self.packet[start..])
+        let count = self.packet[start..]
             .iter()
             .take_while(|c| c.is_packet_end())
             .count();
@@ -329,7 +329,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
         }
 
         // Take the next word, which we know must exist
-        let count = (&self.packet[start..])
+        let count = self.packet[start..]
             .iter()
             .take_while(|c| !c.is_separator() && !c.is_reserved())
             .count();
@@ -355,7 +355,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
     ///
     /// The characters are not consumed.
     fn count_separator(&self) -> usize {
-        (&self.packet[self.index..])
+        self.packet[self.index..]
             .iter()
             .take_while(|c| c.is_separator())
             .count()
