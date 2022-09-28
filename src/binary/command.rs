@@ -139,7 +139,7 @@ macro_rules! define_commands {
                     #[doc = "A type that encodes compile time information about the " $(" " $name_word " ")+ " (`" $value "`) command."]
                     #[doc = ""]
                     #[doc = "It is not publicly constructable. Use the [`" [< $name:snake:upper >] "`] constant."]
-                    #[derive(Debug, Copy, Clone, PartialEq)]
+                    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
                     pub struct $name(pub(crate) ());
                     impl $name {
                         #[doc = "The `u8` value of the command (`" $value "`)."]

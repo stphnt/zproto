@@ -12,7 +12,7 @@ use crate::ascii::{Flag, Kind, Status, Warning};
 const CONT: &[u8] = b"cont";
 
 /// The kind of packet
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PacketKind {
     /// A command (`/`) packet.
     Command,
