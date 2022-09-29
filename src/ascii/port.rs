@@ -459,11 +459,6 @@ impl<'a, B: Backend> Port<'a, B> {
         self.command_reply_with_check(cmd, check::default())
     }
 
-    /// Same as [`Port::command_reply`] except that the reply is not validated.
-    pub fn command_reply_unchecked<C: Command>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
-        self.command_reply_with_check(cmd, check::unchecked())
-    }
-
     /// Same as [`Port::command_reply`] except that the reply is validated with the custom [`Check`](check::Check).
     ///
     /// ## Example
@@ -533,14 +528,6 @@ impl<'a, B: Backend> Port<'a, B> {
         cmd: C,
     ) -> Result<(Reply, Vec<Info>), AsciiError> {
         self.command_reply_infos_with_check(cmd, check::default())
-    }
-
-    /// Same as [`Port::command_reply_infos`] except that the messages are not validated.
-    pub fn command_reply_infos_unchecked<C: Command>(
-        &mut self,
-        cmd: C,
-    ) -> Result<(Reply, Vec<Info>), AsciiError> {
-        self.command_reply_infos_with_check(cmd, check::unchecked())
     }
 
     /// Same as [`Port::command_reply_infos`] except that the messages are validated with the custom [`Check`](check::Check).
@@ -634,15 +621,6 @@ impl<'a, B: Backend> Port<'a, B> {
         self.command_reply_n_with_check(cmd, n, check::default())
     }
 
-    /// Same as [`Port::command_reply_n`] except that the replies are not validated.
-    pub fn command_reply_n_unchecked<C: Command>(
-        &mut self,
-        cmd: C,
-        n: usize,
-    ) -> Result<Vec<Reply>, AsciiError> {
-        self.command_reply_n_with_check(cmd, n, check::unchecked())
-    }
-
     /// Same as [`Port::command_reply_n`] except that the replies are validated with the custom [`Check`](check::Check).
     ///
     /// ## Example
@@ -696,14 +674,6 @@ impl<'a, B: Backend> Port<'a, B> {
         cmd: C,
     ) -> Result<Vec<Reply>, AsciiError> {
         self.command_replies_until_timeout_with_check(cmd, check::default())
-    }
-
-    /// Same as [`Port::command_replies_until_timeout`] except that the replies are not validated.
-    pub fn command_replies_until_timeout_unchecked<C: Command>(
-        &mut self,
-        cmd: C,
-    ) -> Result<Vec<Reply>, AsciiError> {
-        self.command_replies_until_timeout_with_check(cmd, check::unchecked())
     }
 
     /// Same as [`Port::command_replies_until_timeout`] except that the replies are validated with the custom [`Check`](check::Check).
@@ -1087,20 +1057,6 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok(response)
     }
 
-    /// Same as [`Port::response`] except that the response is not validated.
-    pub fn response_unchecked<R>(&mut self) -> Result<R, AsciiError>
-    where
-        R: Response,
-        AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
-        AsciiError: From<AsciiCheckError<R>>,
-    {
-        self.pre_receive_response();
-        let response =
-            self.receive_response(|_| HeaderCheckAction::DoNotCheck, check::unchecked())?;
-        self.post_receive_response()?;
-        Ok(response)
-    }
-
     /// Same as [`Port::response`] except that the response is validated with the custom [`Check`](check::Check).
     ///
     /// ## Example
@@ -1148,20 +1104,6 @@ impl<'a, B: Backend> Port<'a, B> {
         AsciiError: From<AsciiCheckError<R>>,
     {
         self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, check::default())
-    }
-
-    /// Same as [`Port::response_n`] except that the responses are not validated.
-    pub fn response_n_unchecked<R>(&mut self, n: usize) -> Result<Vec<R>, AsciiError>
-    where
-        R: Response,
-        AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
-        AsciiError: From<AsciiCheckError<R>>,
-    {
-        self.internal_response_n_with_check(
-            n,
-            |_| HeaderCheckAction::DoNotCheck,
-            check::unchecked(),
-        )
     }
 
     /// Same as [`Port::response_n`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -1216,19 +1158,6 @@ impl<'a, B: Backend> Port<'a, B> {
         self.internal_responses_until_timeout_with_check(
             |_| HeaderCheckAction::DoNotCheck,
             check::default(),
-        )
-    }
-
-    /// Same as [`Port::responses_until_timeout`] except that the responses are not validated.
-    pub fn responses_until_timeout_unchecked<R>(&mut self) -> Result<Vec<R>, AsciiError>
-    where
-        R: Response,
-        AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
-        AsciiError: From<AsciiCheckError<R>>,
-    {
-        self.internal_responses_until_timeout_with_check(
-            |_| HeaderCheckAction::DoNotCheck,
-            check::unchecked(),
         )
     }
 
