@@ -128,8 +128,6 @@
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::{flag_ok_and, warning_is};
-//!
 //! let (reply, infos) = port.command_reply_infos("stream buffer 1 print")?;
 //! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
 //! for info in infos {
