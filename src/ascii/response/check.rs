@@ -284,7 +284,7 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
 /// ```rust
 /// # use zproto::ascii::{check::*, *};
 /// # fn wrapper() -> impl Check<Alert> {
-/// warning_is(Warning::NONE)
+/// warning_is_none()
 /// # }
 /// ```
 ///
