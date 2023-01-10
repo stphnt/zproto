@@ -186,7 +186,7 @@ where
     type Ref = T;
 
     fn as_ref(&self) -> &Self::Ref {
-        *self
+        self
     }
     fn target(&self) -> Target {
         (**self).target()
@@ -203,7 +203,7 @@ where
     type Ref = T;
 
     fn as_ref(&self) -> &Self::Ref {
-        *self
+        self
     }
     fn target(&self) -> Target {
         (**self).target()

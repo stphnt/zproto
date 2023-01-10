@@ -784,7 +784,7 @@ impl<'a, B: Backend> Port<'a, B> {
         log::debug!(
             "{} RECV: {}",
             &backend_name,
-            String::from_utf8_lossy(&*raw_packet).trim_end()
+            String::from_utf8_lossy(&raw_packet).trim_end()
         );
 
         if let Some(ref mut callback) = self.packet_hook {
