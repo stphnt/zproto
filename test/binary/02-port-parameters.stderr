@@ -40,7 +40,7 @@ error[E0277]: the trait bound `Home: TakesData<i32>` is not satisfied
               <MoveToStoredPosition as TakesData<i32>>
               <ReadAnalogInput as TakesData<i32>>
             and 101 others
-    = note: required because of the requirements on the impl of `TxMessage` for `(u8, Home, i32)`
+    = note: required for `(u8, Home, i32)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
    --> src/binary/port.rs
     |
@@ -65,7 +65,7 @@ error[E0277]: the trait bound `MoveAbsolute: TakesNoData` is not satisfied
               ReturnCalibratedEncoderCount
               ReturnCalibrationError
             and 16 others
-    = note: required because of the requirements on the impl of `TxMessage` for `(u8, MoveAbsolute)`
+    = note: required for `(u8, MoveAbsolute)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
    --> src/binary/port.rs
     |
@@ -81,7 +81,7 @@ error[E0277]: the trait bound `MoveAbsolute: TakesData<bool>` is not satisfied
     |                  required by a bound introduced by this call
     |
     = help: the trait `TakesData<i32>` is implemented for `MoveAbsolute`
-    = note: required because of the requirements on the impl of `TxMessage` for `(u8, MoveAbsolute, bool)`
+    = note: required for `(u8, MoveAbsolute, bool)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
    --> src/binary/port.rs
     |
@@ -106,7 +106,7 @@ error[E0277]: the trait bound `u8: TakesNoData` is not satisfied
               ReturnCalibratedEncoderCount
               ReturnCalibrationError
             and 16 others
-    = note: required because of the requirements on the impl of `TxMessage` for `(u8, u8)`
+    = note: required for `(u8, u8)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
    --> src/binary/port.rs
     |
@@ -131,7 +131,7 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesNoDat
               ReturnCalibratedEncoderCount
               ReturnCalibrationError
             and 16 others
-    = note: required because of the requirements on the impl of `TxMessage` for `(u8, zproto::binary::command::types::Error)`
+    = note: required for `(u8, zproto::binary::command::types::Error)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B>::tx`
    --> src/binary/port.rs
     |
@@ -156,7 +156,7 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesData<
               <MoveToStoredPosition as TakesData<i32>>
               <ReadAnalogInput as TakesData<i32>>
             and 101 others
-    = note: required because of the requirements on the impl of `TxMessage` for `(u8, zproto::binary::command::types::Error, i32)`
+    = note: required for `(u8, zproto::binary::command::types::Error, i32)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B>::tx`
    --> src/binary/port.rs
     |
