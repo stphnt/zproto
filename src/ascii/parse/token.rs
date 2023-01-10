@@ -251,7 +251,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((token, len)) = self.tokens.items.get(self.token_index as usize) {
             let start = self.packet_index as usize;
-            self.packet_index += *len as u8;
+            self.packet_index += *len;
             self.token_index += 1;
             Some((
                 *token,
