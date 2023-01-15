@@ -165,7 +165,7 @@ pub fn warning_is_none<R: ResponseWithWarning>() -> impl Check<R> {
     }
 }
 
-/// Return a check that verifies the [`Status`] matches the specified status.
+/// Return a check that verifies the response's [`Status`] matches the specified status.
 ///
 /// ## Example
 /// ```rust
@@ -184,7 +184,7 @@ pub fn status_is<R: ResponseWithStatus>(status: Status) -> impl Check<R> {
     }
 }
 
-/// Return a check that verifies the [`Flag`] matches the specified flag.
+/// Return a check that verifies the response's [`Flag`] matches the specified flag.
 ///
 /// ## Example
 /// ```rust
@@ -203,12 +203,14 @@ pub fn flag_is(flag: Flag) -> impl Check<Reply> {
     }
 }
 
-/// Return a check that verifies the [`Flag`] is `OK`.
+/// Return a check that verifies the response's [`Flag`] is `OK`.
 pub fn flag_ok() -> impl Check<Reply> {
     flag_is(Flag::Ok)
 }
 
 /// Return a check that verifies the [`Flag`] is `OK` and that the provided `check` also passes.
+/// Return a check that verifies the response's [`Flag`] is `OK` and that the
+/// provided `check` also passes.
 ///
 /// ## Example
 /// ```rust
@@ -254,7 +256,8 @@ pub fn parsed_data_is<
 
 /// Return a check that will validate a response against all the specified checks.
 ///
-/// Once one check fails, no further checks are run. Note that the checks must be passed as members of a [`tuple`].
+/// Once one check fails, no further checks are run. Note that the checks must
+/// be passed as members of a [`tuple`].
 ///
 /// ## Example
 /// ```rust
