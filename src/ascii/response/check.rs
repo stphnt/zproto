@@ -184,6 +184,16 @@ pub fn status_is<R: ResponseWithStatus>(status: Status) -> impl Check<R> {
     }
 }
 
+/// Return a check that verifies the response's [`Status`] is `IDLE`.
+pub fn status_idle<R: ResponseWithStatus>() -> impl Check<R> {
+    status_is(Status::Idle)
+}
+
+/// Return a check that verifies the response's [`Status`] is `BUSY`.
+pub fn status_busy<R: ResponseWithStatus>() -> impl Check<R> {
+    status_is(Status::Busy)
+}
+
 /// Return a check that verifies the response's [`Flag`] matches the specified flag.
 ///
 /// ## Example
@@ -208,7 +218,11 @@ pub fn flag_ok() -> impl Check<Reply> {
     flag_is(Flag::Ok)
 }
 
-/// Return a check that verifies the [`Flag`] is `OK` and that the provided `check` also passes.
+/// Return a check that verifies the response's [`Flag`] is `RJ`.
+pub fn flag_rj() -> impl Check<Reply> {
+    flag_is(Flag::Ok)
+}
+
 /// Return a check that verifies the response's [`Flag`] is `OK` and that the
 /// provided `check` also passes.
 ///
