@@ -635,15 +635,6 @@ impl<'a, B: Backend> Port<'a, B> {
         C: Command,
         K: check::Check<AnyResponse>,
     {
-        #[inline]
-        fn gen_new_checker<'a, 'b: 'a>(
-            checker: &'b Option<impl check::Check<AnyResponse>>,
-        ) -> Option<impl check::Check<AnyResponse> + 'a> {
-            checker
-                .as_ref()
-                .map(|checker| move |response| checker.check(response))
-        }
-
         let target = cmd.as_ref().target();
         let reply = self.command_reply(cmd)?;
         let old_generate_id = self.replace_message_ids(true);
@@ -1118,14 +1109,6 @@ impl<'a, B: Backend> Port<'a, B> {
         F: FnMut(&AnyResponse) -> HeaderCheckAction,
         K: check::Check<R>,
     {
-        #[inline]
-        fn gen_new_checker<'a, 'b: 'a, R: Response>(
-            checker: &'b Option<impl check::Check<R>>,
-        ) -> Option<impl check::Check<R> + 'a> {
-            checker
-                .as_ref()
-                .map(|checker| move |response| checker.check(response))
-        }
         self.pre_receive_response();
         let mut responses = Vec::new();
         for _ in 0..n {
@@ -1154,14 +1137,6 @@ impl<'a, B: Backend> Port<'a, B> {
         F: FnMut(&AnyResponse) -> HeaderCheckAction,
         K: check::Check<R>,
     {
-        #[inline]
-        fn gen_new_checker<'a, 'b: 'a, R: Response>(
-            checker: &'b Option<impl check::Check<R>>,
-        ) -> Option<impl check::Check<R> + 'a> {
-            checker
-                .as_ref()
-                .map(|checker| move |response| checker.check(response))
-        }
         self.pre_receive_response();
         let mut responses = Vec::new();
         loop {
@@ -1826,6 +1801,20 @@ impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
     fn poison(&mut self, e: io::Error) {
         self.poison = Some(e)
     }
+}
+
+/// Given an optional checker, generate a new one with appropriate lifetime
+/// constraints and types.
+//
+// Inlining helps ensure that the extra function call boundaries will be
+// optimized away.
+#[inline(always)]
+fn gen_new_checker<'a, 'b: 'a, R: Response>(
+    checker: &'b Option<impl check::Check<R>>,
+) -> Option<impl check::Check<R> + 'a> {
+    checker
+        .as_ref()
+        .map(|checker| move |response| checker.check(response))
 }
 
 #[derive(Debug, Clone)]
