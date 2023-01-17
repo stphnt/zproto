@@ -256,7 +256,7 @@ impl Default for OpenTcpOptions {
 pub type OnPacketCallback<'a> = Box<dyn FnMut(&[u8], Direction) + 'a>;
 
 /// A wrapper around an [`OnPacketCallback`] that simply implements `Debug` so
-/// that the [`Port`] can implement `Debug`.
+/// that the [`Port`] can derive `Debug`.
 #[repr(transparent)]
 struct OnPacketCallbackDebugWrapper<'a>(OnPacketCallback<'a>);
 
