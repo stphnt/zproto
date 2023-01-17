@@ -31,7 +31,12 @@ pub trait Response:
 }
 
 /// A marker trait for specific ASCII response types, i.e., not [`AnyResponse`].
-pub trait SpecificResponse: Response {}
+// Anything implementing `Response` must also implement `TryFrom<AnyResponse>`
+// but this adds the extra restriction that the error is always `AnyResponse`.
+pub trait SpecificResponse:
+    Response + std::convert::TryFrom<AnyResponse, Error = AnyResponse>
+{
+}
 
 /// A trait for a response that contains a warning.
 pub trait ResponseWithWarning: Response {
