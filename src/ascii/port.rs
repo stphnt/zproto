@@ -1851,11 +1851,66 @@ mod test {
     use crate::{
         ascii::{
             check::{self, unchecked},
-            Alert, AnyResponse, Port, Reply,
+            Alert, AnyResponse, Info, Port, Reply, Status,
         },
         backend::Mock,
         error::*,
     };
+
+    /// Generate code to check the behaviour of different port methods.
+    ///
+    /// The syntax is `<port>, <case>...` where multiple `<case>`s are separated
+    /// by `,` and can be of two flavors:
+    ///
+    ///   * `ok case <response_bytes_to_append>... via <closure_to_generate_responses>`
+    ///   * `err case <response_bytes_to_append>... via <closure_to_generate_responses> => <expected_error_type>`
+    macro_rules! check_cases {
+        (
+            $port:ident, ok case $($response_bytes:literal),+ via $method:expr, $($rest:tt)*
+        ) => {
+            // Make sure there are no other responses left over from other test cases
+            $port.backend.clear_buffer();
+            $(
+                $port.backend.append_data($response_bytes);
+            )+
+            let m: fn(&mut Port<_>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
+            match (m)(&mut $port) {
+                Err(e) => panic!("unexpected error when reading {} via {}:\n\tactual error: {}\n\t{:?}\n",
+                    stringify!($($response_bytes),+),
+                    stringify!($method),
+                    e,
+                    e),
+                _ => {},
+            }
+            check_cases!($port, $($rest)*)
+        };
+
+        (
+            $port:ident, err case $($response_bytes:literal),+ via $method:expr => $err_type:ident, $($rest:tt)*
+        ) => {
+            $port.backend.clear_buffer();
+            $(
+                $port.backend.append_data($response_bytes);
+            )+
+            let m: fn(&mut Port<_>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
+            match (m)(&mut $port) {
+                Err(e) => {
+                    if let Err(e) = $err_type::try_from(e) {
+                        panic!("unexpected error when reading {} via {}:\n\texpected:\t{}\n\tgot:\t\t{}\n\t\t\t{:?}\n",
+                            stringify!($($response_bytes),+),
+                            stringify!($method),
+                            stringify!($err_type),
+                            e,
+                            e);
+                    }
+                }
+                Ok(_) => panic!("unexpected Ok when reading {} via {}", stringify!($method), stringify!($($response_bytes)+)),
+            };
+            check_cases!($port, $($rest)*)
+        };
+
+        ($port:ident, ) => {};
+    }
 
     #[test]
     fn command_reply_ok() {
@@ -2368,6 +2423,184 @@ mod test {
             expected.push((response.to_vec(), super::Direction::Recv));
         }
         assert_eq!(captured.borrow().as_slice(), expected.as_slice());
+    }
+
+    mod default_response_check {
+        use super::*;
+
+        /// Check that the default response check after creating a port is
+        /// `check::default()`, which behaves as follows:
+        ///   * replies with any warning or an RJ flag should raise an error
+        ///   * alerts with any warning should raise an error
+        ///   * infos are not checked
+        #[test]
+        fn default() {
+            let mut port = Port::open_mock();
+            // The default response check should exist after creating a port.
+            assert!(port.default_response_check().is_some());
+
+            check_cases! { port,
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply(""),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
+
+                err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply("") => AsciiCheckWarningError,
+                err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<Reply>() => AsciiCheckWarningError,
+                err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckWarningError,
+
+                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("") => AsciiCheckFlagError,
+                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckFlagError,
+                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckFlagError,
+
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
+                err case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>() => AsciiCheckWarningError,
+                err case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckWarningError,
+
+                ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
+                ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
+            }
+        }
+
+        /// Setting a custom check that accepts a single reply type should
+        /// result in only those types of replies being checked.
+        #[test]
+        fn custom_flag_ok() {
+            let mut port = Port::open_mock();
+            port.set_default_response_check(check::flag_ok());
+            check_cases! { port,
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply(""),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
+
+                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply(""),
+                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<Reply>(),
+                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
+
+                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("") => AsciiCheckFlagError,
+                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckFlagError,
+                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckFlagError,
+
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
+
+                ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
+                ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
+            }
+        }
+
+        /// Setting a custom check that accepts a single reply type should
+        /// allow multiple reply types to be checked.
+        #[test]
+        fn custom_any_response() {
+            let mut port = Port::open_mock();
+            port.set_default_response_check(|any_response| match &any_response {
+                AnyResponse::Reply(reply) if reply.status() == Status::Busy => Ok(any_response),
+                AnyResponse::Alert(alert) if alert.target().get_device() == 1 => Ok(any_response),
+                AnyResponse::Info(info) if info.data().contains("is-ok") => Ok(any_response),
+                _ => Err(AsciiCheckCustomError::new("Oops", any_response).into()),
+            });
+            check_cases! { port,
+                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply("") => AsciiCheckCustomError,
+                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply_n("", 1) => AsciiCheckCustomError,
+                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckCustomError,
+                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckCustomError,
+                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1) => AsciiCheckCustomError,
+                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>() => AsciiCheckCustomError,
+
+                err case b"@01 1 OK IDLE -- 0\r\n",
+                         b"#01 1 is-ok\r\n",
+                         b"@01 1 0 OK BUSY WR 0\r\n" via |p| p.command_reply_infos("") => AsciiCheckCustomError,
+                err case b"@01 1 OK BUSY WR 0\r\n",
+                         b"#01 1 some info\r\n",
+                         b"@01 1 1 OK BUSY WR 0\r\n" via |p| p.command_reply_infos("") => AsciiCheckCustomError,
+                ok case b"@01 1 OK BUSY WR 0\r\n",
+                        b"#01 1 is-ok\r\n",
+                        b"@01 1 2 OK BUSY WR 0\r\n" via |p| p.command_reply_infos(""),
+
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply(""),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply_n("", 1),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<Reply>(),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                err case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<Alert>() => AsciiCheckCustomError,
+                err case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckCustomError,
+                err case b"!02 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1) => AsciiCheckCustomError,
+                err case b"!02 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>() => AsciiCheckCustomError,
+
+                ok case b"#01 1 is-ok\r\n" via |p| p.response::<Info>(),
+                ok case b"#01 1 is-ok\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"#01 1 is-ok\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"#01 1 is-ok\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                err case b"#01 1 some info\r\n" via |p| p.response::<Info>() => AsciiCheckCustomError,
+                err case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckCustomError,
+                err case b"#01 1 some info\r\n" via |p| p.response_n::<AnyResponse>(1) => AsciiCheckCustomError,
+                err case b"#01 1 some info\r\n" via |p| p.responses_until_timeout::<AnyResponse>() => AsciiCheckCustomError,
+            }
+        }
+
+        /// All messages should be accepted when there is no default response
+        /// check.
+        #[test]
+        fn clear_check() {
+            let mut port = Port::open_mock();
+            port.clear_default_response_check();
+            check_cases! { port,
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply(""),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply_n("", 1),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply(""),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply_n("", 1),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<Reply>(),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
+                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"#01 1 is-ok\r\n" via |p| p.response::<Info>(),
+                ok case b"#01 1 is-ok\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"#01 1 is-ok\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"#01 1 is-ok\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+
+                ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
+                ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
+                ok case b"#01 1 some info\r\n" via |p| p.response_n::<AnyResponse>(1),
+                ok case b"#01 1 some info\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
+            }
+        }
     }
 
     // Poison a port
