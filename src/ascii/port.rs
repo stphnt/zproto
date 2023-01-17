@@ -272,7 +272,7 @@ impl<'a> std::fmt::Debug for OnPacketCallbackDebugWrapper<'a> {
 pub type OnUnexpectedAlertCallback<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + 'a>;
 
 /// A wrapper around an [`OnUnexpectedAlertCallback`] that simply implements `Debug` so
-/// that the [`Port`] can implement `Debug`.
+/// that the [`Port`] can derive `Debug`.
 #[repr(transparent)]
 struct OnUnexpectedAlertDebugWrapper<'a>(OnUnexpectedAlertCallback<'a>);
 
@@ -280,6 +280,37 @@ impl<'a> std::fmt::Debug for OnUnexpectedAlertDebugWrapper<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "OnUnexpectedAlertCallback")
     }
+}
+
+/// A wrapper around a boxed `Check` that simply implements `Debug` so that
+/// the [`Port`] can derive `Debug`
+#[repr(transparent)]
+struct DefaultResponseCheckWrapper<'a>(Box<dyn check::Check<AnyResponse> + 'a>);
+
+impl<'a> std::fmt::Debug for DefaultResponseCheckWrapper<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "DefaultResponseCheck")
+    }
+}
+
+impl<'a, K: check::Check<AnyResponse> + 'a> From<K> for DefaultResponseCheckWrapper<'a> {
+    fn from(other: K) -> Self {
+        Self(Box::new(other))
+    }
+}
+
+type DefaultCheck<R> = Option<fn(R) -> Result<R, AsciiCheckError<R>>>;
+
+/// Returns the value expected by any function that takes an optional `checker`
+/// that indicates the default check should be used (i.e. `None`).
+///
+/// Using this method has a few benefits over manually passing `None`:
+/// * the meaning of the value is made clear by the name of the function
+/// * it provides the type information necessary to satisfy Rust's type checking.
+///   Otherwise, something like `None::<fn(R) -> Result<R, AsciiCheckError<R>>>`
+///   would need to be passed.
+const fn use_default_check<R>() -> DefaultCheck<R> {
+    None
 }
 
 /// The direction a packet was sent.
@@ -327,6 +358,8 @@ pub struct Port<'a, B> {
     packet_hook: Option<OnPacketCallbackDebugWrapper<'a>>,
     /// Optional hook to call when an unexpected Alert is received.
     unexpected_alert_hook: Option<OnUnexpectedAlertDebugWrapper<'a>>,
+    /// The default check to validate all responses with
+    default_response_check: Option<DefaultResponseCheckWrapper<'a>>,
 }
 
 impl<'a> Port<'a, Serial> {
@@ -391,6 +424,10 @@ impl<'a, B: Backend> Port<'a, B> {
             builder: ResponseBuilder::default(),
             packet_hook: None,
             unexpected_alert_hook: None,
+            // Use check::default to check all responses by default
+            default_response_check: Some(DefaultResponseCheckWrapper::from(
+                check::AnyResponseCheck::from(check::default::<AnyResponse>()),
+            )),
         }
     }
 
@@ -442,7 +479,7 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok(instance.id)
     }
 
-    /// Transmit a command, receive a reply, and check it with the [`default`](check::default) checks.
+    /// Transmit a command, receive a reply, and check it with the [`default`](Port::set_default_response_check) check.
     ///
     /// If the reply is split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -456,7 +493,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # }
     /// ```
     pub fn command_reply<C: Command>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
-        self.command_reply_with_check(cmd, check::default())
+        self.internal_command_reply_with_check(cmd, use_default_check())
     }
 
     /// Same as [`Port::command_reply`] except that the reply is validated with the custom [`Check`](check::Check).
@@ -481,6 +518,25 @@ impl<'a, B: Backend> Port<'a, B> {
         C: Command,
         K: check::Check<Reply>,
     {
+        self.internal_command_reply_with_check(cmd, Some(checker))
+    }
+
+    /// Transmit a command and receive a reply.
+    ///
+    /// If any response is spread across multiple packets, continuation packets will be read.
+    /// `header_check` should be a function that produces data for validating the response's header.
+    ///
+    /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
+    fn internal_command_reply_with_check<C, K>(
+        &mut self,
+        cmd: C,
+        checker: Option<K>,
+    ) -> Result<Reply, AsciiError>
+    where
+        C: Command,
+        K: check::Check<Reply>,
+    {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         self.pre_receive_response();
@@ -497,7 +553,7 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
     ///
-    /// The reply and info messages are checked with the [`default`](check::default) checks.
+    /// The reply and info messages are checked with the [`default`](Port::set_default_response_check) check.
     ///
     /// If the reply or info messages are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -527,7 +583,7 @@ impl<'a, B: Backend> Port<'a, B> {
         &mut self,
         cmd: C,
     ) -> Result<(Reply, Vec<Info>), AsciiError> {
-        self.command_reply_infos_with_check(cmd, check::default())
+        self.internal_command_reply_infos_with_check(cmd, use_default_check())
     }
 
     /// Same as [`Port::command_reply_infos`] except that the messages are validated with the custom [`Check`](check::Check).
@@ -560,11 +616,32 @@ impl<'a, B: Backend> Port<'a, B> {
         C: Command,
         K: check::Check<AnyResponse>,
     {
+        self.internal_command_reply_infos_with_check(cmd, Some(checker))
+    }
+
+    /// Transmit a command and then receive a reply and all subsequent info messages.
+    ///
+    /// If any response is spread across multiple packets, continuation packets will be read.
+    /// `header_check` should be a function that produces data for validating the response's header.
+    ///
+    /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
+    fn internal_command_reply_infos_with_check<C, K>(
+        &mut self,
+        cmd: C,
+        checker: Option<K>,
+    ) -> Result<(Reply, Vec<Info>), AsciiError>
+    where
+        C: Command,
+        K: check::Check<AnyResponse>,
+    {
         #[inline]
         fn gen_new_checker<'a, 'b: 'a>(
-            checker: &'b impl check::Check<AnyResponse>,
-        ) -> impl check::Check<AnyResponse> + 'a {
-            move |response| checker.check(response)
+            checker: &'b Option<impl check::Check<AnyResponse>>,
+        ) -> Option<impl check::Check<AnyResponse> + 'a> {
+            checker
+                .as_ref()
+                .map(|checker| move |response| checker.check(response))
         }
 
         let target = cmd.as_ref().target();
@@ -600,7 +677,7 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok((reply, infos))
     }
 
-    /// Transmit a command, receive n replies, and check each reply with the [`default`](check::default) checks.
+    /// Transmit a command, receive n replies, and check each reply with the [`default`](Port::set_default_response_check) check.
     ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -618,7 +695,7 @@ impl<'a, B: Backend> Port<'a, B> {
         cmd: C,
         n: usize,
     ) -> Result<Vec<Reply>, AsciiError> {
-        self.command_reply_n_with_check(cmd, n, check::default())
+        self.internal_command_reply_n_with_check(cmd, n, use_default_check())
     }
 
     /// Same as [`Port::command_reply_n`] except that the replies are validated with the custom [`Check`](check::Check).
@@ -644,6 +721,26 @@ impl<'a, B: Backend> Port<'a, B> {
         C: Command,
         K: check::Check<Reply>,
     {
+        self.internal_command_reply_n_with_check(cmd, n, Some(checker))
+    }
+
+    /// Transmit a command and then receive n replies.
+    ///
+    /// If any response is spread across multiple packets, continuation packets will be read.
+    /// `header_check` should be a function that produces data for validating the response's header.
+    ///
+    /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
+    fn internal_command_reply_n_with_check<C, K>(
+        &mut self,
+        cmd: C,
+        n: usize,
+        checker: Option<K>,
+    ) -> Result<Vec<Reply>, AsciiError>
+    where
+        C: Command,
+        K: check::Check<Reply>,
+    {
         let cmd = cmd.as_ref();
         let id = self.command(cmd)?;
         self.internal_response_n_with_check(
@@ -656,7 +753,7 @@ impl<'a, B: Backend> Port<'a, B> {
         )
     }
 
-    /// Transmit a command, receive replies until the port times out, and check each reply with the [`default`](check::default) checks.
+    /// Transmit a command, receive replies until the port times out, and check each reply with the [`default`](Port::set_default_response_check) check.
     ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -673,7 +770,7 @@ impl<'a, B: Backend> Port<'a, B> {
         &mut self,
         cmd: C,
     ) -> Result<Vec<Reply>, AsciiError> {
-        self.command_replies_until_timeout_with_check(cmd, check::default())
+        self.internal_command_replies_until_timeout_with_check(cmd, use_default_check())
     }
 
     /// Same as [`Port::command_replies_until_timeout`] except that the replies are validated with the custom [`Check`](check::Check).
@@ -696,6 +793,25 @@ impl<'a, B: Backend> Port<'a, B> {
         &mut self,
         cmd: C,
         checker: K,
+    ) -> Result<Vec<Reply>, AsciiError>
+    where
+        C: Command,
+        K: check::Check<Reply>,
+    {
+        self.internal_command_replies_until_timeout_with_check(cmd, Some(checker))
+    }
+
+    /// Transmit a command and then receive replies until the port times out.
+    ///
+    /// If any response is spread across multiple packets, continuation packets will be read.
+    /// `header_check` should be a function that produces data for validating the response's header.
+    ///
+    /// The contents of the responses are validated with `checker`. If `checker` is `None`, then the port's default
+    /// check is used.
+    fn internal_command_replies_until_timeout_with_check<C, K>(
+        &mut self,
+        cmd: C,
+        checker: Option<K>,
     ) -> Result<Vec<Reply>, AsciiError>
     where
         C: Command,
@@ -909,7 +1025,7 @@ impl<'a, B: Backend> Port<'a, B> {
     fn receive_response<R, F, K>(
         &mut self,
         mut header_check: F,
-        checker: K,
+        checker: Option<K>,
     ) -> Result<R, AsciiError>
     where
         R: Response,
@@ -923,8 +1039,36 @@ impl<'a, B: Backend> Port<'a, B> {
             let result = || -> Result<R, AsciiError> {
                 let mut response = self.build_response()?;
                 response = header_check(&response).check(response)?;
-                let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
-                checker.check(response).map_err(Into::into)
+                if let Some(checker) = &checker {
+                    let response =
+                        R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
+                    checker.check(response).map_err(Into::into)
+                } else if let Some(DefaultResponseCheckWrapper(checker)) =
+                    &self.default_response_check
+                {
+                    // We need to check that the correct response type was
+                    // received before we check the contents of the response.
+                    // This is most easily done by actually trying to convert
+                    // the type. However, the default check only accepts
+                    // `AnyResponse`, so we would have to convert right back
+                    // immediately afterwards. Instead, check if the conversion
+                    // _would_ succeed and, if it would, continue checking the
+                    // message's contents before actually converting to the
+                    // expected type.
+                    if !R::will_try_from_succeed(&response) {
+                        return Err(AsciiUnexpectedResponseError::new(response).into());
+                    }
+                    checker
+                        .check(response)
+                        .map(|response| {
+                            response.try_into().unwrap_or_else(|_| {
+                                panic!("could not convert message back from AnyResponse")
+                            })
+                        })
+                        .map_err(Into::into)
+                } else {
+                    Ok(R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?)
+                }
             }();
             if let Some(OnUnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
                 // There is an handler for alerts, check if we need to call it.
@@ -960,12 +1104,12 @@ impl<'a, B: Backend> Port<'a, B> {
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-    /// `checker` to validate the contents of the message.
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
     fn internal_response_n_with_check<R, F, K>(
         &mut self,
         n: usize,
         mut header_check: F,
-        checker: K,
+        checker: Option<K>,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
@@ -976,9 +1120,11 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         #[inline]
         fn gen_new_checker<'a, 'b: 'a, R: Response>(
-            checker: &'b impl check::Check<R>,
-        ) -> impl check::Check<R> + 'a {
-            move |response| checker.check(response)
+            checker: &'b Option<impl check::Check<R>>,
+        ) -> Option<impl check::Check<R> + 'a> {
+            checker
+                .as_ref()
+                .map(|checker| move |response| checker.check(response))
         }
         self.pre_receive_response();
         let mut responses = Vec::new();
@@ -995,11 +1141,11 @@ impl<'a, B: Backend> Port<'a, B> {
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-    /// `checker` to validate the contents of the message.
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
     fn internal_responses_until_timeout_with_check<R, F, K>(
         &mut self,
         mut header_check: F,
-        check: K,
+        check: Option<K>,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
@@ -1010,9 +1156,11 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         #[inline]
         fn gen_new_checker<'a, 'b: 'a, R: Response>(
-            checker: &'b impl check::Check<R>,
-        ) -> impl check::Check<R> + 'a {
-            move |response| checker.check(response)
+            checker: &'b Option<impl check::Check<R>>,
+        ) -> Option<impl check::Check<R> + 'a> {
+            checker
+                .as_ref()
+                .map(|checker| move |response| checker.check(response))
         }
         self.pre_receive_response();
         let mut responses = Vec::new();
@@ -1028,7 +1176,7 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok(responses)
     }
 
-    /// Receive a response and check it with the [`default`](check::default) checks.
+    /// Receive a response and check it with the [`default`](Port::set_default_response_check) check.
     ///
     /// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
     ///
@@ -1052,7 +1200,7 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         self.pre_receive_response();
         let response =
-            self.receive_response(|_| HeaderCheckAction::DoNotCheck, check::default())?;
+            self.receive_response(|_| HeaderCheckAction::DoNotCheck, use_default_check())?;
         self.post_receive_response()?;
         Ok(response)
     }
@@ -1077,12 +1225,12 @@ impl<'a, B: Backend> Port<'a, B> {
         AsciiError: From<AsciiCheckError<R>>,
     {
         self.pre_receive_response();
-        let response = self.receive_response(|_| HeaderCheckAction::DoNotCheck, checker)?;
+        let response = self.receive_response(|_| HeaderCheckAction::DoNotCheck, Some(checker))?;
         self.post_receive_response()?;
         Ok(response)
     }
 
-    /// Receive `n` responses and check each one with the [`default`](check::default) checks.
+    /// Receive `n` responses and check each one with the [`default`](Port::set_default_response_check) check.
     ///
     /// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
     ///
@@ -1103,7 +1251,11 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, check::default())
+        self.internal_response_n_with_check(
+            n,
+            |_| HeaderCheckAction::DoNotCheck,
+            use_default_check(),
+        )
     }
 
     /// Same as [`Port::response_n`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -1130,10 +1282,10 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, checker)
+        self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, Some(checker))
     }
 
-    /// Receive responses until the port times out and check each one with the [`default`](check::default) checks.
+    /// Receive responses until the port times out and check each one with the [`default`](Port::set_default_response_check) check.
     ///
     /// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
     ///
@@ -1157,7 +1309,7 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         self.internal_responses_until_timeout_with_check(
             |_| HeaderCheckAction::DoNotCheck,
-            check::default(),
+            use_default_check(),
         )
     }
 
@@ -1184,7 +1336,10 @@ impl<'a, B: Backend> Port<'a, B> {
         AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
         AsciiError: From<AsciiCheckError<R>>,
     {
-        self.internal_responses_until_timeout_with_check(|_| HeaderCheckAction::DoNotCheck, check)
+        self.internal_responses_until_timeout_with_check(
+            |_| HeaderCheckAction::DoNotCheck,
+            Some(check),
+        )
     }
 
     /// Send the specified command repeatedly until the predicate returns true for a reply.
@@ -1327,6 +1482,162 @@ impl<'a, B: Backend> Port<'a, B> {
     /// If it is `None`, reads will block indefinitely.
     pub fn read_timeout(&self) -> Result<Option<Duration>, io::Error> {
         self.backend.read_timeout()
+    }
+
+    /// Set how the contents of responses will be checked when they are received.
+    ///
+    /// The contents of all responses are checked by the port when they are
+    /// received using the `checker` defined here. By default the `Port` uses
+    /// [`check::default`], unless it is explicit set otherwise. To temporarily
+    /// change how the contents of responses are checked, it is advisable to use
+    /// one of the `Port`'s [`*_with_check`](Port::command_reply_with_check)
+    /// methods, which take a temporary override that will be used for that call.
+    ///
+    /// The default `checker` can accept any [`Response`] type (i.e., [`Reply`],
+    /// [`Info`], [`Alert`], or [`AnyResponse`]). However, if a different
+    /// response type is received, it will _not_ be checked unless the received
+    /// type is [`AnyResponse`] and the variant contains the correct type.
+    ///
+    /// For example, suppose [`flag_ok`](check::flag_ok) is set as the default
+    /// check. If a [`Reply`] is received, which is the type `flag_ok`
+    /// accepts, it will be checked. An [`AnyResponse::Reply`] will also be
+    /// checked. But if an [`Info`], [`Alert`], or other variant of
+    /// [`AnyResponse`] are received they will not be checked.
+    ///
+    /// ```
+    /// # use zproto::backend::Backend;
+    /// # use zproto::ascii::{Alert, AnyResponse, Port};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// use zproto::ascii::check;
+    /// port.set_default_response_check(check::flag_ok());
+    ///
+    /// // The Reply to the `home` command will be checked to ensure the flag is
+    /// // OK, because it matches the type of the default check.
+    /// port.command_reply("home")?;
+    ///
+    /// // When the response type is `AnyResponse`, it will also be checked if
+    /// // it is the `AnyResponse::Reply` variant, but not if it is any other
+    /// // variant.
+    /// port.command("home")?;
+    /// port.response::<AnyResponse>()?;
+    ///
+    /// // Other types of responses, such as an `Alert`, will not be checked.
+    /// let response = port.response::<Alert>()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// To check different kinds of responses (say replies _and_ alerts), the
+    /// supplied checker should accept `AnyResponse`s.
+    ///
+    /// ```
+    /// # use zproto::backend::Backend;
+    /// # use zproto::ascii::{Alert, AnyResponse, Port, Status};
+    /// # use zproto::error::{AsciiCheckError, AsciiCheckStatusError};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// // A silly check to ensure that all status' are IDLE.
+    /// fn always_idle(response: AnyResponse) -> Result<AnyResponse, AsciiCheckError<AnyResponse>> {
+    ///     match &response {
+    ///         AnyResponse::Reply(reply) if reply.status() == Status::Idle => Ok(response),
+    ///         AnyResponse::Alert(alert) if alert.status() == Status::Idle => Ok(response),
+    ///         AnyResponse::Info(_) => Ok(response), // Info messages don't have a status
+    ///         _ => Err(AsciiCheckStatusError::new(Status::Idle, response).into())
+    ///     }
+    /// }
+    /// port.set_default_response_check(always_idle);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// In some cases, the compiler will not be able to infer the response type
+    /// the check accepts. For instance, [`check::warning_is_none`] can accept
+    /// replies or alerts as both have warnings.
+    ///
+    /// ```compile_fail
+    /// # use zproto::backend::Backend;
+    /// # use zproto::ascii::{check, Port};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// // Compiler error because it isn't clear if this should check replies or alerts
+    /// port.set_default_response_check(check::warning_is_none());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Provide an explicit type to solve the compiler error.
+    ///
+    /// ```
+    /// # use zproto::backend::Backend;
+    /// # use zproto::ascii::{check, Port, Reply};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// // Only check warning flags in replies.
+    /// port.set_default_response_check(check::warning_is_none::<Reply>());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// To restore the checks set when the `Port` was created use the following:
+    ///
+    /// ```
+    /// # use zproto::backend::Backend;
+    /// # use zproto::ascii::{check, AnyResponse, Port};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// port.set_default_response_check(check::default::<AnyResponse>());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Use [`clear_default_response_check`](Port::clear_default_response_check)
+    /// to not check the contents of responses.
+    pub fn set_default_response_check<K, R>(&mut self, checker: K)
+    where
+        K: check::Check<R> + 'a,
+        R: Response,
+        check::AnyResponseCheck<K, R>: check::Check<AnyResponse> + 'a,
+    {
+        self.default_response_check = Some(DefaultResponseCheckWrapper::from(
+            check::AnyResponseCheck::from(checker),
+        ));
+    }
+
+    /// Set how the contents of responses will be checked. The previous default
+    /// check will be returned, if there was one.
+    ///
+    /// See [`set_default_response_check`](Port::set_default_response_check) for
+    /// more details on default response checks.
+    pub fn replace_default_response_check(
+        &mut self,
+        checker: impl check::Check<AnyResponse> + 'a,
+    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>> {
+        self.default_response_check
+            .replace(DefaultResponseCheckWrapper(Box::new(checker)))
+            .map(|wrapper| wrapper.0)
+    }
+
+    /// Clear the default response check. The contents of responses will not be
+    /// checked.
+    ///
+    /// In most cases this is not recommended. In the vast majority of cases
+    /// reply flags should be checked, ensuring that they are OK.
+    ///
+    /// See [`set_default_response_check`](Port::set_default_response_check) for
+    /// more details on default response checks.
+    pub fn clear_default_response_check(
+        &mut self,
+    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>> {
+        self.default_response_check.take().map(|wrapper| wrapper.0)
+    }
+
+    /// Get the default response check.
+    ///
+    /// If no default check is set, `None` is returned, indicating the `Port` is
+    /// not checking the contents of responses.
+    ///
+    /// See [`set_default_response_check`](Port::set_default_response_check) for
+    /// more details on default response checks.
+    pub fn default_response_check(&self) -> Option<&(dyn check::Check<AnyResponse> + 'a)> {
+        self.default_response_check
+            .as_ref()
+            .map(|wrapper| &*wrapper.0)
     }
 
     /// Get the "name" of the port's backend.
@@ -1549,7 +1860,10 @@ mod test {
     use std::cell::Cell;
 
     use crate::{
-        ascii::{check::unchecked, AnyResponse, Port, Reply},
+        ascii::{
+            check::{self, unchecked},
+            Alert, AnyResponse, Port, Reply,
+        },
         backend::Mock,
         error::*,
     };
