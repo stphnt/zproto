@@ -329,6 +329,8 @@ pub enum Direction {
 /// port (`Port<Serial>`) or a TCP port (`Port<TcpStream>`). To customize the
 /// construction of these types, or to construct a port with a dynamic backend,
 /// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
+///
+/// See the [`ascii`](crate::ascii) module-level documentation for more details.
 #[derive(Debug)]
 pub struct Port<'a, B> {
     /// The underlying backend
