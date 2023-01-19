@@ -1130,7 +1130,7 @@ impl<'a, B: Backend> Port<'a, B> {
     fn internal_responses_until_timeout_with_check<R, F, K>(
         &mut self,
         mut header_check: F,
-        check: Option<K>,
+        checker: Option<K>,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
@@ -1142,7 +1142,8 @@ impl<'a, B: Backend> Port<'a, B> {
         self.pre_receive_response();
         let mut responses = Vec::new();
         loop {
-            match self.receive_response(|response| header_check(response), gen_new_checker(&check))
+            match self
+                .receive_response(|response| header_check(response), gen_new_checker(&checker))
             {
                 Ok(r) => responses.push(r),
                 Err(e) if e.is_timeout() => break,
@@ -1305,7 +1306,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// ```
     pub fn responses_until_timeout_with_check<R, K>(
         &mut self,
-        check: K,
+        checker: K,
     ) -> Result<Vec<R>, AsciiError>
     where
         R: Response,
@@ -1315,7 +1316,7 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         self.internal_responses_until_timeout_with_check(
             |_| HeaderCheckAction::DoNotCheck,
-            Some(check),
+            Some(checker),
         )
     }
 
