@@ -380,10 +380,10 @@ impl TryFrom<parse::PacketKind> for Kind {
 }
 
 mod private {
-    use super::{Alert, AnyResponse, AsciiCheckError, Flag, Info, Reply, Warning};
+    use super::{Alert, AnyResponse, AsciiCheckError, Flag, Info, Kind, Reply, Warning};
     use crate::error::{AsciiCheckFlagError, AsciiCheckWarningError};
 
-    pub trait Sealed: DataMut + DefaultCheck {}
+    pub trait Sealed: DataMut + DefaultCheck + WillTryFromSucceed<AnyResponse> {}
 
     impl Sealed for Reply {}
     impl Sealed for Alert {}
@@ -483,6 +483,36 @@ mod private {
                     .into())
                 }
             }
+        }
+    }
+
+    /// A trait indicating whether calling `TryFrom::try_from` on the type will
+    /// succeed or not.
+    //
+    // Putting the definition here and as a supertrait of `Sealed` ensures it
+    // doesn't show up in the public API
+    pub trait WillTryFromSucceed<T> {
+        fn will_try_from_succeed(other: &T) -> bool;
+    }
+
+    impl<T> WillTryFromSucceed<T> for T {
+        fn will_try_from_succeed(_: &T) -> bool {
+            true
+        }
+    }
+    impl WillTryFromSucceed<AnyResponse> for Reply {
+        fn will_try_from_succeed(other: &AnyResponse) -> bool {
+            other.kind() == Kind::Reply
+        }
+    }
+    impl WillTryFromSucceed<AnyResponse> for Info {
+        fn will_try_from_succeed(other: &AnyResponse) -> bool {
+            other.kind() == Kind::Info
+        }
+    }
+    impl WillTryFromSucceed<AnyResponse> for Alert {
+        fn will_try_from_succeed(other: &AnyResponse) -> bool {
+            other.kind() == Kind::Alert
         }
     }
 }
