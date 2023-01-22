@@ -4,7 +4,6 @@ use crate::ascii::{
     response::{parse, AnyResponse, Header, Response, SpecificResponse, Status, Warning},
     Target,
 };
-use crate::error::*;
 
 /// A reply flag.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -41,7 +40,7 @@ pub(crate) struct ReplyInner {
 
 /// A decoded ASCII Reply message.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Reply(Box<ReplyInner>);
+pub struct Reply(pub(super) Box<ReplyInner>);
 
 impl Reply {
     /// Try to convert a packet into an Reply message.
@@ -140,27 +139,6 @@ impl Response for Reply {
     }
     fn data(&self) -> &str {
         self.data()
-    }
-    #[doc(hidden)]
-    fn data_mut(&mut self) -> &mut String {
-        &mut self.0.data
-    }
-    // If this logic changes update the documentation for `ascii::check::default`
-    #[doc(hidden)]
-    fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-        |reply| {
-            if reply.flag() != Flag::Ok {
-                Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
-            } else if reply.warning() != Warning::NONE {
-                Err(AsciiCheckWarningError::new(
-                    format!("expected {} warning flag", Warning::NONE),
-                    reply,
-                )
-                .into())
-            } else {
-                Ok(reply)
-            }
-        }
     }
 }
 

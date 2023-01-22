@@ -76,6 +76,8 @@ impl ResponseBuilder {
     /// If the packet does not continue an existing message or does not start a
     /// new message, `AsciiUnexpectedPacketError` is returned.
     pub fn push(&mut self, packet: Packet) -> Result<(), AsciiUnexpectedPacketError> {
+        use super::private::DataMut as _;
+
         if packet.cont() {
             // This packet continues another, try to find a matching incomplete
             // message to append it to.

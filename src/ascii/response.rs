@@ -28,16 +28,6 @@ pub trait Response:
     fn id(&self) -> Option<u8>;
     /// Return the message's data.
     fn data(&self) -> &str;
-    /// Return a mutable reference the message's data
-    #[doc(hidden)]
-    fn data_mut(&mut self) -> &mut String;
-    /// Return the default check for this response.
-    ///
-    /// This needs to be defined here so we can get the default check based on
-    /// the response type, but users shouldn't access it here. Instead users
-    /// should use [`crate::ascii::check::default`]
-    #[doc(hidden)]
-    fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
 }
 
 /// A marker trait for specific ASCII response types, i.e., not [`AnyResponse`].
@@ -344,28 +334,6 @@ impl Response for AnyResponse {
             AnyResponse::Alert(alert) => alert.data(),
         }
     }
-    #[doc(hidden)]
-    fn data_mut(&mut self) -> &mut String {
-        match self {
-            AnyResponse::Reply(reply) => reply.data_mut(),
-            AnyResponse::Info(info) => info.data_mut(),
-            AnyResponse::Alert(alert) => alert.data_mut(),
-        }
-    }
-    #[doc(hidden)]
-    fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-        |response| match response {
-            AnyResponse::Reply(reply) => Reply::default_check()(reply)
-                .map(From::from)
-                .map_err(From::from),
-            AnyResponse::Info(info) => Info::default_check()(info)
-                .map(From::from)
-                .map_err(From::from),
-            AnyResponse::Alert(alert) => Alert::default_check()(alert)
-                .map(From::from)
-                .map_err(From::from),
-        }
-    }
 }
 
 /// The different kind of responses.
@@ -407,11 +375,109 @@ impl TryFrom<parse::PacketKind> for Kind {
 }
 
 mod private {
-    use super::{Alert, AnyResponse, Info, Reply};
-    pub trait Sealed {}
+    use super::{Alert, AnyResponse, AsciiCheckError, Flag, Info, Reply, Warning};
+    use crate::error::{AsciiCheckFlagError, AsciiCheckWarningError};
+
+    pub trait Sealed: DataMut + DefaultCheck {}
 
     impl Sealed for Reply {}
     impl Sealed for Alert {}
     impl Sealed for Info {}
     impl Sealed for AnyResponse {}
+
+    /// Get mutable access to the response's data.
+    pub trait DataMut {
+        fn data_mut(&mut self) -> &mut String;
+    }
+
+    impl DataMut for AnyResponse {
+        fn data_mut(&mut self) -> &mut String {
+            match self {
+                AnyResponse::Reply(reply) => reply.data_mut(),
+                AnyResponse::Info(info) => info.data_mut(),
+                AnyResponse::Alert(alert) => alert.data_mut(),
+            }
+        }
+    }
+    impl DataMut for Reply {
+        fn data_mut(&mut self) -> &mut String {
+            &mut self.0.data
+        }
+    }
+    impl DataMut for Info {
+        fn data_mut(&mut self) -> &mut String {
+            &mut self.0.data
+        }
+    }
+    impl DataMut for Alert {
+        fn data_mut(&mut self) -> &mut String {
+            &mut self.0.data
+        }
+    }
+
+    /// Defines the default check to use for the kind of response.
+    pub trait DefaultCheck: Sized {
+        /// Return the default check for this response.
+        ///
+        /// This needs to be defined here so we can get the default check based on
+        /// the response type, but users shouldn't access it here. Instead users
+        /// should use [`crate::ascii::check::default`]
+        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
+    }
+
+    impl DefaultCheck for AnyResponse {
+        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            |response| match response {
+                AnyResponse::Reply(reply) => Reply::default_check()(reply)
+                    .map(From::from)
+                    .map_err(From::from),
+                AnyResponse::Info(info) => Info::default_check()(info)
+                    .map(From::from)
+                    .map_err(From::from),
+                AnyResponse::Alert(alert) => Alert::default_check()(alert)
+                    .map(From::from)
+                    .map_err(From::from),
+            }
+        }
+    }
+    impl DefaultCheck for Reply {
+        // If this logic changes update the documentation for `ascii::check::default`
+        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            |reply| {
+                if reply.flag() != Flag::Ok {
+                    Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
+                } else if reply.warning() != Warning::NONE {
+                    Err(AsciiCheckWarningError::new(
+                        format!("expected {} warning flag", Warning::NONE),
+                        reply,
+                    )
+                    .into())
+                } else {
+                    Ok(reply)
+                }
+            }
+        }
+    }
+    impl DefaultCheck for Info {
+        // If this logic changes update the documentation for `ascii::check::default`
+        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            Ok
+        }
+    }
+    impl DefaultCheck for Alert {
+        // If this logic changes update the documentation for `ascii::check::default`
+        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            |alert| {
+                if alert.warning() == Warning::NONE {
+                    Ok(alert)
+                } else {
+                    Err(AsciiCheckWarningError::new(
+                        format!("expected {} warning flag", Warning::NONE),
+                        alert,
+                    )
+                    .into())
+                }
+            }
+        }
+    }
 }

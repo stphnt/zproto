@@ -4,7 +4,6 @@ use crate::ascii::{
     response::{parse, AnyResponse, Header, Response, SpecificResponse},
     Target,
 };
-use crate::error::*;
 
 /// The contents of an [`Info`] message.
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +15,7 @@ pub(crate) struct InfoInner {
 
 /// A decoded Zaber ASCII Info message.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Info(Box<InfoInner>);
+pub struct Info(pub(super) Box<InfoInner>);
 
 impl Info {
     /// Try to convert a packet into an Info message.
@@ -95,15 +94,6 @@ impl Response for Info {
     }
     fn data(&self) -> &str {
         self.data()
-    }
-    #[doc(hidden)]
-    fn data_mut(&mut self) -> &mut String {
-        &mut self.0.data
-    }
-    // If this logic changes update the documentation for `ascii::check::default`
-    #[doc(hidden)]
-    fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-        Ok
     }
 }
 
