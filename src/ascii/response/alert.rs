@@ -79,8 +79,8 @@ impl std::fmt::Display for Alert {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", char::from(parse::ALERT_MARKER))?;
         Header {
-            address: self.target().get_device(),
-            axis: self.target().get_axis(),
+            address: self.target().device(),
+            axis: self.target().axis(),
             id: None,
         }
         .fmt(f)?;

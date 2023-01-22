@@ -112,8 +112,8 @@ impl std::fmt::Display for Reply {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", char::from(parse::REPLY_MARKER))?;
         Header {
-            address: self.target().get_device(),
-            axis: self.target().get_axis(),
+            address: self.target().device(),
+            axis: self.target().axis(),
             id: self.id(),
         }
         .fmt(f)?;

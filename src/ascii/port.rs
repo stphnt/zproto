@@ -2625,7 +2625,7 @@ mod test {
             let mut port = Port::open_mock();
             port.set_default_response_check(|any_response| match &any_response {
                 AnyResponse::Reply(reply) if reply.status() == Status::Busy => Ok(any_response),
-                AnyResponse::Alert(alert) if alert.target().get_device() == 1 => Ok(any_response),
+                AnyResponse::Alert(alert) if alert.target().device() == 1 => Ok(any_response),
                 AnyResponse::Info(info) if info.data().contains("is-ok") => Ok(any_response),
                 _ => Err(AsciiCheckCustomError::new("Oops", any_response).into()),
             });
