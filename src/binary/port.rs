@@ -227,17 +227,17 @@ impl MessageId {
 
 /// A callback that is called after a packet is either transmitted or received.
 ///
-/// See [`Port::on_packet`] for more details.
-pub type OnPacketCallback<'a> = Box<dyn FnMut(&[u8], Message, Direction) + 'a>;
+/// See [`Port::set_packet_handler`] for more details.
+pub type PacketCallback<'a> = Box<dyn FnMut(&[u8], Message, Direction) + 'a>;
 
-/// A wrapper around an [`OnPacketCallback`] that simply implements `Debug` so
+/// A wrapper around an [`PacketCallback`] that simply implements `Debug` so
 /// that the [`Port`] can implement `Debug`.
 #[repr(transparent)]
-struct OnPacketCallbackDebugWrapper<'a>(OnPacketCallback<'a>);
+struct PacketCallbackDebugWrapper<'a>(PacketCallback<'a>);
 
-impl<'a> std::fmt::Debug for OnPacketCallbackDebugWrapper<'a> {
+impl<'a> std::fmt::Debug for PacketCallbackDebugWrapper<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "OnPacketCallback")
+        write!(f, "PacketCallback")
     }
 }
 
@@ -274,7 +274,7 @@ pub struct Port<'a, B> {
     /// can poison the port.
     poison: Option<io::Error>,
     /// Optional hook to call after a packet is sent/received.
-    packet_hook: Option<OnPacketCallbackDebugWrapper<'a>>,
+    packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
 }
 
 impl<'a> Port<'a, Serial> {
@@ -777,7 +777,7 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// If a previous callback was set, it is returned.
     ///
-    /// To clear a previously registered callback use [`clear_on_packet`](Port::clear_on_packet).
+    /// To clear a previously registered callback use [`clear_packet_handler`](Port::clear_packet_handler).
     ///
     /// The callback will be passed the packet bytes, the parsed version of the
     /// bytes, and the direction of the packet.
@@ -798,7 +798,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// #
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut port = Port::open_serial("...")?;
-    /// port.on_packet(|bytes, message, dir| {
+    /// port.set_packet_handler(|bytes, message, dir| {
     ///     println!("{:?} {:?} {:?}", bytes, message, dir);
     /// });
     /// # Ok(())
@@ -820,7 +820,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// let packet_list = RefCell::new(Vec::new());
     /// let mut port = Port::open_serial("...")?;
     ///
-    /// port.on_packet(|_bytes, message, _dir| {
+    /// port.set_packet_handler(|_bytes, message, _dir| {
     ///     if let Ok(mut packets) = packet_list.try_borrow_mut() {
     ///         packets.push(message);
     ///     }
@@ -834,19 +834,19 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn on_packet<F>(&mut self, callback: F) -> Option<OnPacketCallback>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketCallback>
     where
         F: FnMut(&[u8], Message, Direction) + 'a,
     {
         std::mem::replace(
             &mut self.packet_hook,
-            Some(OnPacketCallbackDebugWrapper(Box::new(callback))),
+            Some(PacketCallbackDebugWrapper(Box::new(callback))),
         )
         .map(|wrapper| wrapper.0)
     }
 
-    /// Clear any callback registered via [`on_packet`](Port::on_packet) and return it.
-    pub fn clear_on_packet(&mut self) -> Option<OnPacketCallback> {
+    /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
+    pub fn clear_packet_handler(&mut self) -> Option<PacketCallback> {
         self.packet_hook.take().map(|wrapper| wrapper.0)
     }
 
@@ -1149,14 +1149,14 @@ mod test {
     }
 
     #[test]
-    fn on_packet() {
+    fn set_packet_handler() {
         use std::{cell::RefCell, rc::Rc};
         let packets = Rc::new(RefCell::new(Vec::new()));
         let packets_handle = Rc::clone(&packets);
 
         let mut port = Port::open_mock();
         port.set_message_ids(true).unwrap();
-        port.on_packet(move |raw, packet, dir| {
+        port.set_packet_handler(move |raw, packet, dir| {
             if let Ok(mut packets) = packets_handle.try_borrow_mut() {
                 packets.push((raw.to_vec(), packet, dir));
             }
