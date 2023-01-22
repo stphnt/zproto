@@ -112,7 +112,6 @@ macro_rules! impl_from_specific_to_any_response {
         impl<R> From<$name<R>> for $name<AnyResponse>
         where
             R: SpecificResponse,
-            AnyResponse: From<R>,
         {
             fn from(other: $name<R>) -> Self {
                 $name(Box::new((other.0 .0, other.0 .1.into())))
@@ -453,7 +452,6 @@ impl TryFrom<AsciiError> for AsciiCheckError<AnyResponse> {
 impl<R> From<AsciiCheckError<R>> for AsciiCheckError<AnyResponse>
 where
     R: SpecificResponse,
-    AnyResponse: From<R>,
 {
     fn from(other: AsciiCheckError<R>) -> Self {
         match other {

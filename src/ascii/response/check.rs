@@ -25,23 +25,27 @@
 //! # }
 //! ```
 //!
-//! What this does should hopefully be somewhat self explanatory from the function names:
-//!   * [`all`] checks that all of the checks passed to it (notice that they are enclosed in a [`tuple`])
-//!   * [`flag_is`] checks that the reply flag on the [`Reply`] is the specified value
+//! What this does should hopefully be somewhat self explanatory from the
+//! function names:
+//!   * [`all`] checks that all of the checks passed to it (notice that they
+//!     are enclosed in a [`tuple`])
+//!   * [`flag_is`] checks that the reply flag on the [`Reply`] is the specified
+//!     value
 //!   * [`warning_is_none`] checks that the warning is `--`.
 //!
 //! This check is so common, however, that there is the [`default`] function
 //! which does the same thing.
 //!
-//! You can also check the status, warning, and data of responses using
-//! [`status_is`], one of the `warning_*` functions, and [`parsed_data_is`],
-//! respectively. If the validation logic for a response is more complex, the
-//! [`predicate`] function allows you to validate responses using a closure that
-//! simply returns a `bool`. Finally, to not check a response at all you can
-//! use [`unchecked`].
+//! You can also check the status, warning, reply flags, and data of responses
+//! using one of the `status_*`, `warning_*`, `flag_*`, or [`parsed_data_is`]
+//! functions, respectively. If the validation logic for a response is more
+//! complex, the [`predicate`] function allows you to validate responses using
+//! a closure that simply returns a `bool`. Finally, to not check a response at
+//! all you can use [`unchecked`].
 
 use crate::ascii::response::{
-    Flag, Reply, Response, ResponseWithStatus, ResponseWithWarning, Status, Warning,
+    AnyResponse, Flag, Reply, Response, ResponseWithStatus, ResponseWithWarning, SpecificResponse,
+    Status, Warning,
 };
 use crate::error::*;
 
@@ -62,11 +66,57 @@ impl<R: Response, F: Fn(R) -> Result<R, AsciiCheckError<R>>> Check<R> for F {
     }
 }
 
+/// A helper type for converting any type that implements `Check<R: Response>`
+/// to a new type that implements `Check<AnyResponse>`.
+///
+/// Users shouldn't need to use this directly in most cases.
+#[derive(Debug)]
+pub struct AnyResponseCheck<K, R>(K, std::marker::PhantomData<R>);
+
+impl<K, R> Check<AnyResponse> for AnyResponseCheck<K, R>
+where
+    K: Check<R>,
+    R: SpecificResponse,
+{
+    fn check(
+        &self,
+        any_response: AnyResponse,
+    ) -> Result<AnyResponse, AsciiCheckError<AnyResponse>> {
+        match R::try_from(any_response) {
+            Ok(response) => self.0.check(response).map(Into::into).map_err(Into::into),
+            Err(any_response) => Ok(any_response),
+        }
+    }
+}
+
+impl<K> Check<AnyResponse> for AnyResponseCheck<K, AnyResponse>
+where
+    K: Check<AnyResponse>,
+{
+    fn check(
+        &self,
+        any_response: AnyResponse,
+    ) -> Result<AnyResponse, AsciiCheckError<AnyResponse>> {
+        self.0.check(any_response)
+    }
+}
+
+impl<K, R> From<K> for AnyResponseCheck<K, R>
+where
+    R: Response,
+    K: Check<R>,
+{
+    fn from(other: K) -> AnyResponseCheck<K, R> {
+        AnyResponseCheck(other, std::marker::PhantomData)
+    }
+}
+
 mod private {
     use super::*;
     pub trait Sealed<R: Response> {}
 
     impl<R: Response, F: Fn(R) -> Result<R, AsciiCheckError<R>>> Sealed<R> for F {}
+    impl<K: Check<R>, R: Response> Sealed<AnyResponse> for AnyResponseCheck<K, R> {}
 }
 
 /// Return a check that verifies the response's [`Warning`] matches the specified warning.

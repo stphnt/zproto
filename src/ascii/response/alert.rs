@@ -4,7 +4,6 @@ use crate::ascii::{
     response::{parse, AnyResponse, Header, Response, SpecificResponse, Status, Warning},
     Target,
 };
-use crate::error::*;
 
 /// The contents of an [`Alert`] message
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +16,7 @@ pub(crate) struct AlertInner {
 
 /// A decoded Zaber ASCII Alert message.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Alert(Box<AlertInner>);
+pub struct Alert(pub(super) Box<AlertInner>);
 
 impl Alert {
     /// Try to convert a packet into an Alert message.
@@ -105,25 +104,6 @@ impl Response for Alert {
     }
     fn data(&self) -> &str {
         self.data()
-    }
-    #[doc(hidden)]
-    fn data_mut(&mut self) -> &mut String {
-        &mut self.0.data
-    }
-    // If this logic changes update the documentation for `ascii::check::default`
-    #[doc(hidden)]
-    fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-        |alert| {
-            if alert.warning() == Warning::NONE {
-                Ok(alert)
-            } else {
-                Err(AsciiCheckWarningError::new(
-                    format!("expected {} warning flag", Warning::NONE),
-                    alert,
-                )
-                .into())
-            }
-        }
     }
 }
 
