@@ -1320,11 +1320,15 @@ impl<'a, B: Backend> Port<'a, B> {
         )
     }
 
-    /// Send the specified command repeatedly until the predicate returns true for a reply.
+    /// Send the specified command repeatedly until the predicate returns true
+    /// for a reply.
     ///
-    /// The first reply to satisfy the predicate is returned. The contents of the replies are *not* checked.
+    /// The first reply to satisfy the predicate is returned. The contents of
+    /// the replies are checked with the [`default`](Port::set_default_response_check)
+    /// check.
     ///
-    /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
+    /// If any of the replies are split across multiple packets, the
+    /// continuation messages will automatically be read.
     ///
     /// ## Example
     ///
@@ -1338,14 +1342,67 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn poll_until<C, F>(&mut self, cmd: C, mut predicate: F) -> Result<Reply, AsciiError>
+    pub fn poll_until<C, F>(&mut self, cmd: C, predicate: F) -> Result<Reply, AsciiError>
     where
         C: Command,
         F: FnMut(&Reply) -> bool,
     {
+        self.internal_poll_until_with_check(cmd, predicate, use_default_check())
+    }
+
+    /// Same as [`Port::poll_until`] except that the replies are validated with
+    /// the custom [`Check`](check::Check).
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use zproto::{ascii::{check, Port}, backend::Backend};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// port.poll_until_with_check(
+    ///     (1, 1, ""),
+    ///     |reply| reply.warning() != "FZ",
+    ///     check::flag_ok()
+    /// )?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn poll_until_with_check<C, F, K>(
+        &mut self,
+        cmd: C,
+        predicate: F,
+        checker: K,
+    ) -> Result<Reply, AsciiError>
+    where
+        C: Command,
+        F: FnMut(&Reply) -> bool,
+        K: check::Check<Reply>,
+    {
+        self.internal_poll_until_with_check(cmd, predicate, Some(checker))
+    }
+
+    /// Send the specified command repeatedly until the predicate returns true
+    /// for a reply.
+    ///
+    /// If any response is spread across multiple packets, continuation packets will be read.
+    /// `header_check` should be a function that produces data for validating the response's header.
+    ///
+    /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
+    fn internal_poll_until_with_check<C, F, K>(
+        &mut self,
+        cmd: C,
+        mut predicate: F,
+        checker: Option<K>,
+    ) -> Result<Reply, AsciiError>
+    where
+        C: Command,
+        F: FnMut(&Reply) -> bool,
+        K: check::Check<Reply>,
+    {
         let mut reply;
         loop {
-            reply = self.command_reply_with_check(cmd.as_ref(), check::unchecked())?;
+            reply =
+                self.internal_command_reply_with_check(cmd.as_ref(), gen_new_checker(&checker))?;
             if predicate(&reply) {
                 break;
             }
@@ -1355,7 +1412,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Poll the target with the empty command until the returned status is IDLE.
     ///
-    /// The first reply with the IDLE status is returned. The contents of the replies are *not* checked.
+    /// The first reply with the IDLE status is returned. The contents of
+    /// the replies are checked with the [`default`](Port::set_default_response_check)
+    /// check.
     ///
     /// ## Example
     ///
@@ -1366,8 +1425,39 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn poll_until_idle<T: Into<Target>>(&mut self, target: T) -> Result<Reply, AsciiError> {
+    pub fn poll_until_idle<T>(&mut self, target: T) -> Result<Reply, AsciiError>
+    where
+        T: Into<Target>,
+    {
         self.poll_until((target.into(), ""), |reply| reply.status() == Status::Idle)
+    }
+
+    /// The same as [`Port::poll_until_idle`] except that the replies are
+    /// validated with the custom [`Check`](check::Check).
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use zproto::{ascii::{check, Port}, backend::Backend};
+    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+    /// port.poll_until_idle_with_check((1,1), check::flag_ok())?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn poll_until_idle_with_check<T, K>(
+        &mut self,
+        target: T,
+        checker: K,
+    ) -> Result<Reply, AsciiError>
+    where
+        T: Into<Target>,
+        K: check::Check<Reply>,
+    {
+        self.poll_until_with_check(
+            (target.into(), ""),
+            |reply| reply.status() == Status::Idle,
+            checker,
+        )
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the timeout when it goes out of scope.
@@ -2462,6 +2552,37 @@ mod test {
 
                 ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
                 ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
+
+                err case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckFlagError,
+                err case b"@01 1 OK IDLE WR 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckWarningError,
+
+                err case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle(1) => AsciiCheckFlagError,
+                err case b"@01 1 OK IDLE WR 0 \r\n" via |p| p.poll_until_idle(1) => AsciiCheckWarningError,
+            }
+        }
+
+        /// Ensure that check overrides are respected
+        #[test]
+        fn overrides() {
+            let mut port = Port::open_mock();
+
+            check_cases! { port,
+                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply_with_check("", check::flag_ok()),
+                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<Reply, _>(check::flag_ok()),
+                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::flag_ok().into()),
+
+                ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply_with_check("", check::warning_is_none()),
+                ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<Reply, _>(check::warning_is_none()),
+                ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::warning_is_none::<Reply>().into()),
+
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_with_check::<Alert, _>(check::status_idle()),
+                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::status_idle::<Alert>().into()),
+
+                err case b"#01 1 some info\r\n" via |p| p.response_with_check::<Info, _>(check::predicate(|info: &Info| info.data().contains("bob"))) => AsciiCheckCustomError,
+                err case b"#01 1 some info\r\n" via |p| p.response_with_check::<AnyResponse, _>(check::predicate(|_: &AnyResponse| false)) => AsciiCheckCustomError,
+
+                ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_with_check("", |_| true, check::predicate(|_| true)),
+                ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle_with_check(1, check::predicate(|_| true)),
             }
         }
 
@@ -2491,6 +2612,9 @@ mod test {
 
                 ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
                 ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
+
+                ok case b"@01 1 OK IDLE WR\r\n" via |p| p.poll_until("", |_| true),
+                ok case b"@01 1 OK IDLE WR\r\n" via |p| p.poll_until_idle(1),
             }
         }
 
@@ -2692,7 +2816,9 @@ mod test {
     make_poison_test!(command_reply_n_with_check, "", 1, unchecked());
     make_poison_test!(command_reply_with_check, "", unchecked());
     make_poison_test!(poll_until, "", |_| true);
+    make_poison_test!(poll_until_with_check, "", |_| true, check::flag_ok());
     make_poison_test!(poll_until_idle, 1);
+    make_poison_test!(poll_until_idle_with_check, 1, check::flag_ok());
     make_poison_test!(response::<AnyResponse>);
     make_poison_test!(response_n::<AnyResponse>, 1);
     make_poison_test!(response_n_with_check, 1, unchecked::<AnyResponse>());
