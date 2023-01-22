@@ -639,7 +639,7 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         let target = cmd.as_ref().target();
         let reply = self.command_reply(cmd)?;
-        let old_generate_id = self.replace_message_ids(true);
+        let old_generate_id = self.set_message_ids(true);
         let sentinel_id = self.command((target, ""));
         self.set_message_ids(old_generate_id);
         let sentinel_id = sentinel_id?;
@@ -1493,12 +1493,9 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Set whether commands sent on this port should include a checksum or not.
-    pub fn set_checksums(&mut self, value: bool) {
-        self.generate_checksum = value;
-    }
-
-    /// Set whether commands sent on this port should include a checksum or not and return the previous value.
-    pub fn replace_checksums(&mut self, value: bool) -> bool {
+    ///
+    /// The previous value is returned.
+    pub fn set_checksums(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_checksum, value)
     }
 
@@ -1510,14 +1507,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Set whether commands sent on this port should include an automatically generated message ID or not.
     ///
     /// The previous value is returned.
-    pub fn set_message_ids(&mut self, value: bool) {
-        self.generate_id = value;
-    }
-
-    /// Set whether commands sent on this port should include an automatically generated message ID or not.
-    ///
-    /// The previous value is returned.
-    pub fn replace_message_ids(&mut self, value: bool) -> bool {
+    pub fn set_message_ids(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_id, value)
     }
 
@@ -1526,17 +1516,10 @@ impl<'a, B: Backend> Port<'a, B> {
         self.generate_id
     }
 
-    /// Set the read timeout.
-    ///
-    /// If timeout is `None`, reads will block indefinitely.
-    pub fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
-        self.backend.set_read_timeout(timeout)
-    }
-
     /// Set the read timeout and return the old timeout.
     ///
     /// If timeout is `None`, reads will block indefinitely.
-    pub fn replace_read_timeout(
+    pub fn set_read_timeout(
         &mut self,
         timeout: Option<Duration>,
     ) -> Result<Option<Duration>, io::Error> {
@@ -1656,28 +1639,19 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// Use [`clear_default_response_check`](Port::clear_default_response_check)
     /// to not check the contents of responses.
-    pub fn set_default_response_check<K, R>(&mut self, checker: K)
+    pub fn set_default_response_check<K, R>(
+        &mut self,
+        checker: K,
+    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>>
     where
         K: check::Check<R> + 'a,
         R: Response,
         check::AnyResponseCheck<K, R>: check::Check<AnyResponse> + 'a,
     {
-        self.default_response_check = Some(DefaultResponseCheckDebugWrapper::from(
-            check::AnyResponseCheck::from(checker),
-        ));
-    }
-
-    /// Set how the contents of responses will be checked. The previous default
-    /// check will be returned, if there was one.
-    ///
-    /// See [`set_default_response_check`](Port::set_default_response_check) for
-    /// more details on default response checks.
-    pub fn replace_default_response_check(
-        &mut self,
-        checker: impl check::Check<AnyResponse> + 'a,
-    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>> {
         self.default_response_check
-            .replace(DefaultResponseCheckDebugWrapper(Box::new(checker)))
+            .replace(DefaultResponseCheckDebugWrapper::from(
+                check::AnyResponseCheck::from(checker),
+            ))
             .map(|wrapper| wrapper.0)
     }
 
@@ -2383,24 +2357,22 @@ mod test {
     }
 
     #[test]
-    fn set_replace_id() {
+    fn set_message_ids() {
         let mut port = Port::open_mock();
         assert_eq!(port.message_ids(), false);
-        assert_eq!(port.replace_message_ids(true), false);
+        assert_eq!(port.set_message_ids(true), false);
         assert_eq!(port.message_ids(), true);
-        port.set_message_ids(false);
-        assert_eq!(port.replace_message_ids(true), false);
+        assert_eq!(port.set_message_ids(true), true);
         assert_eq!(port.message_ids(), true);
     }
 
     #[test]
-    fn set_replace_checksums() {
+    fn set_checksums() {
         let mut port = Port::open_mock();
         assert_eq!(port.checksums(), false);
-        assert_eq!(port.replace_checksums(true), false);
+        assert_eq!(port.set_checksums(true), false);
         assert_eq!(port.checksums(), true);
-        port.set_checksums(false);
-        assert_eq!(port.replace_checksums(true), false);
+        assert_eq!(port.set_checksums(true), true);
         assert_eq!(port.checksums(), true);
     }
 

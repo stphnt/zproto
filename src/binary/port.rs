@@ -673,6 +673,8 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Enable/disable transmission and parsing of message IDs.
     ///
+    /// Returns the previous value.
+    ///
     /// This will configure all devices on the port with the
     /// [`SET_MESSAGE_ID_MODE`](command::SET_MESSAGE_ID_MODE) command and
     /// configure the port to generate, transmit and parse (or not) message IDs
@@ -696,23 +698,14 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_message_ids(&mut self, enable: bool) -> Result<(), BinaryError> {
+    pub fn set_message_ids(&mut self, enable: bool) -> Result<bool, BinaryError> {
+        let prev = self.id.is_enabled();
         self.tx_recv_until_timeout((0, command::SET_MESSAGE_ID_MODE, enable))?;
         if enable {
             self.id.enable();
         } else {
             self.id.disable();
         }
-        Ok(())
-    }
-
-    /// Enable/disable transmission and parsing of message IDs.
-    ///
-    /// Behaves the same as [`set_message_ids`](Port::set_message_ids) except
-    /// the previous value is returned.
-    pub fn replace_message_ids(&mut self, enable: bool) -> Result<bool, BinaryError> {
-        let prev = self.id.is_enabled();
-        self.set_message_ids(enable)?;
         Ok(prev)
     }
 
@@ -721,17 +714,10 @@ impl<'a, B: Backend> Port<'a, B> {
         self.id.is_enabled()
     }
 
-    /// Set the read timeout.
-    ///
-    /// If timeout is `None`, reads will block indefinitely.
-    pub fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
-        self.backend.set_read_timeout(timeout)
-    }
-
     /// Set the read timeout and return the old timeout.
     ///
     /// If timeout is `None`, reads will block indefinitely.
-    pub fn replace_read_timeout(
+    pub fn set_read_timeout(
         &mut self,
         timeout: Option<Duration>,
     ) -> Result<Option<Duration>, io::Error> {
@@ -1143,7 +1129,7 @@ mod test {
         // Enable message IDs
         port.backend
             .append_data([1, command::untyped::SET_MESSAGE_ID_MODE, 0, 0, 0, 0]);
-        let last_state = port.replace_message_ids(true).unwrap();
+        let last_state = port.set_message_ids(true).unwrap();
         assert_eq!(last_state, false);
         assert_eq!(port.message_ids(), true);
     }
