@@ -252,48 +252,48 @@ impl Default for OpenTcpOptions {
 
 /// A callback that is called after a packet is either transmitted or received.
 ///
-/// See [`Port::on_packet`] for more details.
-pub type OnPacketCallback<'a> = Box<dyn FnMut(&[u8], Direction) + 'a>;
+/// See [`Port::set_packet_handler`] for more details.
+pub type PacketCallback<'a> = Box<dyn FnMut(&[u8], Direction) + 'a>;
 
-/// A wrapper around an [`OnPacketCallback`] that simply implements `Debug` so
+/// A wrapper around an [`PacketCallback`] that simply implements `Debug` so
 /// that the [`Port`] can derive `Debug`.
 #[repr(transparent)]
-struct OnPacketCallbackDebugWrapper<'a>(OnPacketCallback<'a>);
+struct PacketCallbackDebugWrapper<'a>(PacketCallback<'a>);
 
-impl<'a> std::fmt::Debug for OnPacketCallbackDebugWrapper<'a> {
+impl<'a> std::fmt::Debug for PacketCallbackDebugWrapper<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "OnPacketCallback")
+        write!(f, "PacketCallback")
     }
 }
 
 /// A callback that is called when an unexpected Alert is received.
 ///
-/// See [`Port::on_unexpected_alert`] for more details.
-pub type OnUnexpectedAlertCallback<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + 'a>;
+/// See [`Port::set_unexpected_alert_handler`] for more details.
+pub type UnexpectedAlertCallback<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + 'a>;
 
-/// A wrapper around an [`OnUnexpectedAlertCallback`] that simply implements `Debug` so
+/// A wrapper around an [`UnexpectedAlertCallback`] that simply implements `Debug` so
 /// that the [`Port`] can derive `Debug`.
 #[repr(transparent)]
-struct OnUnexpectedAlertDebugWrapper<'a>(OnUnexpectedAlertCallback<'a>);
+struct UnexpectedAlertDebugWrapper<'a>(UnexpectedAlertCallback<'a>);
 
-impl<'a> std::fmt::Debug for OnUnexpectedAlertDebugWrapper<'a> {
+impl<'a> std::fmt::Debug for UnexpectedAlertDebugWrapper<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "OnUnexpectedAlertCallback")
+        write!(f, "UnexpectedAlertCallback")
     }
 }
 
 /// A wrapper around a boxed `Check` that simply implements `Debug` so that
 /// the [`Port`] can derive `Debug`
 #[repr(transparent)]
-struct DefaultResponseCheckWrapper<'a>(Box<dyn check::Check<AnyResponse> + 'a>);
+struct DefaultResponseCheckDebugWrapper<'a>(Box<dyn check::Check<AnyResponse> + 'a>);
 
-impl<'a> std::fmt::Debug for DefaultResponseCheckWrapper<'a> {
+impl<'a> std::fmt::Debug for DefaultResponseCheckDebugWrapper<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "DefaultResponseCheck")
     }
 }
 
-impl<'a, K: check::Check<AnyResponse> + 'a> From<K> for DefaultResponseCheckWrapper<'a> {
+impl<'a, K: check::Check<AnyResponse> + 'a> From<K> for DefaultResponseCheckDebugWrapper<'a> {
     fn from(other: K) -> Self {
         Self(Box::new(other))
     }
@@ -357,11 +357,11 @@ pub struct Port<'a, B> {
     /// The builder used to concatenate packets in to responses.
     builder: ResponseBuilder,
     /// Optional hook to call after a packet is sent/received.
-    packet_hook: Option<OnPacketCallbackDebugWrapper<'a>>,
+    packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
     /// Optional hook to call when an unexpected Alert is received.
-    unexpected_alert_hook: Option<OnUnexpectedAlertDebugWrapper<'a>>,
+    unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
     /// The default check to validate all responses with
-    default_response_check: Option<DefaultResponseCheckWrapper<'a>>,
+    default_response_check: Option<DefaultResponseCheckDebugWrapper<'a>>,
 }
 
 impl<'a> Port<'a, Serial> {
@@ -427,7 +427,7 @@ impl<'a, B: Backend> Port<'a, B> {
             packet_hook: None,
             unexpected_alert_hook: None,
             // Use check::default to check all responses by default
-            default_response_check: Some(DefaultResponseCheckWrapper::from(
+            default_response_check: Some(DefaultResponseCheckDebugWrapper::from(
                 check::AnyResponseCheck::from(check::default::<AnyResponse>()),
             )),
         }
@@ -639,7 +639,7 @@ impl<'a, B: Backend> Port<'a, B> {
     {
         let target = cmd.as_ref().target();
         let reply = self.command_reply(cmd)?;
-        let old_generate_id = self.replace_message_ids(true);
+        let old_generate_id = self.set_message_ids(true);
         let sentinel_id = self.command((target, ""));
         self.set_message_ids(old_generate_id);
         let sentinel_id = sentinel_id?;
@@ -962,7 +962,7 @@ impl<'a, B: Backend> Port<'a, B> {
             Ok(())
         };
 
-        if let Some(OnUnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
+        if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
             // There is an handler for alerts, check if we need to call it for any remaining responses.
             loop {
                 match inner() {
@@ -1036,7 +1036,7 @@ impl<'a, B: Backend> Port<'a, B> {
                     let response =
                         R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
                     checker.check(response).map_err(Into::into)
-                } else if let Some(DefaultResponseCheckWrapper(checker)) =
+                } else if let Some(DefaultResponseCheckDebugWrapper(checker)) =
                     &self.default_response_check
                 {
                     // We need to check that the correct response type was
@@ -1063,7 +1063,7 @@ impl<'a, B: Backend> Port<'a, B> {
                     Ok(R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?)
                 }
             }();
-            if let Some(OnUnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
+            if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
                 // There is an handler for alerts, check if we need to call it.
                 match result {
                     Err(AsciiError::UnexpectedResponse(err)) => {
@@ -1493,12 +1493,9 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Set whether commands sent on this port should include a checksum or not.
-    pub fn set_checksums(&mut self, value: bool) {
-        self.generate_checksum = value;
-    }
-
-    /// Set whether commands sent on this port should include a checksum or not and return the previous value.
-    pub fn replace_checksums(&mut self, value: bool) -> bool {
+    ///
+    /// The previous value is returned.
+    pub fn set_checksums(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_checksum, value)
     }
 
@@ -1510,14 +1507,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Set whether commands sent on this port should include an automatically generated message ID or not.
     ///
     /// The previous value is returned.
-    pub fn set_message_ids(&mut self, value: bool) {
-        self.generate_id = value;
-    }
-
-    /// Set whether commands sent on this port should include an automatically generated message ID or not.
-    ///
-    /// The previous value is returned.
-    pub fn replace_message_ids(&mut self, value: bool) -> bool {
+    pub fn set_message_ids(&mut self, value: bool) -> bool {
         std::mem::replace(&mut self.generate_id, value)
     }
 
@@ -1526,17 +1516,10 @@ impl<'a, B: Backend> Port<'a, B> {
         self.generate_id
     }
 
-    /// Set the read timeout.
-    ///
-    /// If timeout is `None`, reads will block indefinitely.
-    pub fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
-        self.backend.set_read_timeout(timeout)
-    }
-
     /// Set the read timeout and return the old timeout.
     ///
     /// If timeout is `None`, reads will block indefinitely.
-    pub fn replace_read_timeout(
+    pub fn set_read_timeout(
         &mut self,
         timeout: Option<Duration>,
     ) -> Result<Option<Duration>, io::Error> {
@@ -1656,28 +1639,19 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// Use [`clear_default_response_check`](Port::clear_default_response_check)
     /// to not check the contents of responses.
-    pub fn set_default_response_check<K, R>(&mut self, checker: K)
+    pub fn set_default_response_check<K, R>(
+        &mut self,
+        checker: K,
+    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>>
     where
         K: check::Check<R> + 'a,
         R: Response,
         check::AnyResponseCheck<K, R>: check::Check<AnyResponse> + 'a,
     {
-        self.default_response_check = Some(DefaultResponseCheckWrapper::from(
-            check::AnyResponseCheck::from(checker),
-        ));
-    }
-
-    /// Set how the contents of responses will be checked. The previous default
-    /// check will be returned, if there was one.
-    ///
-    /// See [`set_default_response_check`](Port::set_default_response_check) for
-    /// more details on default response checks.
-    pub fn replace_default_response_check(
-        &mut self,
-        checker: impl check::Check<AnyResponse> + 'a,
-    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>> {
         self.default_response_check
-            .replace(DefaultResponseCheckWrapper(Box::new(checker)))
+            .replace(DefaultResponseCheckDebugWrapper::from(
+                check::AnyResponseCheck::from(checker),
+            ))
             .map(|wrapper| wrapper.0)
     }
 
@@ -1738,7 +1712,7 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// If a previous callback was set, it is returned.
     ///
-    /// To clear a previously registered callback use [`clear_on_packet`](Port::clear_on_packet).
+    /// To clear a previously registered callback use [`clear_packet_handler`](Port::clear_packet_handler).
     ///
     /// The callback will be passed the raw bytes of a possible packet and the
     /// direction of the packet. The bytes are not guaranteed to be a valid
@@ -1761,7 +1735,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// #
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// # let mut port = Port::open_serial("...")?;
-    /// port.on_packet(|packet, dir| {
+    /// port.set_packet_handler(|packet, dir| {
     ///     println!("{:?}: {:?}", dir, packet);
     /// });
     /// # Ok(())
@@ -1782,7 +1756,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
     /// let packet_list = RefCell::new(Vec::new());
     /// let mut port = Port::open_serial("...")?;
-    /// port.on_packet(|packet, _| {
+    /// port.set_packet_handler(|packet, _| {
     ///     if let Ok(mut packets) = packet_list.try_borrow_mut() {
     ///         packets.push(String::from_utf8_lossy(packet).into_owned());
     ///     }
@@ -1796,19 +1770,19 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn on_packet<F>(&mut self, callback: F) -> Option<OnPacketCallback<'a>>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketCallback<'a>>
     where
         F: FnMut(&[u8], Direction) + 'a,
     {
         std::mem::replace(
             &mut self.packet_hook,
-            Some(OnPacketCallbackDebugWrapper(Box::new(callback))),
+            Some(PacketCallbackDebugWrapper(Box::new(callback))),
         )
         .map(|wrapper| wrapper.0)
     }
 
-    /// Clear any callback registered via [`on_packet`](Port::on_packet) and return it.
-    pub fn clear_on_packet(&mut self) -> Option<OnPacketCallback<'a>> {
+    /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
+    pub fn clear_packet_handler(&mut self) -> Option<PacketCallback<'a>> {
         self.packet_hook.take().map(|wrapper| wrapper.0)
     }
 
@@ -1817,7 +1791,7 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// If a previous callback was set, it is returned.
     ///
-    /// To clear a previously registered callback use [`clear_on_unexpected_alert`](Port::clear_on_unexpected_alert).
+    /// To clear a previously registered callback use [`clear_unexpected_alert_handler`](Port::clear_unexpected_alert_handler).
     ///
     /// If the callback consumes the alert, returning `Ok(())`, the unexpected
     /// alert will not be reported to the caller of whatever method read the
@@ -1845,25 +1819,28 @@ impl<'a, B: Backend> Port<'a, B> {
     /// // that the read isn't interrupted by any unexpected alerts, first
     /// // configure the port to effectively ignore the alerts it may receive by
     /// // dropping them.
-    /// port.on_unexpected_alert(|_alert| Ok(()));
+    /// port.set_unexpected_alert_handler(|_alert| Ok(()));
     /// let (_reply, _infos) = port.command_reply_infos((1, "storage all print"))?;
     /// // ...
     /// # Ok(())
     /// # }
     /// ```
-    pub fn on_unexpected_alert<F>(&mut self, callback: F) -> Option<OnUnexpectedAlertCallback<'a>>
+    pub fn set_unexpected_alert_handler<F>(
+        &mut self,
+        callback: F,
+    ) -> Option<UnexpectedAlertCallback<'a>>
     where
         F: FnMut(Alert) -> Result<(), Alert> + 'a,
     {
         std::mem::replace(
             &mut self.unexpected_alert_hook,
-            Some(OnUnexpectedAlertDebugWrapper(Box::new(callback))),
+            Some(UnexpectedAlertDebugWrapper(Box::new(callback))),
         )
         .map(|wrapper| wrapper.0)
     }
 
-    /// Clear any callback registered via [`on_unexpected_alert`](Port::on_unexpected_alert) and return it.
-    pub fn clear_on_unexpected_alert(&mut self) -> Option<OnUnexpectedAlertCallback<'a>> {
+    /// Clear any callback registered via [`set_unexpected_alert_handler`](Port::set_unexpected_alert_handler) and return it.
+    pub fn clear_unexpected_alert_handler(&mut self) -> Option<UnexpectedAlertCallback<'a>> {
         self.unexpected_alert_hook.take().map(|wrapper| wrapper.0)
     }
 }
@@ -2063,7 +2040,7 @@ mod test {
         let alert_count = Cell::new(0);
 
         let mut port = Port::open_mock();
-        port.on_unexpected_alert(|_alert| {
+        port.set_unexpected_alert_handler(|_alert| {
             alert_count.set(alert_count.get() + 1);
             Ok(()) // Consume any alert
         });
@@ -2139,7 +2116,7 @@ mod test {
         let alert_count = Cell::new(0);
 
         let mut port = Port::open_mock();
-        port.on_unexpected_alert(|_alert| {
+        port.set_unexpected_alert_handler(|_alert| {
             alert_count.set(alert_count.get() + 1);
             Ok(()) // Consume any alert
         });
@@ -2246,7 +2223,7 @@ mod test {
         let alert_count = Cell::new(0);
 
         let mut port = Port::open_mock();
-        port.on_unexpected_alert(|_alert| {
+        port.set_unexpected_alert_handler(|_alert| {
             alert_count.set(alert_count.get() + 1);
             Ok(()) // Consume any alert
         });
@@ -2270,7 +2247,7 @@ mod test {
         let alert_count = Cell::new(0);
 
         let mut port = Port::open_mock();
-        port.on_unexpected_alert(|_alert| {
+        port.set_unexpected_alert_handler(|_alert| {
             alert_count.set(alert_count.get() + 1);
             Ok(()) // Consume any alert
         });
@@ -2343,7 +2320,7 @@ mod test {
         assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
     }
 
-    /// Ensure that explicitly reading an alert message while an `on_unexpected_alert`
+    /// Ensure that explicitly reading an alert message while an `set_unexpected_alert_handler`
     /// callback is configured, does not trigger the callback.
     #[test]
     fn explicit_alert_response_does_not_trigger_unexpected_alert_callback() {
@@ -2352,7 +2329,7 @@ mod test {
         let alert_count = Cell::new(0);
 
         let mut port = Port::open_mock();
-        port.on_unexpected_alert(|_alert| {
+        port.set_unexpected_alert_handler(|_alert| {
             alert_count.set(alert_count.get() + 1);
             Ok(()) // Consume any alert
         });
@@ -2380,24 +2357,22 @@ mod test {
     }
 
     #[test]
-    fn set_replace_id() {
+    fn set_message_ids() {
         let mut port = Port::open_mock();
         assert_eq!(port.message_ids(), false);
-        assert_eq!(port.replace_message_ids(true), false);
+        assert_eq!(port.set_message_ids(true), false);
         assert_eq!(port.message_ids(), true);
-        port.set_message_ids(false);
-        assert_eq!(port.replace_message_ids(true), false);
+        assert_eq!(port.set_message_ids(true), true);
         assert_eq!(port.message_ids(), true);
     }
 
     #[test]
-    fn set_replace_checksums() {
+    fn set_checksums() {
         let mut port = Port::open_mock();
         assert_eq!(port.checksums(), false);
-        assert_eq!(port.replace_checksums(true), false);
+        assert_eq!(port.set_checksums(true), false);
         assert_eq!(port.checksums(), true);
-        port.set_checksums(false);
-        assert_eq!(port.replace_checksums(true), false);
+        assert_eq!(port.set_checksums(true), true);
         assert_eq!(port.checksums(), true);
     }
 
@@ -2482,7 +2457,7 @@ mod test {
     }
 
     #[test]
-    fn on_packet() {
+    fn set_packet_handler() {
         use std::cell::RefCell;
 
         let responses = [
@@ -2492,7 +2467,7 @@ mod test {
         ];
         // `captured` must be declared before the port so that it is dropped after it.
         // This is necessary because the port holds a reference to `captured`
-        // via the on_packet closure.
+        // via the set_packet_handler closure.
         let captured = RefCell::new(Vec::new());
         let mut port = Port::open_mock();
         {
@@ -2501,7 +2476,7 @@ mod test {
                 buf.append_data(*response);
             }
         }
-        port.on_packet(|data, dir| {
+        port.set_packet_handler(|data, dir| {
             if let Ok(mut buffer) = captured.try_borrow_mut() {
                 buffer.push((data.to_vec(), dir));
             }
