@@ -285,15 +285,15 @@ impl<'a> std::fmt::Debug for UnexpectedAlertDebugWrapper<'a> {
 /// A wrapper around a boxed `Check` that simply implements `Debug` so that
 /// the [`Port`] can derive `Debug`
 #[repr(transparent)]
-struct DefaultResponseCheckWrapper<'a>(Box<dyn check::Check<AnyResponse> + 'a>);
+struct DefaultResponseCheckDebugWrapper<'a>(Box<dyn check::Check<AnyResponse> + 'a>);
 
-impl<'a> std::fmt::Debug for DefaultResponseCheckWrapper<'a> {
+impl<'a> std::fmt::Debug for DefaultResponseCheckDebugWrapper<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "DefaultResponseCheck")
     }
 }
 
-impl<'a, K: check::Check<AnyResponse> + 'a> From<K> for DefaultResponseCheckWrapper<'a> {
+impl<'a, K: check::Check<AnyResponse> + 'a> From<K> for DefaultResponseCheckDebugWrapper<'a> {
     fn from(other: K) -> Self {
         Self(Box::new(other))
     }
@@ -361,7 +361,7 @@ pub struct Port<'a, B> {
     /// Optional hook to call when an unexpected Alert is received.
     unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
     /// The default check to validate all responses with
-    default_response_check: Option<DefaultResponseCheckWrapper<'a>>,
+    default_response_check: Option<DefaultResponseCheckDebugWrapper<'a>>,
 }
 
 impl<'a> Port<'a, Serial> {
@@ -427,7 +427,7 @@ impl<'a, B: Backend> Port<'a, B> {
             packet_hook: None,
             unexpected_alert_hook: None,
             // Use check::default to check all responses by default
-            default_response_check: Some(DefaultResponseCheckWrapper::from(
+            default_response_check: Some(DefaultResponseCheckDebugWrapper::from(
                 check::AnyResponseCheck::from(check::default::<AnyResponse>()),
             )),
         }
@@ -1036,7 +1036,7 @@ impl<'a, B: Backend> Port<'a, B> {
                     let response =
                         R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
                     checker.check(response).map_err(Into::into)
-                } else if let Some(DefaultResponseCheckWrapper(checker)) =
+                } else if let Some(DefaultResponseCheckDebugWrapper(checker)) =
                     &self.default_response_check
                 {
                     // We need to check that the correct response type was
@@ -1662,7 +1662,7 @@ impl<'a, B: Backend> Port<'a, B> {
         R: Response,
         check::AnyResponseCheck<K, R>: check::Check<AnyResponse> + 'a,
     {
-        self.default_response_check = Some(DefaultResponseCheckWrapper::from(
+        self.default_response_check = Some(DefaultResponseCheckDebugWrapper::from(
             check::AnyResponseCheck::from(checker),
         ));
     }
@@ -1677,7 +1677,7 @@ impl<'a, B: Backend> Port<'a, B> {
         checker: impl check::Check<AnyResponse> + 'a,
     ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>> {
         self.default_response_check
-            .replace(DefaultResponseCheckWrapper(Box::new(checker)))
+            .replace(DefaultResponseCheckDebugWrapper(Box::new(checker)))
             .map(|wrapper| wrapper.0)
     }
 
