@@ -81,7 +81,7 @@ impl Command for str {
         self
     }
     fn target(&self) -> Target {
-        Target::all()
+        Target::for_all()
     }
     fn data(&self) -> Cow<[u8]> {
         self.as_bytes().into()
@@ -95,7 +95,7 @@ impl Command for [u8] {
         self
     }
     fn target(&self) -> Target {
-        Target::all()
+        Target::for_all()
     }
     fn data(&self) -> Cow<[u8]> {
         self.into()
@@ -109,7 +109,7 @@ impl<const N: usize> Command for [u8; N] {
         self
     }
     fn target(&self) -> Target {
-        Target::all()
+        Target::for_all()
     }
     fn data(&self) -> Cow<[u8]> {
         self.as_slice().into()
@@ -123,7 +123,7 @@ impl Command for String {
         self.as_bytes()
     }
     fn target(&self) -> Target {
-        Target::all()
+        Target::for_all()
     }
     fn data(&self) -> Cow<[u8]> {
         self.as_bytes().into()
@@ -137,7 +137,7 @@ impl Command for Vec<u8> {
         self.as_slice()
     }
     fn target(&self) -> Target {
-        Target::all()
+        Target::for_all()
     }
     fn data(&self) -> Cow<[u8]> {
         self.as_slice().into()
@@ -172,7 +172,7 @@ where
         self
     }
     fn target(&self) -> Target {
-        Target::device(self.0).axis(self.1)
+        Target::for_device(self.0).with_axis(self.1)
     }
     fn data(&self) -> Cow<[u8]> {
         self.2.as_ref().into()
@@ -277,23 +277,18 @@ impl<'a> CommandInstance<'a> {
                 write!(
                     writer,
                     "{} {} {}",
-                    self.target.get_device(),
-                    self.target.get_axis(),
+                    self.target.device(),
+                    self.target.axis(),
                     id
                 )?;
                 true
             }
             None => {
-                if self.target.get_axis() != 0 {
-                    write!(
-                        writer,
-                        "{} {}",
-                        self.target.get_device(),
-                        self.target.get_axis()
-                    )?;
+                if self.target.axis() != 0 {
+                    write!(writer, "{} {}", self.target.device(), self.target.axis())?;
                     true
-                } else if self.target.get_device() != 0 {
-                    write!(writer, "{}", self.target.get_device())?;
+                } else if self.target.device() != 0 {
+                    write!(writer, "{}", self.target.device())?;
                     true
                 } else {
                     false
@@ -345,10 +340,10 @@ mod test {
 
     #[test]
     fn test_target() {
-        assert_eq!(Target::default(), Target::all());
-        assert_eq!(Target::device(1), Target(1, 0));
-        assert_eq!(Target::device(1).axis(1), Target(1, 1));
-        assert_eq!(Target::new(5, 9).all_axes(), Target(5, 0));
+        assert_eq!(Target::default(), Target::for_all());
+        assert_eq!(Target::for_device(1), Target(1, 0));
+        assert_eq!(Target::for_device(1).with_axis(1), Target(1, 1));
+        assert_eq!(Target::new(5, 9).with_all_axes(), Target(5, 0));
     }
 
     #[test]
