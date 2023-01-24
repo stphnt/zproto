@@ -1614,7 +1614,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # }
     /// ```
     ///
-    /// Provide an explicit type to solve the compiler error.
+    /// Provide an explicit type to resolve the compiler error.
     ///
     /// ```
     /// # use zproto::backend::Backend;
