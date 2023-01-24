@@ -762,6 +762,41 @@ mod test {
                 checker: &strict(),
                 expected: Err(AsciiCheckFlagError::new(Flag::Ok, rj_idle_reply.clone()).into()),
             },
+            Case {
+                reply: ok_idle_reply.clone(),
+                checker: &minimal(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &minimal(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_idle_ni_reply.clone(),
+                checker: &minimal(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_idle_wh_reply.clone(),
+                checker: &minimal(),
+                expected: Ok(()),
+            },
+            Case {
+                reply: ok_idle_ff_reply.clone(),
+                checker: &minimal(),
+                expected: Err(AsciiCheckWarningError::new(
+                    "expected warning below fault (F) level",
+                    ok_idle_ff_reply.clone(),
+                )
+                .into()),
+            },
+            Case {
+                reply: rj_idle_reply.clone(),
+                checker: &minimal(),
+                expected: Err(AsciiCheckFlagError::new(Flag::Ok, rj_idle_reply.clone()).into()),
+            },
+            Case {
                 reply: ok_busy_reply.clone(),
                 checker: &warning_is("WR"),
                 expected: Err(AsciiCheckWarningError::new(
