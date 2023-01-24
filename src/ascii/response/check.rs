@@ -1,7 +1,16 @@
-//! Types for checking the contents of an ASCII response.
+//! Types for checking the contents of an ASCII response via a `Port`'s
+//! [`default response check`](crate::ascii::Port::set_default_response_check)
+//! or any of its `*_with_check` methods.
 //!
-//! The [`Check`] trait defines the interface all "checkers" must implement.
-//! It is implemented for all closures that take a [`Response`](crate::ascii::Response)
+//! The [`strict`] and [`minimal`] functions define two common sets of response
+//! checks. [`strict`] ensures all reply flags are OK and there are never any
+//! warnings. [`minimal`] is similar but more relaxed. While it still ensures
+//! all reply flags are OK, it only ensures that there are no fault (`F*`) level
+//! warning flags.
+//!
+//! It is also easy to define your own custom response checks. The [`Check`]
+//! trait defines the interface all "checkers" must implement. It is
+//! implemented for all closures that take a [`Response`](crate::ascii::Response)
 //! and return a `Result<Response, AsciiCheckError>`. However, you are
 //! encouraged to use the [functions](#functions) provided in this module to
 //! generate checking functions. They cover many of the common cases, can be
@@ -9,7 +18,8 @@
 //! clearer.
 //!
 //! For instance, to generate a function that checks if a reply has the flag
-//! `OK` and no warning flags you can use:
+//! `OK` and no warning flags (the equivalent of the `strict` function) you
+//! could use:
 //!
 //! ```rust
 //! # use zproto::ascii::{
@@ -25,20 +35,19 @@
 //! # }
 //! ```
 //!
-//! What this does should hopefully be somewhat self explanatory from the
-//! function names:
-//!   * [`all`] checks that all of the checks passed to it (notice that they
+//! What each part does should hopefully be self explanatory from the function
+//! names:
+//!   * [`all`] checks that all of the checks passed to it pass (notice that they
 //!     are enclosed in a [`tuple`])
 //!   * [`flag_is`] checks that the reply flag on the [`Reply`] is the specified
 //!     value
 //!   * [`warning_is_none`] checks that the warning is `--`.
 //!
-//! You can also check the status, warning, reply flags, and data of responses
-//! using one of the `status_*`, `warning_*`, `flag_*`, or [`parsed_data_is`]
-//! functions, respectively. If the validation logic for a response is more
+//! There are also the `status_*`, `warning_*`, `flag_*`, or [`parsed_data_is`]
+//! functions to generate functions to check a response's status, warnings, reply
+//! flags, and data, respectively. If the validation logic for a response is more
 //! complex, the [`predicate`] function allows you to validate responses using
-//! a closure that simply returns a `bool`. Finally, to not check a response at
-//! all you can use [`unchecked`].
+//! a closure that simply returns a `bool`.
 
 use crate::ascii::response::{
     AnyResponse, Flag, Reply, Response, ResponseWithStatus, ResponseWithWarning, SpecificResponse,
@@ -358,6 +367,34 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
 /// chosen at runtime based on the kind of response.
 pub fn strict<R: Response>() -> impl Check<R> {
     R::strict()
+}
+
+/// Return a check that performs minimal checks of the specified message type
+/// while still checking for major problems with devices. In most cases, more
+/// rigorous checks are probably warranted.
+///
+/// For [`Reply`](crate::ascii::Reply) this is equivalent to
+/// ```rust
+/// # use zproto::ascii::{check::*, *};
+/// # fn wrapper() -> impl Check<Reply> {
+/// flag_ok_and(warning_below_fault())
+/// # }
+/// ```
+///
+/// For [`Alert`](crate::ascii::Alert) this is equivalent to
+/// ```rust
+/// # use zproto::ascii::{check::*, *};
+/// # fn wrapper() -> impl Check<Alert> {
+/// warning_below_fault()
+/// # }
+/// ```
+///
+/// For [`Info`](crate::ascii::Info) no validation is done.
+///
+/// For [`AnyResponse`](crate::ascii::AnyResponse), one of the above checks is
+/// chosen at runtime based on the kind of response.
+pub fn minimal<R: Response>() -> impl Check<R> {
+    R::minimal()
 }
 
 /// Return a check that does not validate the response.

@@ -428,6 +428,12 @@ mod private {
         /// the response type, but users shouldn't access it here. Instead users
         /// should use [`crate::ascii::check::strict`]
         fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
+        /// Return the minimally recommended check for this response.
+        ///
+        /// This needs to be defined here so we can get the default check based on
+        /// the response type, but users shouldn't access it here. Instead users
+        /// should use [`crate::ascii::check::minimal`]
+        fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
     }
 
     impl CommonChecks for AnyResponse {
@@ -439,6 +445,19 @@ mod private {
                 AnyResponse::Info(info) => Info::strict()(info).map(From::from).map_err(From::from),
                 AnyResponse::Alert(alert) => {
                     Alert::strict()(alert).map(From::from).map_err(From::from)
+                }
+            }
+        }
+        fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            |response| match response {
+                AnyResponse::Reply(reply) => {
+                    Reply::minimal()(reply).map(From::from).map_err(From::from)
+                }
+                AnyResponse::Info(info) => {
+                    Info::minimal()(info).map(From::from).map_err(From::from)
+                }
+                AnyResponse::Alert(alert) => {
+                    Alert::minimal()(alert).map(From::from).map_err(From::from)
                 }
             }
         }
@@ -460,10 +479,30 @@ mod private {
                 }
             }
         }
+        // If this logic changes update the documentation for `ascii::check::minimal`
+        fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            |reply| {
+                if reply.flag() != Flag::Ok {
+                    Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
+                } else if reply.warning().is_fault() {
+                    Err(AsciiCheckWarningError::new(
+                        "expected warning below fault (F) level",
+                        reply,
+                    )
+                    .into())
+                } else {
+                    Ok(reply)
+                }
+            }
+        }
     }
     impl CommonChecks for Info {
         // If this logic changes update the documentation for `ascii::check::strict`
         fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            Ok
+        }
+        // If this logic changes update the documentation for `ascii::check::minimal`
+        fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
             Ok
         }
     }
@@ -479,6 +518,20 @@ mod private {
                         alert,
                     )
                     .into())
+                }
+            }
+        }
+        // If this logic changes update the documentation for `ascii::check::minimal`
+        fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+            |alert| {
+                if alert.warning().is_fault() {
+                    Err(AsciiCheckWarningError::new(
+                        "expected warning below fault (F) level",
+                        alert,
+                    )
+                    .into())
+                } else {
+                    Ok(alert)
                 }
             }
         }

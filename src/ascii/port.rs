@@ -1638,7 +1638,11 @@ impl<'a, B: Backend> Port<'a, B> {
     /// ```
     ///
     /// Use [`clear_default_response_check`](Port::clear_default_response_check)
-    /// to not check the contents of responses.
+    /// to not check the contents of responses. However, in the majority of
+    /// cases it is recommended to check the contents of responses with a check
+    /// that is at least as rigorous as [`check::minimal`]. It ensures all reply
+    /// flags are `OK` and that there are no fault-level (`F*`) warnings, as
+    /// they indicate an immediate issue with a device.
     pub fn set_default_response_check<K, R>(
         &mut self,
         checker: K,
@@ -1655,14 +1659,19 @@ impl<'a, B: Backend> Port<'a, B> {
             .map(|wrapper| wrapper.0)
     }
 
-    /// Clear the default response check. The contents of responses will not be
-    /// checked.
-    ///
-    /// In most cases this is not recommended. In the vast majority of cases
-    /// reply flags should be checked, ensuring that they are OK.
+    /// Clear the default response check and return the previous check. The
+    /// contents of responses will no longer be checked.
     ///
     /// See [`set_default_response_check`](Port::set_default_response_check) for
     /// more details on default response checks.
+    ///
+    /// ## Warning
+    ///
+    /// In the majority of cases it is recommended to check the contents of
+    /// responses with a check that is at least as rigorous as
+    /// [`check::minimal`]. It ensures all reply flags are `OK` and that there
+    /// are no fault-level (`F*`) warnings, as they indicate an immediate issue
+    /// with a device.
     pub fn clear_default_response_check(
         &mut self,
     ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>> {
