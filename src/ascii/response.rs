@@ -383,7 +383,7 @@ mod private {
     use super::{Alert, AnyResponse, AsciiCheckError, Flag, Info, Kind, Reply, Warning};
     use crate::error::{AsciiCheckFlagError, AsciiCheckWarningError};
 
-    pub trait Sealed: DataMut + DefaultCheck + WillTryFromSucceed<AnyResponse> {}
+    pub trait Sealed: DataMut + CommonChecks + WillTryFromSucceed<AnyResponse> {}
 
     impl Sealed for Reply {}
     impl Sealed for Alert {}
@@ -420,34 +420,32 @@ mod private {
         }
     }
 
-    /// Defines the default check to use for the kind of response.
-    pub trait DefaultCheck: Sized {
-        /// Return the default check for this response.
+    /// Defines the common checks for responses.
+    pub trait CommonChecks: Sized {
+        /// Return a strict check for this response.
         ///
         /// This needs to be defined here so we can get the default check based on
         /// the response type, but users shouldn't access it here. Instead users
-        /// should use [`crate::ascii::check::default`]
-        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
+        /// should use [`crate::ascii::check::strict`]
+        fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
     }
 
-    impl DefaultCheck for AnyResponse {
-        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+    impl CommonChecks for AnyResponse {
+        fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
             |response| match response {
-                AnyResponse::Reply(reply) => Reply::default_check()(reply)
-                    .map(From::from)
-                    .map_err(From::from),
-                AnyResponse::Info(info) => Info::default_check()(info)
-                    .map(From::from)
-                    .map_err(From::from),
-                AnyResponse::Alert(alert) => Alert::default_check()(alert)
-                    .map(From::from)
-                    .map_err(From::from),
+                AnyResponse::Reply(reply) => {
+                    Reply::strict()(reply).map(From::from).map_err(From::from)
+                }
+                AnyResponse::Info(info) => Info::strict()(info).map(From::from).map_err(From::from),
+                AnyResponse::Alert(alert) => {
+                    Alert::strict()(alert).map(From::from).map_err(From::from)
+                }
             }
         }
     }
-    impl DefaultCheck for Reply {
-        // If this logic changes update the documentation for `ascii::check::default`
-        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+    impl CommonChecks for Reply {
+        // If this logic changes update the documentation for `ascii::check::strict`
+        fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
             |reply| {
                 if reply.flag() != Flag::Ok {
                     Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
@@ -463,15 +461,15 @@ mod private {
             }
         }
     }
-    impl DefaultCheck for Info {
-        // If this logic changes update the documentation for `ascii::check::default`
-        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+    impl CommonChecks for Info {
+        // If this logic changes update the documentation for `ascii::check::strict`
+        fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
             Ok
         }
     }
-    impl DefaultCheck for Alert {
-        // If this logic changes update the documentation for `ascii::check::default`
-        fn default_check() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
+    impl CommonChecks for Alert {
+        // If this logic changes update the documentation for `ascii::check::strict`
+        fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
             |alert| {
                 if alert.warning() == Warning::NONE {
                     Ok(alert)

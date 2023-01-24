@@ -426,9 +426,9 @@ impl<'a, B: Backend> Port<'a, B> {
             builder: ResponseBuilder::default(),
             packet_hook: None,
             unexpected_alert_hook: None,
-            // Use check::default to check all responses by default
+            // Use check::strict to check all responses by default
             default_response_check: Some(DefaultResponseCheckDebugWrapper::from(
-                check::AnyResponseCheck::from(check::default::<AnyResponse>()),
+                check::AnyResponseCheck::from(check::strict::<AnyResponse>()),
             )),
         }
     }
@@ -1539,7 +1539,7 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// The contents of all responses are checked by the port when they are
     /// received using the `checker` defined here. By default the `Port` uses
-    /// [`check::default`], unless it is explicit set otherwise. To temporarily
+    /// [`check::strict`], unless it is explicitly set otherwise. To temporarily
     /// change how the contents of responses are checked, it is advisable to use
     /// one of the `Port`'s [`*_with_check`](Port::command_reply_with_check)
     /// methods, which take a temporary override that will be used for that call.
@@ -1632,7 +1632,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # use zproto::backend::Backend;
     /// # use zproto::ascii::{check, AnyResponse, Port};
     /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// port.set_default_response_check(check::default::<AnyResponse>());
+    /// port.set_default_response_check(check::strict::<AnyResponse>());
     /// # Ok(())
     /// # }
     /// ```
@@ -2348,12 +2348,12 @@ mod test {
     /// allows for the explicit type
     #[test]
     fn type_inference_regression_test() {
-        use super::check::default;
+        use super::check::strict;
 
         let mut port = Port::open_mock();
-        let _ = port.response_with_check::<AnyResponse, _>(default());
-        let _ = port.response_n_with_check::<AnyResponse, _>(2, default());
-        let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(default());
+        let _ = port.response_with_check::<AnyResponse, _>(strict());
+        let _ = port.response_n_with_check::<AnyResponse, _>(2, strict());
+        let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(strict());
     }
 
     #[test]
@@ -2497,7 +2497,7 @@ mod test {
         use super::*;
 
         /// Check that the default response check after creating a port is
-        /// `check::default()`, which behaves as follows:
+        /// `check::strict()`, which behaves as follows:
         ///   * replies with any warning or an RJ flag should raise an error
         ///   * alerts with any warning should raise an error
         ///   * infos are not checked

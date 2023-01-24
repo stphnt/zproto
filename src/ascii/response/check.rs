@@ -33,9 +33,6 @@
 //!     value
 //!   * [`warning_is_none`] checks that the warning is `--`.
 //!
-//! This check is so common, however, that there is the [`default`] function
-//! which does the same thing.
-//!
 //! You can also check the status, warning, reply flags, and data of responses
 //! using one of the `status_*`, `warning_*`, `flag_*`, or [`parsed_data_is`]
 //! functions, respectively. If the validation logic for a response is more
@@ -337,7 +334,7 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
     move |response: R| checks.check(response)
 }
 
-/// Return the default check for the specified message type.
+/// Return a strict check for the specified message type.
 ///
 /// For [`Reply`](crate::ascii::Reply) this is equivalent to
 /// ```rust
@@ -359,8 +356,8 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
 ///
 /// For [`AnyResponse`](crate::ascii::AnyResponse), one of the above checks is
 /// chosen at runtime based on the kind of response.
-pub fn default<R: Response>() -> impl Check<R> {
-    R::default_check()
+pub fn strict<R: Response>() -> impl Check<R> {
+    R::strict()
 }
 
 /// Return a check that does not validate the response.
@@ -698,17 +695,17 @@ mod test {
             },
             Case {
                 reply: ok_idle_reply.clone(),
-                checker: &default(),
+                checker: &strict(),
                 expected: Ok(()),
             },
             Case {
                 reply: ok_busy_reply.clone(),
-                checker: &default(),
+                checker: &strict(),
                 expected: Ok(()),
             },
             Case {
                 reply: ok_idle_ni_reply.clone(),
-                checker: &default(),
+                checker: &strict(),
                 expected: Err(AsciiCheckWarningError::new(
                     "expected -- warning flag",
                     ok_idle_ni_reply.clone(),
