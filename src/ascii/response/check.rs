@@ -693,6 +693,9 @@ mod test {
             Reply::try_from_packet(&Packet::new(b"@01 1 12 OK IDLE WH 0\r\n").unwrap()).unwrap();
         let ok_idle_ni_reply =
             Reply::try_from_packet(&Packet::new(b"@01 1 12 OK IDLE NI 0\r\n").unwrap()).unwrap();
+        let rj_idle_reply =
+            Reply::try_from_packet(&Packet::new(b"@01 1 12 RJ IDLE -- BADCOMMAND\r\n").unwrap())
+                .unwrap();
 
         let predicate_check = predicate(|reply: &Reply| {
             if reply.flag() == Flag::Ok {
@@ -731,6 +734,11 @@ mod test {
                 expected: Ok(()),
             },
             Case {
+                reply: rj_idle_reply.clone(),
+                checker: &unchecked(),
+                expected: Ok(()),
+            },
+            Case {
                 reply: ok_idle_reply.clone(),
                 checker: &strict(),
                 expected: Ok(()),
@@ -750,6 +758,10 @@ mod test {
                 .into()),
             },
             Case {
+                reply: rj_idle_reply.clone(),
+                checker: &strict(),
+                expected: Err(AsciiCheckFlagError::new(Flag::Ok, rj_idle_reply.clone()).into()),
+            },
                 reply: ok_busy_reply.clone(),
                 checker: &warning_is("WR"),
                 expected: Err(AsciiCheckWarningError::new(
@@ -860,7 +872,7 @@ mod test {
             println!("case {}: {}", i, case.reply);
             let actual = case.checker.check(case.reply.clone());
             match &case.expected {
-                Ok(_) => assert!(actual.is_ok()),
+                Ok(_) => assert!(actual.is_ok(), "unexpected error: {actual:?}"),
                 Err(expected_err) => {
                     let actual_err = actual.unwrap_err();
                     assert_eq!(*expected_err, actual_err);
