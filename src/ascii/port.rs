@@ -282,23 +282,6 @@ impl<'a> std::fmt::Debug for UnexpectedAlertDebugWrapper<'a> {
     }
 }
 
-/// A wrapper around a boxed `Check` that simply implements `Debug` so that
-/// the [`Port`] can derive `Debug`
-#[repr(transparent)]
-struct DefaultResponseCheckDebugWrapper<'a>(Box<dyn check::Check<AnyResponse> + 'a>);
-
-impl<'a> std::fmt::Debug for DefaultResponseCheckDebugWrapper<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "DefaultResponseCheck")
-    }
-}
-
-impl<'a, K: check::Check<AnyResponse> + 'a> From<K> for DefaultResponseCheckDebugWrapper<'a> {
-    fn from(other: K) -> Self {
-        Self(Box::new(other))
-    }
-}
-
 type DefaultCheck<R> = Option<fn(R) -> Result<R, AsciiCheckError<R>>>;
 
 /// Returns the value expected by any function that takes an optional `checker`
@@ -360,8 +343,6 @@ pub struct Port<'a, B> {
     packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
     /// Optional hook to call when an unexpected Alert is received.
     unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
-    /// The default check to validate all responses with
-    default_response_check: Option<DefaultResponseCheckDebugWrapper<'a>>,
 }
 
 impl<'a> Port<'a, Serial> {
@@ -426,10 +407,6 @@ impl<'a, B: Backend> Port<'a, B> {
             builder: ResponseBuilder::default(),
             packet_hook: None,
             unexpected_alert_hook: None,
-            // Use check::strict to check all responses by default
-            default_response_check: Some(DefaultResponseCheckDebugWrapper::from(
-                check::AnyResponseCheck::from(check::strict::<AnyResponse>()),
-            )),
         }
     }
 
@@ -481,7 +458,7 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok(instance.id)
     }
 
-    /// Transmit a command, receive a reply, and check it with the [`default`](Port::set_default_response_check) check.
+    /// Transmit a command, receive a reply, and check it with the [`strict`](check::strict) check.
     ///
     /// If the reply is split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -529,7 +506,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()' is used.
     fn internal_command_reply_with_check<C, K>(
         &mut self,
         cmd: C,
@@ -555,7 +532,7 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
     ///
-    /// The reply and info messages are checked with the [`default`](Port::set_default_response_check) check.
+    /// The reply and info messages are checked with the [`strict`](check::strict) check.
     ///
     /// If the reply or info messages are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -670,7 +647,7 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok((reply, infos))
     }
 
-    /// Transmit a command, receive n replies, and check each reply with the [`default`](Port::set_default_response_check) check.
+    /// Transmit a command, receive n replies, and check each reply with the [`strict`](check::strict) check.
     ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -746,7 +723,7 @@ impl<'a, B: Backend> Port<'a, B> {
         )
     }
 
-    /// Transmit a command, receive replies until the port times out, and check each reply with the [`default`](Port::set_default_response_check) check.
+    /// Transmit a command, receive replies until the port times out, and check each reply with the [`strict`](check::strict) check.
     ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -1014,7 +991,8 @@ impl<'a, B: Backend> Port<'a, B> {
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-    /// `checker` to validate the contents of the message.
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()` will be used
+    /// to check the response's contents.
     fn receive_response<R, F, K>(
         &mut self,
         mut header_check: F,
@@ -1032,35 +1010,15 @@ impl<'a, B: Backend> Port<'a, B> {
             let result = || -> Result<R, AsciiError> {
                 let mut response = self.build_response()?;
                 response = header_check(&response).check(response)?;
+                let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
                 if let Some(checker) = &checker {
-                    let response =
-                        R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
                     checker.check(response).map_err(Into::into)
-                } else if let Some(DefaultResponseCheckDebugWrapper(checker)) =
-                    &self.default_response_check
-                {
-                    // We need to check that the correct response type was
-                    // received before we check the contents of the response.
-                    // This is most easily done by actually trying to convert
-                    // the type. However, the default check only accepts
-                    // `AnyResponse`, so we would have to convert right back
-                    // immediately afterwards. Instead, check if the conversion
-                    // _would_ succeed and, if it would, continue checking the
-                    // message's contents before actually converting to the
-                    // expected type.
-                    if !R::will_try_from_succeed(&response) {
-                        return Err(AsciiUnexpectedResponseError::new(response).into());
-                    }
-                    checker
-                        .check(response)
-                        .map(|response| {
-                            response.try_into().unwrap_or_else(|_| {
-                                panic!("could not convert message back from AnyResponse")
-                            })
-                        })
-                        .map_err(Into::into)
                 } else {
-                    Ok(R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?)
+                    use crate::ascii::check::Check as _;
+                    check::strict()
+                        .check(response)
+                        .map(From::from)
+                        .map_err(From::from)
                 }
             }();
             if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
@@ -1154,7 +1112,7 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok(responses)
     }
 
-    /// Receive a response and check it with the [`default`](Port::set_default_response_check) check.
+    /// Receive a response and check it with the [`strict`](check::strict) check.
     ///
     /// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
     ///
@@ -1208,7 +1166,7 @@ impl<'a, B: Backend> Port<'a, B> {
         Ok(response)
     }
 
-    /// Receive `n` responses and check each one with the [`default`](Port::set_default_response_check) check.
+    /// Receive `n` responses and check each one with the [`strict`](check::strict) check.
     ///
     /// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
     ///
@@ -1263,7 +1221,7 @@ impl<'a, B: Backend> Port<'a, B> {
         self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, Some(checker))
     }
 
-    /// Receive responses until the port times out and check each one with the [`default`](Port::set_default_response_check) check.
+    /// Receive responses until the port times out and check each one with the [`strict`](check::strict) check.
     ///
     /// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
     ///
@@ -1324,7 +1282,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// for a reply.
     ///
     /// The first reply to satisfy the predicate is returned. The contents of
-    /// the replies are checked with the [`default`](Port::set_default_response_check)
+    /// the replies are checked with the [`strict`](check::strict)
     /// check.
     ///
     /// If any of the replies are split across multiple packets, the
@@ -1413,7 +1371,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Poll the target with the empty command until the returned status is IDLE.
     ///
     /// The first reply with the IDLE status is returned. The contents of
-    /// the replies are checked with the [`default`](Port::set_default_response_check)
+    /// the replies are checked with the [`strict`](check::strict)
     /// check.
     ///
     /// ## Example
@@ -1533,162 +1491,6 @@ impl<'a, B: Backend> Port<'a, B> {
     /// If it is `None`, reads will block indefinitely.
     pub fn read_timeout(&self) -> Result<Option<Duration>, io::Error> {
         self.backend.read_timeout()
-    }
-
-    /// Set how the contents of responses will be checked when they are received.
-    ///
-    /// The contents of all responses are checked by the port when they are
-    /// received using the `checker` defined here. By default the `Port` uses
-    /// [`check::strict`], unless it is explicitly set otherwise. To temporarily
-    /// change how the contents of responses are checked, it is advisable to use
-    /// one of the `Port`'s [`*_with_check`](Port::command_reply_with_check)
-    /// methods, which take a temporary override that will be used for that call.
-    ///
-    /// The default `checker` can accept any [`Response`] type (i.e., [`Reply`],
-    /// [`Info`], [`Alert`], or [`AnyResponse`]). However, if a different
-    /// response type is received, it will _not_ be checked unless the received
-    /// type is [`AnyResponse`] and the variant contains the correct type.
-    ///
-    /// For example, suppose [`flag_ok`](check::flag_ok) is set as the default
-    /// check. If a [`Reply`] is received, which is the type `flag_ok`
-    /// accepts, it will be checked. An [`AnyResponse::Reply`] will also be
-    /// checked. But if an [`Info`], [`Alert`], or other variant of
-    /// [`AnyResponse`] are received they will not be checked.
-    ///
-    /// ```
-    /// # use zproto::backend::Backend;
-    /// # use zproto::ascii::{Alert, AnyResponse, Port};
-    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::ascii::check;
-    /// port.set_default_response_check(check::flag_ok());
-    ///
-    /// // The Reply to the `home` command will be checked to ensure the flag is
-    /// // OK, because it matches the type of the default check.
-    /// port.command_reply("home")?;
-    ///
-    /// // When the response type is `AnyResponse`, it will also be checked if
-    /// // it is the `AnyResponse::Reply` variant, but not if it is any other
-    /// // variant.
-    /// port.command("home")?;
-    /// port.response::<AnyResponse>()?;
-    ///
-    /// // Other types of responses, such as an `Alert`, will not be checked.
-    /// let response = port.response::<Alert>()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// To check different kinds of responses (say replies _and_ alerts), the
-    /// supplied checker should accept `AnyResponse`s.
-    ///
-    /// ```
-    /// # use zproto::backend::Backend;
-    /// # use zproto::ascii::{Alert, AnyResponse, Port, Status};
-    /// # use zproto::error::{AsciiCheckError, AsciiCheckStatusError};
-    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// // A silly check to ensure that all status' are IDLE.
-    /// fn always_idle(response: AnyResponse) -> Result<AnyResponse, AsciiCheckError<AnyResponse>> {
-    ///     match &response {
-    ///         AnyResponse::Reply(reply) if reply.status() == Status::Idle => Ok(response),
-    ///         AnyResponse::Alert(alert) if alert.status() == Status::Idle => Ok(response),
-    ///         AnyResponse::Info(_) => Ok(response), // Info messages don't have a status
-    ///         _ => Err(AsciiCheckStatusError::new(Status::Idle, response).into())
-    ///     }
-    /// }
-    /// port.set_default_response_check(always_idle);
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// In some cases, the compiler will not be able to infer the response type
-    /// the check accepts. For instance, [`check::warning_is_none`] can accept
-    /// replies or alerts as both have warnings.
-    ///
-    /// ```compile_fail
-    /// # use zproto::backend::Backend;
-    /// # use zproto::ascii::{check, Port};
-    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// // Compiler error because it isn't clear if this should check replies or alerts
-    /// port.set_default_response_check(check::warning_is_none());
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// Provide an explicit type to resolve the compiler error.
-    ///
-    /// ```
-    /// # use zproto::backend::Backend;
-    /// # use zproto::ascii::{check, Port, Reply};
-    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// // Only check warning flags in replies.
-    /// port.set_default_response_check(check::warning_is_none::<Reply>());
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// To restore the checks set when the `Port` was created use the following:
-    ///
-    /// ```
-    /// # use zproto::backend::Backend;
-    /// # use zproto::ascii::{check, AnyResponse, Port};
-    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// port.set_default_response_check(check::strict::<AnyResponse>());
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// Use [`clear_default_response_check`](Port::clear_default_response_check)
-    /// to not check the contents of responses. However, in the majority of
-    /// cases it is recommended to check the contents of responses with a check
-    /// that is at least as rigorous as [`check::minimal`]. It ensures all reply
-    /// flags are `OK` and that there are no fault-level (`F*`) warnings, as
-    /// they indicate an immediate issue with a device.
-    pub fn set_default_response_check<K, R>(
-        &mut self,
-        checker: K,
-    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>>
-    where
-        K: check::Check<R> + 'a,
-        R: Response,
-        check::AnyResponseCheck<K, R>: check::Check<AnyResponse> + 'a,
-    {
-        self.default_response_check
-            .replace(DefaultResponseCheckDebugWrapper::from(
-                check::AnyResponseCheck::from(checker),
-            ))
-            .map(|wrapper| wrapper.0)
-    }
-
-    /// Clear the default response check and return the previous check. The
-    /// contents of responses will no longer be checked.
-    ///
-    /// See [`set_default_response_check`](Port::set_default_response_check) for
-    /// more details on default response checks.
-    ///
-    /// ## Warning
-    ///
-    /// In the majority of cases it is recommended to check the contents of
-    /// responses with a check that is at least as rigorous as
-    /// [`check::minimal`]. It ensures all reply flags are `OK` and that there
-    /// are no fault-level (`F*`) warnings, as they indicate an immediate issue
-    /// with a device.
-    pub fn clear_default_response_check(
-        &mut self,
-    ) -> Option<Box<dyn check::Check<AnyResponse> + 'a>> {
-        self.default_response_check.take().map(|wrapper| wrapper.0)
-    }
-
-    /// Get the default response check.
-    ///
-    /// If no default check is set, `None` is returned, indicating the `Port` is
-    /// not checking the contents of responses.
-    ///
-    /// See [`set_default_response_check`](Port::set_default_response_check) for
-    /// more details on default response checks.
-    pub fn default_response_check(&self) -> Option<&(dyn check::Check<AnyResponse> + 'a)> {
-        self.default_response_check
-            .as_ref()
-            .map(|wrapper| &*wrapper.0)
     }
 
     /// Get the "name" of the port's backend.
@@ -1930,7 +1732,7 @@ mod test {
     use crate::{
         ascii::{
             check::{self, unchecked},
-            Alert, AnyResponse, Info, Port, Reply, Status,
+            Alert, AnyResponse, Info, Port, Reply,
         },
         backend::Mock,
         error::*,
@@ -2502,7 +2304,7 @@ mod test {
         assert_eq!(captured.borrow().as_slice(), expected.as_slice());
     }
 
-    mod default_response_check {
+    mod response_check {
         use super::*;
 
         /// Check that the default response check after creating a port is
@@ -2513,9 +2315,6 @@ mod test {
         #[test]
         fn default() {
             let mut port = Port::open_mock();
-            // The default response check should exist after creating a port.
-            assert!(port.default_response_check().is_some());
-
             check_cases! { port,
                 ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply(""),
                 ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
@@ -2567,149 +2366,6 @@ mod test {
 
                 ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_with_check("", |_| true, check::predicate(|_| true)),
                 ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle_with_check(1, check::predicate(|_| true)),
-            }
-        }
-
-        /// Setting a custom check that accepts a single reply type should
-        /// result in only those types of replies being checked.
-        #[test]
-        fn custom_flag_ok() {
-            let mut port = Port::open_mock();
-            port.set_default_response_check(check::flag_ok());
-            check_cases! { port,
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply(""),
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
-
-                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply(""),
-                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<Reply>(),
-                ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
-
-                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("") => AsciiCheckFlagError,
-                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckFlagError,
-                err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckFlagError,
-
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
-
-                ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
-                ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
-
-                ok case b"@01 1 OK IDLE WR\r\n" via |p| p.poll_until("", |_| true),
-                ok case b"@01 1 OK IDLE WR\r\n" via |p| p.poll_until_idle(1),
-            }
-        }
-
-        /// Setting a custom check that accepts a single reply type should
-        /// allow multiple reply types to be checked.
-        #[test]
-        fn custom_any_response() {
-            let mut port = Port::open_mock();
-            port.set_default_response_check(|any_response| match &any_response {
-                AnyResponse::Reply(reply) if reply.status() == Status::Busy => Ok(any_response),
-                AnyResponse::Alert(alert) if alert.target().device() == 1 => Ok(any_response),
-                AnyResponse::Info(info) if info.data().contains("is-ok") => Ok(any_response),
-                _ => Err(AsciiCheckCustomError::new("Oops", any_response).into()),
-            });
-            check_cases! { port,
-                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply("") => AsciiCheckCustomError,
-                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply_n("", 1) => AsciiCheckCustomError,
-                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckCustomError,
-                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckCustomError,
-                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1) => AsciiCheckCustomError,
-                err case b"@01 1 OK IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>() => AsciiCheckCustomError,
-
-                err case b"@01 1 OK IDLE -- 0\r\n",
-                         b"#01 1 is-ok\r\n",
-                         b"@01 1 0 OK BUSY WR 0\r\n" via |p| p.command_reply_infos("") => AsciiCheckCustomError,
-                err case b"@01 1 OK BUSY WR 0\r\n",
-                         b"#01 1 some info\r\n",
-                         b"@01 1 1 OK BUSY WR 0\r\n" via |p| p.command_reply_infos("") => AsciiCheckCustomError,
-                ok case b"@01 1 OK BUSY WR 0\r\n",
-                        b"#01 1 is-ok\r\n",
-                        b"@01 1 2 OK BUSY WR 0\r\n" via |p| p.command_reply_infos(""),
-
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply(""),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply_n("", 1),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<Reply>(),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                err case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<Alert>() => AsciiCheckCustomError,
-                err case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckCustomError,
-                err case b"!02 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1) => AsciiCheckCustomError,
-                err case b"!02 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>() => AsciiCheckCustomError,
-
-                ok case b"#01 1 is-ok\r\n" via |p| p.response::<Info>(),
-                ok case b"#01 1 is-ok\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"#01 1 is-ok\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"#01 1 is-ok\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                err case b"#01 1 some info\r\n" via |p| p.response::<Info>() => AsciiCheckCustomError,
-                err case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckCustomError,
-                err case b"#01 1 some info\r\n" via |p| p.response_n::<AnyResponse>(1) => AsciiCheckCustomError,
-                err case b"#01 1 some info\r\n" via |p| p.responses_until_timeout::<AnyResponse>() => AsciiCheckCustomError,
-            }
-        }
-
-        /// All messages should be accepted when there is no default response
-        /// check.
-        #[test]
-        fn clear_check() {
-            let mut port = Port::open_mock();
-            port.clear_default_response_check();
-            check_cases! { port,
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply(""),
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.command_reply_n("", 1),
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply(""),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.command_reply_n("", 1),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<Reply>(),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"@01 1 OK BUSY WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"!01 1 IDLE -- 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"!01 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<Alert>(),
-                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"!02 1 IDLE WR 0\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"#01 1 is-ok\r\n" via |p| p.response::<Info>(),
-                ok case b"#01 1 is-ok\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"#01 1 is-ok\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"#01 1 is-ok\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
-
-                ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
-                ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
-                ok case b"#01 1 some info\r\n" via |p| p.response_n::<AnyResponse>(1),
-                ok case b"#01 1 some info\r\n" via |p| p.responses_until_timeout::<AnyResponse>(),
             }
         }
     }
