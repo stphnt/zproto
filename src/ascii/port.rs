@@ -282,23 +282,6 @@ impl<'a> std::fmt::Debug for UnexpectedAlertDebugWrapper<'a> {
     }
 }
 
-/// A wrapper around a boxed `Check` that simply implements `Debug` so that
-/// the [`Port`] can derive `Debug`
-#[repr(transparent)]
-struct DefaultResponseCheckDebugWrapper<'a>(Box<dyn check::Check<AnyResponse> + 'a>);
-
-impl<'a> std::fmt::Debug for DefaultResponseCheckDebugWrapper<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "DefaultResponseCheck")
-    }
-}
-
-impl<'a, K: check::Check<AnyResponse> + 'a> From<K> for DefaultResponseCheckDebugWrapper<'a> {
-    fn from(other: K) -> Self {
-        Self(Box::new(other))
-    }
-}
-
 type DefaultCheck<R> = Option<fn(R) -> Result<R, AsciiCheckError<R>>>;
 
 /// Returns the value expected by any function that takes an optional `checker`
@@ -360,8 +343,6 @@ pub struct Port<'a, B> {
     packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
     /// Optional hook to call when an unexpected Alert is received.
     unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
-    /// The default check to validate all responses with
-    default_response_check: Option<DefaultResponseCheckDebugWrapper<'a>>,
 }
 
 impl<'a> Port<'a, Serial> {
@@ -426,10 +407,6 @@ impl<'a, B: Backend> Port<'a, B> {
             builder: ResponseBuilder::default(),
             packet_hook: None,
             unexpected_alert_hook: None,
-            // Use check::strict to check all responses by default
-            default_response_check: Some(DefaultResponseCheckDebugWrapper::from(
-                check::AnyResponseCheck::from(check::strict::<AnyResponse>()),
-            )),
         }
     }
 
@@ -529,7 +506,7 @@ impl<'a, B: Backend> Port<'a, B> {
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-    /// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()' is used.
     fn internal_command_reply_with_check<C, K>(
         &mut self,
         cmd: C,
@@ -1014,7 +991,8 @@ impl<'a, B: Backend> Port<'a, B> {
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
     /// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-    /// `checker` to validate the contents of the message.
+    /// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()` will be used
+    /// to check the response's contents.
     fn receive_response<R, F, K>(
         &mut self,
         mut header_check: F,
@@ -1032,35 +1010,15 @@ impl<'a, B: Backend> Port<'a, B> {
             let result = || -> Result<R, AsciiError> {
                 let mut response = self.build_response()?;
                 response = header_check(&response).check(response)?;
+                let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
                 if let Some(checker) = &checker {
-                    let response =
-                        R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
                     checker.check(response).map_err(Into::into)
-                } else if let Some(DefaultResponseCheckDebugWrapper(checker)) =
-                    &self.default_response_check
-                {
-                    // We need to check that the correct response type was
-                    // received before we check the contents of the response.
-                    // This is most easily done by actually trying to convert
-                    // the type. However, the default check only accepts
-                    // `AnyResponse`, so we would have to convert right back
-                    // immediately afterwards. Instead, check if the conversion
-                    // _would_ succeed and, if it would, continue checking the
-                    // message's contents before actually converting to the
-                    // expected type.
-                    if !R::will_try_from_succeed(&response) {
-                        return Err(AsciiUnexpectedResponseError::new(response).into());
-                    }
-                    checker
-                        .check(response)
-                        .map(|response| {
-                            response.try_into().unwrap_or_else(|_| {
-                                panic!("could not convert message back from AnyResponse")
-                            })
-                        })
-                        .map_err(Into::into)
                 } else {
-                    Ok(R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?)
+                    use crate::ascii::check::Check as _;
+                    check::strict()
+                        .check(response)
+                        .map(From::from)
+                        .map_err(From::from)
                 }
             }();
             if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
