@@ -1,6 +1,5 @@
 //! Types for checking the contents of an ASCII response via a `Port`'s
-//! [`default response check`](crate::ascii::Port::set_default_response_check)
-//! or any of its `*_with_check` methods.
+//! `*_with_check` methods.
 //!
 //! The [`strict`] and [`minimal`] functions define two common sets of response
 //! checks. [`strict`] ensures all reply flags are OK and there are never any
