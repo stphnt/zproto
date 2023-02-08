@@ -2376,7 +2376,7 @@ mod test {
         let mut guard = port.timeout_guard(Some(Duration::from_secs(1))).unwrap();
         guard
             .backend
-            .set_read_timeout_error(Some(io::Error::new(io::ErrorKind::Other, "OOPS!").into()));
+            .set_read_timeout_error(Some(io::Error::new(io::ErrorKind::Other, "OOPS!")));
     }
 
     /// Assert that a result contains a poisoning error.
