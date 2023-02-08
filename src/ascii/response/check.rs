@@ -751,7 +751,7 @@ mod test {
                 reply: ok_idle_ni_reply.clone(),
                 checker: &strict(),
                 expected: Err(AsciiCheckWarningError::new(
-                    "expected -- warning flag",
+                    "expected no warning (--)",
                     ok_idle_ni_reply.clone(),
                 )
                 .into()),

@@ -380,8 +380,10 @@ impl TryFrom<parse::PacketKind> for Kind {
 }
 
 mod private {
-    use super::{Alert, AnyResponse, AsciiCheckError, Flag, Info, Kind, Reply, Warning};
-    use crate::error::{AsciiCheckFlagError, AsciiCheckWarningError};
+    use super::{
+        check::{self, Check as _},
+        Alert, AnyResponse, AsciiCheckError, Info, Kind, Reply,
+    };
 
     pub trait Sealed: DataMut + CommonChecks + WillTryFromSucceed<AnyResponse> {}
 
@@ -465,35 +467,11 @@ mod private {
     impl CommonChecks for Reply {
         // If this logic changes update the documentation for `ascii::check::strict`
         fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |reply| {
-                if reply.flag() != Flag::Ok {
-                    Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
-                } else if reply.warning() != Warning::NONE {
-                    Err(AsciiCheckWarningError::new(
-                        format!("expected {} warning flag", Warning::NONE),
-                        reply,
-                    )
-                    .into())
-                } else {
-                    Ok(reply)
-                }
-            }
+            |reply| check::flag_ok_and(check::warning_is_none()).check(reply)
         }
         // If this logic changes update the documentation for `ascii::check::minimal`
         fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |reply| {
-                if reply.flag() != Flag::Ok {
-                    Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
-                } else if reply.warning().is_fault() {
-                    Err(AsciiCheckWarningError::new(
-                        "expected warning below fault (F) level",
-                        reply,
-                    )
-                    .into())
-                } else {
-                    Ok(reply)
-                }
-            }
+            |reply| check::flag_ok_and(check::warning_below_fault()).check(reply)
         }
     }
     impl CommonChecks for Info {
@@ -509,31 +487,11 @@ mod private {
     impl CommonChecks for Alert {
         // If this logic changes update the documentation for `ascii::check::strict`
         fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |alert| {
-                if alert.warning() == Warning::NONE {
-                    Ok(alert)
-                } else {
-                    Err(AsciiCheckWarningError::new(
-                        format!("expected {} warning flag", Warning::NONE),
-                        alert,
-                    )
-                    .into())
-                }
-            }
+            |alert| check::warning_is_none().check(alert)
         }
         // If this logic changes update the documentation for `ascii::check::minimal`
         fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |alert| {
-                if alert.warning().is_fault() {
-                    Err(AsciiCheckWarningError::new(
-                        "expected warning below fault (F) level",
-                        alert,
-                    )
-                    .into())
-                } else {
-                    Ok(alert)
-                }
-            }
+            |alert| check::warning_below_fault().check(alert)
         }
     }
 
