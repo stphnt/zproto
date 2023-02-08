@@ -145,7 +145,7 @@ where
             Ok(response)
         } else {
             Err(
-                AsciiCheckWarningError::new(format!("expected {} warning flag", warning), response)
+                AsciiCheckWarningError::new(format!("expected {warning} warning flag"), response)
                     .into(),
             )
         }
@@ -315,7 +315,7 @@ pub fn parsed_data_is<
             if parsed == value {
                 Ok(response)
             } else {
-                Err(AsciiCheckDataError::new(format!("expected data {:?}", value), response).into())
+                Err(AsciiCheckDataError::new(format!("expected data {value:?}"), response).into())
             }
         } else {
             Err(AsciiCheckDataError::new("could not parse data as expected type", response).into())

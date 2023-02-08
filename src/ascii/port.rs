@@ -2383,14 +2383,14 @@ mod test {
     fn assert_poisoned<T: std::fmt::Debug>(result: Result<T, AsciiError>) {
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(is_poisoning_error(&err), "{} is not a poisoning error", err);
+        assert!(is_poisoning_error(&err), "{err} is not a poisoning error");
     }
 
     /// Assert that the result does not contain a poisoning error.
     fn assert_not_poisoned<T: std::fmt::Debug>(result: Result<T, AsciiError>) {
         match result {
             Err(ref err) => {
-                assert!(!is_poisoning_error(err), "{} is a poisoning error", err);
+                assert!(!is_poisoning_error(err), "{err} is a poisoning error");
             }
             _ => {}
         }
@@ -2403,7 +2403,7 @@ mod test {
         let mut poisoning = false;
         if let AsciiError::Io(e) = err {
             if e.kind() == io::ErrorKind::Other {
-                let message = format!("{}", e);
+                let message = format!("{e}");
                 poisoning = message.starts_with("failed to reset") && message.contains("OOPS!");
             }
         }

@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     port.tx_recv((device, MOVE_ABSOLUTE, 100_000))?;
     port.poll_until((device, RETURN_CURRENT_POSITION), |reply| {
         let pos = reply.data().unwrap();
-        println!("{}", pos);
+        println!("{pos}");
         pos == 100_000
     })?;
 

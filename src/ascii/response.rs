@@ -220,7 +220,7 @@ impl std::fmt::Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:02} {}", self.address, self.axis)?;
         if let Some(id) = self.id {
-            write!(f, " {:02}", id)?;
+            write!(f, " {id:02}")?;
         }
         Ok(())
     }

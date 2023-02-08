@@ -337,7 +337,7 @@ where
             i32::from_le_bytes(self.raw_data())
         )?;
         if let Some(id) = self.id() {
-            write!(f, "{}]", id)
+            write!(f, "{id}]")
         } else {
             write!(f, "]")
         }

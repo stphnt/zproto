@@ -984,7 +984,7 @@ mod test {
         if let BinaryError::UnexpectedCommand(err) = err {
             assert_eq!(err.as_ref().command(), untyped::MANUAL_MOVE_TRACKING);
         } else {
-            panic!("unexpected error {:?}", err)
+            panic!("unexpected error {err:?}")
         }
 
         // Unexpected target in reply
@@ -993,7 +993,7 @@ mod test {
         if let BinaryError::UnexpectedTarget(err) = err {
             assert_eq!(err.as_ref().command(), untyped::HOME);
         } else {
-            panic!("unexpected error {:?}", err)
+            panic!("unexpected error {err:?}")
         }
 
         // Command failure
@@ -1004,7 +1004,7 @@ mod test {
             assert_eq!(err.code(), binary_code::CANNOT_HOME);
             assert_eq!(err.as_ref().command(), untyped::ERROR);
         } else {
-            panic!("unexpected error {:?}", err)
+            panic!("unexpected error {err:?}")
         }
 
         // Unexpected message ID
@@ -1015,7 +1015,7 @@ mod test {
         if let BinaryError::UnexpectedId(err) = err {
             assert_eq!(Message::from(err).id().unwrap(), 2);
         } else {
-            panic!("unexpected error {:?}", err)
+            panic!("unexpected error {err:?}")
         }
     }
 
@@ -1036,7 +1036,7 @@ mod test {
         let replies = port.tx_recv_n((0, HOME), 2).unwrap();
         assert_eq!(replies.len(), 2);
         for (i, reply) in replies.iter().enumerate() {
-            eprintln!("{:?}", reply);
+            eprintln!("{reply:?}");
             assert_eq!(reply.command(), HOME);
             assert_eq!(reply.target(), i as u8 + 1);
             assert_eq!(reply.data().unwrap(), 0);
@@ -1060,7 +1060,7 @@ mod test {
         if let BinaryError::UnexpectedCommand(err) = err {
             assert_eq!(Message::from(err).command(), untyped::RESET);
         } else {
-            panic!("unexpected error: {:?}", err);
+            panic!("unexpected error: {err:?}");
         }
 
         // Unexpected target in second message
@@ -1070,7 +1070,7 @@ mod test {
         if let BinaryError::UnexpectedTarget(err) = err {
             assert_eq!(Message::from(err).target(), 2);
         } else {
-            panic!("unexpected error: {:?}", err);
+            panic!("unexpected error: {err:?}");
         }
 
         // Unexpected message ID in second message
@@ -1083,7 +1083,7 @@ mod test {
         if let BinaryError::UnexpectedId(err) = err {
             assert_eq!(err.as_ref().id().unwrap(), 55);
         } else {
-            panic!("unexpected error: {:?}", err);
+            panic!("unexpected error: {err:?}");
         }
 
         // Command failure in second message.
@@ -1094,7 +1094,7 @@ mod test {
         if let BinaryError::CommandFailure(err) = err {
             assert_eq!(err.code(), 5);
         } else {
-            panic!("unexpected error: {:?}", err);
+            panic!("unexpected error: {err:?}");
         }
     }
 
@@ -1115,7 +1115,7 @@ mod test {
         let replies = port.tx_recv_until_timeout((0, HOME)).unwrap();
         assert_eq!(replies.len(), 2);
         for (i, reply) in replies.iter().enumerate() {
-            eprintln!("{:?}", reply);
+            eprintln!("{reply:?}");
             assert_eq!(reply.command(), HOME);
             assert_eq!(reply.target(), i as u8 + 1);
             assert_eq!(reply.data().unwrap(), 0);

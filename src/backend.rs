@@ -67,7 +67,7 @@ impl Backend for std::net::TcpStream {
         std::net::TcpStream::read_timeout(self)
     }
     fn name(&self) -> Option<String> {
-        self.local_addr().map(|addr| format!("{}", addr)).ok()
+        self.local_addr().map(|addr| format!("{addr}")).ok()
     }
 }
 
