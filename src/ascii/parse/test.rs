@@ -100,7 +100,7 @@ impl<'a> Visitor<'a> for Combined<'a> {
 
 type Item<'a> = (RefTokens<'a>, RefPacket<'a>);
 
-fn parse_combined<'a>(packet: &'a [u8]) -> Option<Item<'a>> {
+fn parse_combined(packet: &[u8]) -> Option<Item<'_>> {
     let client = Client::new(Combined::new(), packet);
     client.parse().ok()
 }
