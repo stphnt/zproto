@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let device = 1;
 
     // Open the port and set up the chain
-    let mut port = Port::open_serial(&port_path)?;
+    let mut port = Port::open_serial(port_path)?;
     port.tx_recv_until_timeout((0, RENUMBER, 0))?;
     port.set_message_ids(true)?;
 
