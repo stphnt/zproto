@@ -382,10 +382,10 @@ impl TryFrom<parse::PacketKind> for Kind {
 mod private {
     use super::{
         check::{self, Check as _},
-        Alert, AnyResponse, AsciiCheckError, Info, Kind, Reply,
+        Alert, AnyResponse, AsciiCheckError, Info, Reply,
     };
 
-    pub trait Sealed: DataMut + CommonChecks + WillTryFromSucceed<AnyResponse> {}
+    pub trait Sealed: DataMut + CommonChecks {}
 
     impl Sealed for Reply {}
     impl Sealed for Alert {}
@@ -492,36 +492,6 @@ mod private {
         // If this logic changes update the documentation for `ascii::check::minimal`
         fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
             |alert| check::warning_below_fault().check(alert)
-        }
-    }
-
-    /// A trait indicating whether calling `TryFrom::try_from` on the type will
-    /// succeed or not.
-    //
-    // Putting the definition here and as a supertrait of `Sealed` ensures it
-    // doesn't show up in the public API
-    pub trait WillTryFromSucceed<T> {
-        fn will_try_from_succeed(other: &T) -> bool;
-    }
-
-    impl<T> WillTryFromSucceed<T> for T {
-        fn will_try_from_succeed(_: &T) -> bool {
-            true
-        }
-    }
-    impl WillTryFromSucceed<AnyResponse> for Reply {
-        fn will_try_from_succeed(other: &AnyResponse) -> bool {
-            other.kind() == Kind::Reply
-        }
-    }
-    impl WillTryFromSucceed<AnyResponse> for Info {
-        fn will_try_from_succeed(other: &AnyResponse) -> bool {
-            other.kind() == Kind::Info
-        }
-    }
-    impl WillTryFromSucceed<AnyResponse> for Alert {
-        fn will_try_from_succeed(other: &AnyResponse) -> bool {
-            other.kind() == Kind::Alert
         }
     }
 }
