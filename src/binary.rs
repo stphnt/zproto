@@ -337,7 +337,7 @@ where
             i32::from_le_bytes(self.raw_data())
         )?;
         if let Some(id) = self.id() {
-            write!(f, "{}]", id)
+            write!(f, "{id}]")
         } else {
             write!(f, "]")
         }
@@ -549,11 +549,11 @@ mod test {
     #[test]
     fn io_states() {
         let states = IoStates(0b101);
-        assert_eq!(states.is_high(1), true);
-        assert_eq!(states.is_high(2), false);
-        assert_eq!(states.is_high(3), true);
-        assert_eq!(states.is_high(4), false);
-        assert_eq!(states.is_high(32), false);
+        assert!(states.is_high(1));
+        assert!(!states.is_high(2));
+        assert!(states.is_high(3));
+        assert!(!states.is_high(4));
+        assert!(!states.is_high(32));
     }
 
     #[test]

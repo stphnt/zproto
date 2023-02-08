@@ -85,7 +85,7 @@ impl<'a, B: Backend, P: Port<B>> std::ops::Drop for TimeoutGuard<'a, B, P> {
                         err
                     )
                 } else {
-                    format!("failed to reset to an infinite timeout: {}", err)
+                    format!("failed to reset to an infinite timeout: {err}")
                 },
             ));
         }

@@ -2170,21 +2170,21 @@ mod test {
     #[test]
     fn set_message_ids() {
         let mut port = Port::open_mock();
-        assert_eq!(port.message_ids(), false);
-        assert_eq!(port.set_message_ids(true), false);
-        assert_eq!(port.message_ids(), true);
-        assert_eq!(port.set_message_ids(true), true);
-        assert_eq!(port.message_ids(), true);
+        assert!(!port.message_ids());
+        assert!(!port.set_message_ids(true));
+        assert!(port.message_ids());
+        assert!(port.set_message_ids(true));
+        assert!(port.message_ids());
     }
 
     #[test]
     fn set_checksums() {
         let mut port = Port::open_mock();
-        assert_eq!(port.checksums(), false);
-        assert_eq!(port.set_checksums(true), false);
-        assert_eq!(port.checksums(), true);
-        assert_eq!(port.set_checksums(true), true);
-        assert_eq!(port.checksums(), true);
+        assert!(!port.checksums());
+        assert!(!port.set_checksums(true));
+        assert!(port.checksums());
+        assert!(port.set_checksums(true));
+        assert!(port.checksums());
     }
 
     #[test]
@@ -2376,23 +2376,20 @@ mod test {
         let mut guard = port.timeout_guard(Some(Duration::from_secs(1))).unwrap();
         guard
             .backend
-            .set_read_timeout_error(Some(io::Error::new(io::ErrorKind::Other, "OOPS!").into()));
+            .set_read_timeout_error(Some(io::Error::new(io::ErrorKind::Other, "OOPS!")));
     }
 
     /// Assert that a result contains a poisoning error.
     fn assert_poisoned<T: std::fmt::Debug>(result: Result<T, AsciiError>) {
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(is_poisoning_error(&err), "{} is not a poisoning error", err);
+        assert!(is_poisoning_error(&err), "{err} is not a poisoning error");
     }
 
     /// Assert that the result does not contain a poisoning error.
     fn assert_not_poisoned<T: std::fmt::Debug>(result: Result<T, AsciiError>) {
-        match result {
-            Err(ref err) => {
-                assert!(!is_poisoning_error(err), "{} is a poisoning error", err);
-            }
-            _ => {}
+        if let Err(ref err) = result {
+            assert!(!is_poisoning_error(err), "{err} is a poisoning error");
         }
     }
 
@@ -2403,7 +2400,7 @@ mod test {
         let mut poisoning = false;
         if let AsciiError::Io(e) = err {
             if e.kind() == io::ErrorKind::Other {
-                let message = format!("{}", e);
+                let message = format!("{e}");
                 poisoning = message.starts_with("failed to reset") && message.contains("OOPS!");
             }
         }

@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let device = 1;
 
     // Open the port and set up the chain
-    let mut port = Port::open_serial(&port_path)?;
+    let mut port = Port::open_serial(port_path)?;
     port.tx_recv_until_timeout((0, RENUMBER, 0))?;
     port.set_message_ids(true)?;
 
@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     port.tx_recv((device, MOVE_ABSOLUTE, 100_000))?;
     port.poll_until((device, RETURN_CURRENT_POSITION), |reply| {
         let pos = reply.data().unwrap();
-        println!("{}", pos);
+        println!("{pos}");
         pos == 100_000
     })?;
 

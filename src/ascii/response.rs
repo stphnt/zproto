@@ -220,7 +220,7 @@ impl std::fmt::Display for Header {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:02} {}", self.address, self.axis)?;
         if let Some(id) = self.id {
-            write!(f, " {:02}", id)?;
+            write!(f, " {id:02}")?;
         }
         Ok(())
     }
@@ -380,10 +380,12 @@ impl TryFrom<parse::PacketKind> for Kind {
 }
 
 mod private {
-    use super::{Alert, AnyResponse, AsciiCheckError, Flag, Info, Kind, Reply, Warning};
-    use crate::error::{AsciiCheckFlagError, AsciiCheckWarningError};
+    use super::{
+        check::{self, Check as _},
+        Alert, AnyResponse, AsciiCheckError, Info, Reply,
+    };
 
-    pub trait Sealed: DataMut + CommonChecks + WillTryFromSucceed<AnyResponse> {}
+    pub trait Sealed: DataMut + CommonChecks {}
 
     impl Sealed for Reply {}
     impl Sealed for Alert {}
@@ -465,35 +467,11 @@ mod private {
     impl CommonChecks for Reply {
         // If this logic changes update the documentation for `ascii::check::strict`
         fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |reply| {
-                if reply.flag() != Flag::Ok {
-                    Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
-                } else if reply.warning() != Warning::NONE {
-                    Err(AsciiCheckWarningError::new(
-                        format!("expected {} warning flag", Warning::NONE),
-                        reply,
-                    )
-                    .into())
-                } else {
-                    Ok(reply)
-                }
-            }
+            |reply| check::flag_ok_and(check::warning_is_none()).check(reply)
         }
         // If this logic changes update the documentation for `ascii::check::minimal`
         fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |reply| {
-                if reply.flag() != Flag::Ok {
-                    Err(AsciiCheckFlagError::new(Flag::Ok, reply).into())
-                } else if reply.warning().is_fault() {
-                    Err(AsciiCheckWarningError::new(
-                        "expected warning below fault (F) level",
-                        reply,
-                    )
-                    .into())
-                } else {
-                    Ok(reply)
-                }
-            }
+            |reply| check::flag_ok_and(check::warning_below_fault()).check(reply)
         }
     }
     impl CommonChecks for Info {
@@ -509,61 +487,11 @@ mod private {
     impl CommonChecks for Alert {
         // If this logic changes update the documentation for `ascii::check::strict`
         fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |alert| {
-                if alert.warning() == Warning::NONE {
-                    Ok(alert)
-                } else {
-                    Err(AsciiCheckWarningError::new(
-                        format!("expected {} warning flag", Warning::NONE),
-                        alert,
-                    )
-                    .into())
-                }
-            }
+            |alert| check::warning_is_none().check(alert)
         }
         // If this logic changes update the documentation for `ascii::check::minimal`
         fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>> {
-            |alert| {
-                if alert.warning().is_fault() {
-                    Err(AsciiCheckWarningError::new(
-                        "expected warning below fault (F) level",
-                        alert,
-                    )
-                    .into())
-                } else {
-                    Ok(alert)
-                }
-            }
-        }
-    }
-
-    /// A trait indicating whether calling `TryFrom::try_from` on the type will
-    /// succeed or not.
-    //
-    // Putting the definition here and as a supertrait of `Sealed` ensures it
-    // doesn't show up in the public API
-    pub trait WillTryFromSucceed<T> {
-        fn will_try_from_succeed(other: &T) -> bool;
-    }
-
-    impl<T> WillTryFromSucceed<T> for T {
-        fn will_try_from_succeed(_: &T) -> bool {
-            true
-        }
-    }
-    impl WillTryFromSucceed<AnyResponse> for Reply {
-        fn will_try_from_succeed(other: &AnyResponse) -> bool {
-            other.kind() == Kind::Reply
-        }
-    }
-    impl WillTryFromSucceed<AnyResponse> for Info {
-        fn will_try_from_succeed(other: &AnyResponse) -> bool {
-            other.kind() == Kind::Info
-        }
-    }
-    impl WillTryFromSucceed<AnyResponse> for Alert {
-        fn will_try_from_succeed(other: &AnyResponse) -> bool {
-            other.kind() == Kind::Alert
+            |alert| check::warning_below_fault().check(alert)
         }
     }
 }
