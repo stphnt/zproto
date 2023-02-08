@@ -2170,21 +2170,21 @@ mod test {
     #[test]
     fn set_message_ids() {
         let mut port = Port::open_mock();
-        assert_eq!(port.message_ids(), false);
-        assert_eq!(port.set_message_ids(true), false);
-        assert_eq!(port.message_ids(), true);
-        assert_eq!(port.set_message_ids(true), true);
-        assert_eq!(port.message_ids(), true);
+        assert!(!port.message_ids());
+        assert!(!port.set_message_ids(true));
+        assert!(port.message_ids());
+        assert!(port.set_message_ids(true));
+        assert!(port.message_ids());
     }
 
     #[test]
     fn set_checksums() {
         let mut port = Port::open_mock();
-        assert_eq!(port.checksums(), false);
-        assert_eq!(port.set_checksums(true), false);
-        assert_eq!(port.checksums(), true);
-        assert_eq!(port.set_checksums(true), true);
-        assert_eq!(port.checksums(), true);
+        assert!(!port.checksums());
+        assert!(!port.set_checksums(true));
+        assert!(port.checksums());
+        assert!(port.set_checksums(true));
+        assert!(port.checksums());
     }
 
     #[test]
@@ -2388,11 +2388,8 @@ mod test {
 
     /// Assert that the result does not contain a poisoning error.
     fn assert_not_poisoned<T: std::fmt::Debug>(result: Result<T, AsciiError>) {
-        match result {
-            Err(ref err) => {
-                assert!(!is_poisoning_error(err), "{err} is a poisoning error");
-            }
-            _ => {}
+        if let Err(ref err) = result {
+            assert!(!is_poisoning_error(err), "{err} is a poisoning error");
         }
     }
 

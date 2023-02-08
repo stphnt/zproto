@@ -1125,13 +1125,13 @@ mod test {
     #[test]
     fn message_ids() {
         let mut port = Port::open_mock();
-        assert_eq!(port.message_ids(), false);
+        assert!(!port.message_ids());
         // Enable message IDs
         port.backend
             .append_data([1, command::untyped::SET_MESSAGE_ID_MODE, 0, 0, 0, 0]);
         let last_state = port.set_message_ids(true).unwrap();
-        assert_eq!(last_state, false);
-        assert_eq!(port.message_ids(), true);
+        assert!(!last_state);
+        assert!(port.message_ids());
     }
 
     #[test]
