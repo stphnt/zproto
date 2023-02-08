@@ -793,7 +793,7 @@ mod test {
             Case {
                 reply: rj_idle_reply.clone(),
                 checker: &minimal(),
-                expected: Err(AsciiCheckFlagError::new(Flag::Ok, rj_idle_reply.clone()).into()),
+                expected: Err(AsciiCheckFlagError::new(Flag::Ok, rj_idle_reply).into()),
             },
             Case {
                 reply: ok_busy_reply.clone(),
@@ -833,7 +833,7 @@ mod test {
                 checker: &warning_below_fault(),
                 expected: Err(AsciiCheckWarningError::new(
                     "expected warning below fault (F) level",
-                    ok_idle_ff_reply.clone(),
+                    ok_idle_ff_reply,
                 )
                 .into()),
             },
@@ -847,12 +847,12 @@ mod test {
                 checker: &warning_below_warning(),
                 expected: Err(AsciiCheckWarningError::new(
                     "expected warning below warning (W) level",
-                    ok_idle_wh_reply.clone(),
+                    ok_idle_wh_reply,
                 )
                 .into()),
             },
             Case {
-                reply: ok_idle_ni_reply.clone(),
+                reply: ok_idle_ni_reply,
                 checker: &warning_below_warning(),
                 expected: Ok(()),
             },
@@ -889,14 +889,10 @@ mod test {
             Case {
                 reply: ok_busy_reply.clone(),
                 checker: &predicate_check,
-                expected: Err(AsciiCheckCustomError::new(
-                    "invalid response",
-                    ok_busy_reply.clone(),
-                )
-                .into()),
+                expected: Err(AsciiCheckCustomError::new("invalid response", ok_busy_reply).into()),
             },
             Case {
-                reply: ok_idle_reply.clone(),
+                reply: ok_idle_reply,
                 checker: &predicate_check,
                 expected: Ok(()),
             },
