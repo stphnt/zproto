@@ -186,6 +186,14 @@ impl Mock {
         self.set_read_timeout_error = err;
     }
 }
+
+#[cfg(test)]
+impl Default for Mock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 impl Backend for Mock {
     fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
