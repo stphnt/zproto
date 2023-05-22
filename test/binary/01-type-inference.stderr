@@ -2,7 +2,7 @@ error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:6:36
   |
 6 |     let _: Message<types::Reset> = port.tx_recv((0, HOME))?;
-  |                                    ^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Reset`, found struct `Home`
+  |                                    ^^^^^^^^^^^^^^^^^^^^^^^^ expected `Message<Reset>`, found `Message<Home>`
   |
   = note: `?` operator cannot convert from `Message<Home>` to `Message<Reset>`
   = note: expected struct `Message<Reset>`
@@ -12,7 +12,7 @@ error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:7:35
   |
 7 |     let _: Message<types::Home> = port.tx_recv((0, untyped::HOME, 0i32))?;
-  |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `Home`, found `u8`
+  |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Message<Home>`, found `Message`
   |
   = note: `?` operator cannot convert from `Message<u8>` to `Message<Home>`
   = note: expected struct `Message<Home>`
@@ -22,7 +22,7 @@ error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:8:44
   |
 8 |     let _: Message<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, RETURN_CURRENT_POSITION))?;
-  |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `ReturnCurrentPosition`
+  |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Message<ReturnSetting>`, found `Message<ReturnCurrentPosition>`
   |
   = note: `?` operator cannot convert from `Message<ReturnCurrentPosition>` to `Message<ReturnSetting>`
   = note: expected struct `Message<ReturnSetting>`
@@ -32,7 +32,7 @@ error[E0308]: `?` operator has incompatible types
  --> test/binary/01-type-inference.rs:9:44
   |
 9 |     let _: Message<types::ReturnSetting> = port.tx_recv((0, RETURN_SETTING, SET_TARGET_SPEED))?;
-  |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected struct `ReturnSetting`, found struct `SetTargetSpeed`
+  |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Message<ReturnSetting>`, found `Message<SetTargetSpeed>`
   |
   = note: `?` operator cannot convert from `Message<SetTargetSpeed>` to `Message<ReturnSetting>`
   = note: expected struct `Message<ReturnSetting>`
