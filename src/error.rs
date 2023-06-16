@@ -71,11 +71,30 @@ macro_rules! impl_error_display {
 #[cfg(any(feature = "ascii", feature = "binary"))]
 macro_rules! impl_is_timeout {
     ($name:ident) => {
+        paste::paste! {
+            impl $name {
+                /// A convenience function for determining if the error is due to the
+                /// port timing out.
+                ///
+                /// Note that a timeout error is a kind of IO error, so [`is_io`][1] will
+                /// also return true for timeout errors.
+                ///
+                #[doc = "[1]: " $name "::is_io"]
+                pub fn is_timeout(&self) -> bool {
+                    matches!(self, $name::Io(e) if e.kind() == std::io::ErrorKind::TimedOut)
+                }
+            }
+        }
+    };
+}
+
+#[cfg(any(feature = "ascii", feature = "binary"))]
+macro_rules! impl_is_io {
+    ($name:ident) => {
         impl $name {
-            /// A convenience function for determining if the error is due to the
-            /// port timing out.
-            pub fn is_timeout(&self) -> bool {
-                matches!(self, $name::Io(e) if e.kind() == std::io::ErrorKind::TimedOut)
+            /// A convenience function for determining if the error is an IO error.
+            pub fn is_io(&self) -> bool {
+                matches!(self, $name::Io(_))
             }
         }
     };

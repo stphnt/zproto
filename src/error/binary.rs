@@ -124,6 +124,7 @@ error_enum! {
     }
 }
 impl_is_timeout! { BinaryError }
+impl_is_io! { BinaryError }
 impl_from_serialport_error! { BinaryError }
 
 macro_rules! define_error_codes {

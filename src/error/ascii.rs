@@ -495,6 +495,7 @@ error_enum! {
     }
 }
 impl_is_timeout! { AsciiError }
+impl_is_io! { AsciiError }
 impl_from_serialport_error! { AsciiError }
 impl_from_ascii_check_error! {
     AsciiError {

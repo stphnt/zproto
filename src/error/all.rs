@@ -69,6 +69,7 @@ error_enum! {
     }
 }
 impl_is_timeout! { Error }
+impl_is_io! { Error }
 impl_from_serialport_error! { Error }
 impl_from_ascii_check_error! {
     Error {
