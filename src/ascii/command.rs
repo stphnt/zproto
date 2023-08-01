@@ -1,6 +1,6 @@
 //! Types and traits for generating ASCII commands.
 
-use crate::ascii::{checksum::Lrc, id, Target};
+use crate::ascii::{checksum::LrcWriter, id, Target};
 use std::borrow::Cow;
 use std::io;
 
@@ -266,11 +266,13 @@ impl<'a> CommandInstance<'a> {
         }
     }
 
-    /// Write the contents of the command packet into writer.
-    ///
-    /// This is useful for calculating the checksum for the command and for
-    /// writing the full packet.
-    fn write_contents_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
+    /// Write the command packet into the specified writer.
+    pub fn write_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
+        use std::io::Write as _;
+
+        write!(writer, "/")?;
+        let writer = &mut LrcWriter::new(writer);
+
         // Only output the address, axis or message ID if it is necessary.
         let wrote = match self.id {
             Some(id) => {
@@ -303,25 +305,10 @@ impl<'a> CommandInstance<'a> {
             }
             writer.write_all(self.data.as_ref())?;
         }
-        Ok(())
-    }
-
-    /// Get the checksum of the command if it were sent now.
-    ///
-    /// Ignores whether the checksum is actually enabled via `checksum`.
-    fn checksum(&self) -> u32 {
-        let mut buf = Vec::with_capacity(80);
-        self.write_contents_into(&mut buf).unwrap();
-        Lrc::hash(&buf[..])
-    }
-
-    /// Write the command packet into the specified writer.
-    pub fn write_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
-        write!(writer, "/")?;
-        self.write_contents_into(writer)?;
 
         if self.checksum {
-            write!(writer, ":{:02X}", self.checksum())?;
+            let checksum = writer.finish_hash();
+            write!(writer, ":{:02X}", checksum)?;
         }
         writeln!(writer)
     }
