@@ -25,6 +25,7 @@ error_enum! {
         AsciiCheckWarning(AsciiCheckWarningError<AnyResponse>),
         AsciiCheckData(AsciiCheckDataError<AnyResponse>),
         AsciiCheckCustom(AsciiCheckCustomError<AnyResponse>),
+        AsciiCommandSplit(AsciiCommandSplitError),
         BinaryCommandFailure(BinaryCommandFailureError),
         BinaryUnexpectedTarget(BinaryUnexpectedTargetError),
         BinaryUnexpectedId(BinaryUnexpectedIdError),
@@ -51,6 +52,7 @@ error_enum! {
         CheckWarning => AsciiCheckWarning,
         CheckData => AsciiCheckData,
         CheckCustom => AsciiCheckCustom,
+        CommandSplit => AsciiCommandSplit,
     }
 
     impl From<BinaryUnexpectedError> {

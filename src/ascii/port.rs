@@ -9,8 +9,8 @@ use crate::{
         checksum::Lrc,
         id,
         parse::{Packet, PacketKind},
-        Alert, AnyResponse, Command, CommandInstance, Info, Reply, Response, ResponseBuilder,
-        Status, Target,
+        Alert, AnyResponse, Command, CommandWriter, Info, Reply, Response, ResponseBuilder, Status,
+        Target,
     },
     error::*,
     timeout_guard::TimeoutGuard,
@@ -437,25 +437,29 @@ impl<'a, B: Backend> Port<'a, B> {
         self.check_poisoned()?;
 
         let mut buffer = Vec::new();
-        let instance = CommandInstance::new(
+        let mut writer = CommandWriter::new(
             &cmd,
             &mut self.ids,
             self.generate_id,
             self.generate_checksum,
         );
-        instance.write_into(&mut buffer)?;
-        log::debug!(
-            "{} TX:   {}",
-            self.backend
-                .name()
-                .unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
-            String::from_utf8_lossy(buffer.as_slice()).trim_end()
-        );
-        self.backend.write_all(buffer.as_slice())?;
-        if let Some(ref mut callback) = self.packet_hook {
-            (callback.0)(buffer.as_slice(), Direction::Tx);
+        let mut more_packets = true;
+        while more_packets {
+            more_packets = writer.write_packet(&mut buffer)?;
+            log::debug!(
+                "{} TX:   {}",
+                self.backend
+                    .name()
+                    .unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
+                String::from_utf8_lossy(buffer.as_slice()).trim_end()
+            );
+            self.backend.write_all(buffer.as_slice())?;
+            if let Some(ref mut callback) = self.packet_hook {
+                (callback.0)(buffer.as_slice(), Direction::Tx);
+            }
+            buffer.clear();
         }
-        Ok(instance.id)
+        Ok(writer.id)
     }
 
     /// Transmit a command, receive a reply, and check it with the [`strict`](check::strict) check.
