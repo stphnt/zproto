@@ -30,15 +30,6 @@ impl Lrc {
         sum
     }
 
-    /// Hash the input
-    pub fn hash(input: &[u8]) -> u32 {
-        let mut hasher = Lrc::default();
-        for byte in input {
-            hasher.update(*byte);
-        }
-        hasher.finish()
-    }
-
     /// Verif if the hash matches the input.
     pub fn verify(input: &[u8], hash: u32) -> bool {
         let sum: u32 = input.iter().fold(0u32, |sum, b| *b as u32 + sum);
