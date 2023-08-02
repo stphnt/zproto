@@ -233,6 +233,42 @@ where
     }
 }
 
+/// The maximum number of bytes to put in a command packet.
+///
+/// It must be 80 bytes or larger. The [`default`](MaxPacketSize::default) is 80 bytes.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct MaxPacketSize(usize);
+
+impl MaxPacketSize {
+    const MIN_PACKET_SIZE: usize = 80;
+
+    /// Create a new MaxPacketSize if the value is >= 80.
+    pub const fn new(value: usize) -> Option<Self> {
+        if value >= Self::MIN_PACKET_SIZE {
+            Some(MaxPacketSize(value))
+        } else {
+            None
+        }
+    }
+
+    /// The default maximum command packet size is 80 bytes.
+    pub const fn default() -> MaxPacketSize {
+        MaxPacketSize(Self::MIN_PACKET_SIZE)
+    }
+
+    /// Get the number of bytes as a `usize`.
+    pub const fn as_usize(self) -> usize {
+        self.0
+    }
+}
+
+impl Default for MaxPacketSize {
+    /// The default maximum command packet size is 80 bytes.
+    fn default() -> Self {
+        MaxPacketSize::default()
+    }
+}
+
 /// A type for writing commands to the serial port.
 pub(crate) struct CommandWriter<'a> {
     /// The targeted device/axis
@@ -245,6 +281,8 @@ pub(crate) struct CommandWriter<'a> {
     pub offset: usize,
     /// Whether to generate a checksum
     pub checksum: bool,
+    /// The maximum number of bytes to put in a packet
+    pub max_packet_size: MaxPacketSize,
     /// The index of the next packet to send. 0 is the first packet.
     pub packet_index: usize,
 }
@@ -256,6 +294,7 @@ impl<'a> CommandWriter<'a> {
         mut generator: G,
         generate_id: bool,
         generate_checksum: bool,
+        max_packet_size: MaxPacketSize,
     ) -> CommandWriter<'a>
     where
         C: Command,
@@ -272,6 +311,7 @@ impl<'a> CommandWriter<'a> {
             data,
             offset: 0,
             checksum: generate_checksum,
+            max_packet_size,
             packet_index: 0,
         }
     }
@@ -361,7 +401,7 @@ impl<'a> CommandWriter<'a> {
             }
 
             // Only add the data that will fit in the packet
-            let mut remaining = 80 /* max packet size */
+            let mut remaining = self.max_packet_size.as_usize()
                 - bytes_written // The header we've already written
                 - if self.checksum { 3 } else { 0 } // save space for the checksum
                 - 1; // save space for the '\n' terminator
@@ -584,6 +624,7 @@ mod test {
                 ConstId {},
                 case.generate_id,
                 case.generate_checksum,
+                MaxPacketSize::default(),
             );
             let num_expected_packets = case.expected.iter().filter(|byte| **byte == b'\n').count();
             for index in 0..num_expected_packets {
@@ -606,14 +647,50 @@ mod test {
     }
 
     #[test]
+    fn test_command_writer_custom_packet_size() {
+        let mut buf = vec![];
+        let _79_bytes =
+            "1234567891123456789212345678931234567894123456789512345678961234567897123456789";
+        {
+            // Should be not be able to fit data plus the leading `/` and trailing `\n`
+            let mut writer = CommandWriter::new(
+                &_79_bytes,
+                ConstId {},
+                false,
+                false,
+                MaxPacketSize::default(),
+            );
+            writer.write_packet(&mut buf).unwrap_err();
+        }
+        {
+            // Should have just enough room for leading `/` and trailing `\n`
+            let mut writer = CommandWriter::new(
+                &_79_bytes,
+                ConstId {},
+                false,
+                false,
+                MaxPacketSize::new(81).unwrap(),
+            );
+            assert_eq!(writer.write_packet(&mut buf).unwrap(), false);
+        }
+    }
+
+    #[test]
     fn test_command_writer_cannot_split() {
         let mut buf = vec![];
-        let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true);
+        let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true, MaxPacketSize::default());
         assert_eq!(writer.write_packet(&mut buf).unwrap(), true);
         let _: AsciiCommandSplitError = writer
             .write_packet(&mut buf)
             .unwrap_err()
             .try_into()
             .unwrap();
+    }
+
+    #[test]
+    fn test_max_packet_size() {
+        assert_eq!(MaxPacketSize::default().as_usize(), 80);
+        assert!(MaxPacketSize::new(79).is_none());
+        assert!(MaxPacketSize::new(80).is_some());
     }
 }

@@ -9,8 +9,8 @@ use crate::{
         checksum::Lrc,
         id,
         parse::{Packet, PacketKind},
-        Alert, AnyResponse, Command, CommandWriter, Info, Reply, Response, ResponseBuilder, Status,
-        Target,
+        Alert, AnyResponse, Command, CommandWriter, Info, MaxPacketSize, Reply, Response,
+        ResponseBuilder, Status, Target,
     },
     error::*,
     timeout_guard::TimeoutGuard,
@@ -442,6 +442,7 @@ impl<'a, B: Backend> Port<'a, B> {
             &mut self.ids,
             self.generate_id,
             self.generate_checksum,
+            MaxPacketSize::default(),
         );
         let mut more_packets = true;
         while more_packets {
