@@ -480,7 +480,7 @@ impl<'a, B: Backend> Port<'a, B> {
             self.generate_id,
             self.generate_checksum,
             self.max_packet_size,
-        );
+        )?;
         let mut more_packets = true;
         while more_packets {
             more_packets = writer.write_packet(&mut buffer)?;
@@ -2282,6 +2282,17 @@ mod test {
         assert_eq!(port.max_packet_size(), default);
         assert_eq!(port.set_max_packet_size(_81), default);
         assert_eq!(port.max_packet_size(), _81);
+    }
+
+    #[test]
+    fn reject_reserved_characters() {
+        let mut port = Port::open_mock();
+
+        let reserved_characters = b"/@#!:\\\r\n".iter().cloned().chain(128u8..=u8::MAX);
+        for reserved in reserved_characters {
+            let err = port.command([reserved]).unwrap_err();
+            assert!(matches!(err, AsciiError::ReservedCharacter(_)));
+        }
     }
 
     #[test]
