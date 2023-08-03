@@ -45,6 +45,8 @@ pub struct OpenSerialOptions {
     generate_id: bool,
     /// Whether commands should include a checksum or not.
     generate_checksum: bool,
+    /// The maximum command packet size.
+    max_packet_size: MaxPacketSize,
 }
 
 impl OpenSerialOptions {
@@ -62,6 +64,7 @@ impl OpenSerialOptions {
             timeout: Some(Duration::from_secs(3)),
             generate_id: true,
             generate_checksum: true,
+            max_packet_size: MaxPacketSize::default(),
         }
     }
 
@@ -97,6 +100,14 @@ impl OpenSerialOptions {
         self
     }
 
+    /// Set the maximum command packet size.
+    ///
+    /// The default is [`MaxPacketSize::default`].
+    pub fn max_packet_size(&mut self, max_packet_size: MaxPacketSize) -> &mut Self {
+        self.max_packet_size = max_packet_size;
+        self
+    }
+
     /// Open a [`Serial`] port configured for the ASCII protocol at the specified path.
     fn open_serial_port(&self, path: &str) -> Result<Serial, AsciiError> {
         // Due to https://gitlab.com/susurrus/serialport-rs/-/issues/102, the
@@ -124,6 +135,7 @@ impl OpenSerialOptions {
             self.open_serial_port(path)?,
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 
@@ -138,6 +150,7 @@ impl OpenSerialOptions {
             Box::new(self.open_serial_port(path)?),
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 }
@@ -170,6 +183,8 @@ pub struct OpenTcpOptions {
     generate_id: bool,
     /// Whether commands should include a checksum or not.
     generate_checksum: bool,
+    /// The maximum command packet size.
+    max_packet_size: MaxPacketSize,
 }
 
 impl OpenTcpOptions {
@@ -183,6 +198,7 @@ impl OpenTcpOptions {
             timeout: Some(Duration::from_secs(3)),
             generate_id: true,
             generate_checksum: true,
+            max_packet_size: MaxPacketSize::default(),
         }
     }
 
@@ -210,6 +226,14 @@ impl OpenTcpOptions {
         self
     }
 
+    /// Set the maximum command packet size.
+    ///
+    /// The default is [`MaxPacketSize::default`].
+    pub fn max_packet_size(&mut self, max_packet_size: MaxPacketSize) -> &mut Self {
+        self.max_packet_size = max_packet_size;
+        self
+    }
+
     /// Open a [`TcpStream`] configured for the ASCII protocol at the specified address.
     fn open_tcp_stream<A: ToSocketAddrs>(&self, address: A) -> io::Result<TcpStream> {
         let stream = TcpStream::connect(address)?;
@@ -223,6 +247,7 @@ impl OpenTcpOptions {
             self.open_tcp_stream(address)?,
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 
@@ -240,6 +265,7 @@ impl OpenTcpOptions {
             Box::new(self.open_tcp_stream(address)?),
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 }
@@ -324,6 +350,8 @@ pub struct Port<'a, B> {
     generate_id: bool,
     /// Whether commands should include checksums or not.
     generate_checksum: bool,
+    /// The maximum command packet size.
+    max_packet_size: MaxPacketSize,
     /// If populated, the error that has "poisoned" the port. This error MUST be
     /// reported before the port is used for communication again.
     ///
@@ -391,18 +419,24 @@ impl<'a> Port<'a, TcpStream> {
 impl<'a> Port<'a, Mock> {
     /// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
     pub fn open_mock() -> Port<'a, Mock> {
-        Port::from_backend(Mock::new(), false, false)
+        Port::from_backend(Mock::new(), false, false, MaxPacketSize::default())
     }
 }
 
 impl<'a, B: Backend> Port<'a, B> {
     /// Create a `Port` from a [`Backend`] type.
-    fn from_backend(backend: B, generate_id: bool, generate_checksum: bool) -> Self {
+    fn from_backend(
+        backend: B,
+        generate_id: bool,
+        generate_checksum: bool,
+        max_packet_size: MaxPacketSize,
+    ) -> Self {
         Port {
             backend,
             ids: id::Counter::default(),
             generate_id,
             generate_checksum,
+            max_packet_size,
             poison: None,
             builder: ResponseBuilder::default(),
             packet_hook: None,
@@ -442,7 +476,7 @@ impl<'a, B: Backend> Port<'a, B> {
             &mut self.ids,
             self.generate_id,
             self.generate_checksum,
-            MaxPacketSize::default(),
+            self.max_packet_size,
         );
         let mut more_packets = true;
         while more_packets {
@@ -1479,6 +1513,18 @@ impl<'a, B: Backend> Port<'a, B> {
         self.generate_id
     }
 
+    /// Set the maximum command packet size.
+    ///
+    /// The previous value is returned.
+    pub fn set_max_packet_size(&mut self, value: MaxPacketSize) -> MaxPacketSize {
+        std::mem::replace(&mut self.max_packet_size, value)
+    }
+
+    /// Get the maximum command packet size.
+    pub fn max_packet_size(&self) -> MaxPacketSize {
+        self.max_packet_size
+    }
+
     /// Set the read timeout and return the old timeout.
     ///
     /// If timeout is `None`, reads will block indefinitely.
@@ -2190,6 +2236,19 @@ mod test {
         assert!(port.checksums());
         assert!(port.set_checksums(true));
         assert!(port.checksums());
+    }
+
+    #[test]
+    fn set_max_packet_size() {
+        use super::MaxPacketSize;
+
+        let _81 = MaxPacketSize::new(81).unwrap();
+        let default = MaxPacketSize::default();
+
+        let mut port = Port::open_mock();
+        assert_eq!(port.max_packet_size(), default);
+        assert_eq!(port.set_max_packet_size(_81), default);
+        assert_eq!(port.max_packet_size(), _81);
     }
 
     #[test]
