@@ -457,6 +457,9 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// On success, the generated message ID (if any) is returned.
     ///
+    /// If necessary, the command will be split into multiple packets so that no
+    /// packet is longer than [`max_packet_size`](Self::max_packet_size).
+    ///
     /// ## Example
     ///
     /// ```rust
@@ -498,6 +501,9 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Transmit a command, receive a reply, and check it with the [`strict`](check::strict) check.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If the reply is split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -541,6 +547,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and receive a reply.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
@@ -572,6 +581,9 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Transmit a command and then receive a reply and all subsequent info messages.
     ///
     /// The reply and info messages are checked with the [`strict`](check::strict) check.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If the reply or info messages are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -639,6 +651,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
@@ -688,6 +703,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command, receive n replies, and check each reply with the [`strict`](check::strict) check.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
     /// ## Example
@@ -735,6 +753,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and then receive n replies.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
@@ -763,6 +784,9 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Transmit a command, receive replies until the port times out, and check each reply with the [`strict`](check::strict) check.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -811,6 +835,9 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Transmit a command and then receive replies until the port times out.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
@@ -1324,6 +1351,9 @@ impl<'a, B: Backend> Port<'a, B> {
     /// the replies are checked with the [`strict`](check::strict)
     /// check.
     ///
+    /// If necessary, the command will be split into multiple packets so that no
+    /// packet is longer than [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any of the replies are split across multiple packets, the
     /// continuation messages will automatically be read.
     ///
@@ -1379,6 +1409,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Send the specified command repeatedly until the predicate returns true
     /// for a reply.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no
+    /// packet is longer than [`max_packet_size`](Self::max_packet_size).
     ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
