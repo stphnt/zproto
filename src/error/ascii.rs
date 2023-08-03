@@ -247,6 +247,38 @@ impl_error_display! {
     self => "cannot split command into packets: {} {} {}", self.0.0.device(), self.0.0.axis(), self.0.1
 }
 
+/// A [`Command`] contains a [reserved character] and does not adhere to the ASCII protocol.
+///
+/// [reserved character]: https://www.zaber.com/protocol-manual?protocol=ASCII#topic_message_format__reserved_characters
+#[derive(Debug)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
+pub struct AsciiReservedCharacterError(Box<(Target, String)>, u8);
+
+impl AsciiReservedCharacterError {
+    /// Create a new `AsciiReservedCharacterError` error
+    pub(crate) fn new(command: impl Command, reserved: u8) -> AsciiReservedCharacterError {
+        AsciiReservedCharacterError(
+            Box::new((
+                command.target(),
+                String::from_utf8_lossy(command.data().as_ref()).into_owned(),
+            )),
+            reserved,
+        )
+    }
+}
+
+impl AsRef<(Target, String)> for AsciiReservedCharacterError {
+    /// Get the command that caused the error
+    fn as_ref(&self) -> &(Target, String) {
+        &self.0
+    }
+}
+
+impl_error_display! {
+    AsciiReservedCharacterError,
+    self => "command contains a reserved character ({}): {} {} {}", self.1, self.0.0.device(), self.0.0.axis(), self.0.1
+}
+
 /// A [`Reply`] was received with an unexpected reply flag.
 #[derive(Debug, PartialEq)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
@@ -517,6 +549,7 @@ error_enum! {
         CheckData(AsciiCheckDataError<AnyResponse>),
         CheckCustom(AsciiCheckCustomError<AnyResponse>),
         CommandSplit(AsciiCommandSplitError),
+        ReservedCharacter(AsciiReservedCharacterError),
     }
 
     impl From<AsciiProtocolError> {

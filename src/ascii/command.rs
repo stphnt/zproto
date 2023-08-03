@@ -2,7 +2,7 @@
 
 use crate::{
     ascii::{checksum::LrcWriter, id, Target},
-    error::{AsciiCommandSplitError, AsciiError},
+    error::{AsciiCommandSplitError, AsciiError, AsciiReservedCharacterError},
 };
 use std::borrow::Cow;
 use std::io;
@@ -288,20 +288,32 @@ pub(crate) struct CommandWriter<'a> {
 }
 
 impl<'a> CommandWriter<'a> {
-    /// Create a command writer
+    /// Create a command writer.
+    ///
+    /// Returns an error if the command data contains any [reserved characters].
+    ///
+    /// [reserved characters]: https://www.zaber.com/protocol-manual?protocol=ASCII#topic_message_format__reserved_characters
     pub fn new<C, G>(
         command: &'a C,
         mut generator: G,
         generate_id: bool,
         generate_checksum: bool,
         max_packet_size: MaxPacketSize,
-    ) -> CommandWriter<'a>
+    ) -> Result<CommandWriter<'a>, AsciiReservedCharacterError>
     where
         C: Command,
         G: id::Generator,
     {
         let data = command.data();
-        CommandWriter {
+        // Check that the command data doesn't contain any reserved ASCII protocol
+        // characters
+        if let Some(reserved) = data
+            .iter()
+            .find(|byte| **byte > 127 || b"/@#!\r\n:\\".contains(byte))
+        {
+            return Err(AsciiReservedCharacterError::new(command, *reserved));
+        }
+        Ok(CommandWriter {
             target: command.target(),
             id: if generate_id {
                 Some(generator.next_id())
@@ -313,7 +325,7 @@ impl<'a> CommandWriter<'a> {
             checksum: generate_checksum,
             max_packet_size,
             packet_index: 0,
-        }
+        })
     }
 
     /// Returns `true` if the command has been completely written out.
@@ -625,7 +637,8 @@ mod test {
                 case.generate_id,
                 case.generate_checksum,
                 MaxPacketSize::default(),
-            );
+            )
+            .unwrap();
             let num_expected_packets = case.expected.iter().filter(|byte| **byte == b'\n').count();
             for index in 0..num_expected_packets {
                 let more = writer.write_packet(&mut buf).unwrap();
@@ -659,7 +672,8 @@ mod test {
                 false,
                 false,
                 MaxPacketSize::default(),
-            );
+            )
+            .unwrap();
             writer.write_packet(&mut buf).unwrap_err();
         }
         {
@@ -670,7 +684,8 @@ mod test {
                 false,
                 false,
                 MaxPacketSize::new(81).unwrap(),
-            );
+            )
+            .unwrap();
             assert_eq!(writer.write_packet(&mut buf).unwrap(), false);
         }
     }
@@ -678,7 +693,7 @@ mod test {
     #[test]
     fn test_command_writer_cannot_split() {
         let mut buf = vec![];
-        let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true, MaxPacketSize::default());
+        let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true, MaxPacketSize::default()).unwrap();
         assert_eq!(writer.write_packet(&mut buf).unwrap(), true);
         let _: AsciiCommandSplitError = writer
             .write_packet(&mut buf)
