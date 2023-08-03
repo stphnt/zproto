@@ -2,7 +2,8 @@
 
 use super::SerialDeviceInUseOrDisconnectedError;
 use crate::ascii::{
-    parse::Packet, Alert, AnyResponse, Flag, Info, Reply, Response, SpecificResponse, Status,
+    parse::Packet, Alert, AnyResponse, Command, Flag, Info, Reply, Response, SpecificResponse,
+    Status, Target,
 };
 
 /// Implement the `new()` and `as_bytes()` methods errors storing bytes.
@@ -216,6 +217,35 @@ impl_error_display! {
 
 impl_traits_to_access_inner_response! { (AsciiUnexpectedPacketError) -> Packet { 0 } }
 impl_for_type_containing_packet! { AsciiUnexpectedPacketError }
+
+/// A [`Command`] could not be properly split into packets.
+#[derive(Debug)]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
+pub struct AsciiCommandSplitError(Box<(Target, String)>);
+
+impl AsciiCommandSplitError {
+    /// Create a new `AsciiCommandSplitError` error given a command that could not be split
+    ///
+    /// `command` is the command that could not be split.
+    pub(crate) fn new(command: impl Command) -> AsciiCommandSplitError {
+        AsciiCommandSplitError(Box::new((
+            command.target(),
+            String::from_utf8_lossy(command.data().as_ref()).into_owned(),
+        )))
+    }
+}
+
+impl AsRef<(Target, String)> for AsciiCommandSplitError {
+    /// Get the command that caused the error
+    fn as_ref(&self) -> &(Target, String) {
+        &self.0
+    }
+}
+
+impl_error_display! {
+    AsciiCommandSplitError,
+    self => "cannot split command into packets: {} {} {}", self.0.0.device(), self.0.0.axis(), self.0.1
+}
 
 /// A [`Reply`] was received with an unexpected reply flag.
 #[derive(Debug, PartialEq)]
@@ -486,6 +516,7 @@ error_enum! {
         CheckWarning(AsciiCheckWarningError<AnyResponse>),
         CheckData(AsciiCheckDataError<AnyResponse>),
         CheckCustom(AsciiCheckCustomError<AnyResponse>),
+        CommandSplit(AsciiCommandSplitError),
     }
 
     impl From<AsciiProtocolError> {

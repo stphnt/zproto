@@ -1,6 +1,9 @@
 //! Types and traits for generating ASCII commands.
 
-use crate::ascii::{checksum::Lrc, id, Target};
+use crate::{
+    ascii::{checksum::LrcWriter, id, Target},
+    error::{AsciiCommandSplitError, AsciiError},
+};
 use std::borrow::Cow;
 use std::io;
 
@@ -230,49 +233,114 @@ where
     }
 }
 
-/// An instance of an ASCII command that can be sent over the serial port.
-pub(crate) struct CommandInstance<'a> {
+/// The maximum number of bytes to put in a command packet.
+///
+/// It must be 80 bytes or larger. The [`default`](MaxPacketSize::default) is 80 bytes.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct MaxPacketSize(usize);
+
+impl MaxPacketSize {
+    const MIN_PACKET_SIZE: usize = 80;
+
+    /// Create a new MaxPacketSize if the value is >= 80.
+    pub const fn new(value: usize) -> Option<Self> {
+        if value >= Self::MIN_PACKET_SIZE {
+            Some(MaxPacketSize(value))
+        } else {
+            None
+        }
+    }
+
+    /// The default maximum command packet size is 80 bytes.
+    pub const fn default() -> MaxPacketSize {
+        MaxPacketSize(Self::MIN_PACKET_SIZE)
+    }
+
+    /// Get the number of bytes as a `usize`.
+    pub const fn as_usize(self) -> usize {
+        self.0
+    }
+}
+
+impl Default for MaxPacketSize {
+    /// The default maximum command packet size is 80 bytes.
+    fn default() -> Self {
+        MaxPacketSize::default()
+    }
+}
+
+/// A type for writing commands to the serial port.
+pub(crate) struct CommandWriter<'a> {
     /// The targeted device/axis
     pub target: Target,
     /// The message ID
     pub id: Option<u8>,
     /// The command data
     pub data: Cow<'a, [u8]>,
+    /// The current offset into the data
+    pub offset: usize,
     /// Whether to generate a checksum
     pub checksum: bool,
+    /// The maximum number of bytes to put in a packet
+    pub max_packet_size: MaxPacketSize,
+    /// The index of the next packet to send. 0 is the first packet.
+    pub packet_index: usize,
 }
 
-impl<'a> CommandInstance<'a> {
-    /// Create a instance of this command, which can be sent over the serial port.
+impl<'a> CommandWriter<'a> {
+    /// Create a command writer
     pub fn new<C, G>(
         command: &'a C,
         mut generator: G,
         generate_id: bool,
         generate_checksum: bool,
-    ) -> CommandInstance<'a>
+        max_packet_size: MaxPacketSize,
+    ) -> CommandWriter<'a>
     where
         C: Command,
         G: id::Generator,
     {
-        CommandInstance {
+        let data = command.data();
+        CommandWriter {
             target: command.target(),
             id: if generate_id {
                 Some(generator.next_id())
             } else {
                 None
             },
-            data: command.data(),
+            data,
+            offset: 0,
             checksum: generate_checksum,
+            max_packet_size,
+            packet_index: 0,
         }
     }
 
-    /// Write the contents of the command packet into writer.
+    /// Returns `true` if the command has been completely written out.
+    fn is_complete(&self) -> bool {
+        self.packet_index > 0
+            && (self.offset >= self.data.len() || self.data.iter().all(u8::is_ascii_whitespace))
+    }
+
+    /// Write the packet header and return the number of bytes written.
     ///
-    /// This is useful for calculating the checksum for the command and for
-    /// writing the full packet.
-    fn write_contents_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
+    /// Only the minimum number of bytes is used and no trailing whitespace is added.
+    fn write_packet_header<W: io::Write>(
+        &mut self,
+        writer: &mut LrcWriter<W>,
+    ) -> io::Result<usize> {
+        use std::io::Write as _;
+
+        let device_char_count = ascii_char_count(self.target.device());
+        let axis_char_count = ascii_char_count(self.target.axis());
+        write!(writer, "/")?;
+        let mut bytes_written = 1; // '/'
+
+        // Do not include the leading slash in the checksum
+        writer.reset_hash();
+
         // Only output the address, axis or message ID if it is necessary.
-        let wrote = match self.id {
+        match self.id {
             Some(id) => {
                 write!(
                     writer,
@@ -281,49 +349,124 @@ impl<'a> CommandInstance<'a> {
                     self.target.axis(),
                     id
                 )?;
-                true
+                bytes_written += device_char_count + axis_char_count + ascii_char_count(id) + 2;
+                // 2 spaces
             }
             None => {
                 if self.target.axis() != 0 {
                     write!(writer, "{} {}", self.target.device(), self.target.axis())?;
-                    true
+                    bytes_written += device_char_count + axis_char_count + 1; // 1 space
                 } else if self.target.device() != 0 {
                     write!(writer, "{}", self.target.device())?;
-                    true
-                } else {
-                    false
+                    bytes_written += device_char_count
                 }
             }
         };
+        Ok(bytes_written)
+    }
 
-        if !self.data.is_empty() {
-            // If necessary add a delimiting whitespace
-            if wrote {
-                write!(writer, " ")?;
-            }
-            writer.write_all(self.data.as_ref())?;
+    /// Write a packet for this command to `writer`. Returns `true` if more packets
+    /// need to be written, otherwise returns `false`.
+    pub fn write_packet<W: io::Write + ?Sized>(
+        &mut self,
+        writer: &mut W,
+    ) -> Result<bool, AsciiError> {
+        use std::io::Write as _;
+
+        if self.is_complete() {
+            return Ok(false);
         }
-        Ok(())
-    }
 
-    /// Get the checksum of the command if it were sent now.
-    ///
-    /// Ignores whether the checksum is actually enabled via `checksum`.
-    fn checksum(&self) -> u32 {
-        let mut buf = Vec::with_capacity(80);
-        self.write_contents_into(&mut buf).unwrap();
-        Lrc::hash(&buf[..])
-    }
+        let writer = &mut LrcWriter::new(writer);
+        let mut bytes_written = self.write_packet_header(writer)?;
 
-    /// Write the command packet into the specified writer.
-    pub fn write_into<W: io::Write + ?Sized>(&self, writer: &mut W) -> io::Result<()> {
-        write!(writer, "/")?;
-        self.write_contents_into(writer)?;
+        let data = &self.data[self.offset..];
+        let mut words = data
+            .split(u8::is_ascii_whitespace)
+            .filter(|word| !word.is_empty()) // Remove multiple adjacent whitespace
+            .enumerate()
+            .peekable();
+        if words.peek().is_some() {
+            if bytes_written > 1 {
+                // We've written numbers in the header, add a delimiting whitespace
+                // before we write the data portion.
+                write!(writer, " ")?;
+                bytes_written += 1;
+            }
+
+            if self.packet_index != 0 {
+                // This is a continuation packet so add the preamble
+                write!(writer, "cont {} ", self.packet_index)?;
+                bytes_written += 6 + ascii_char_count(self.packet_index as u8);
+            }
+
+            // Only add the data that will fit in the packet
+            let mut remaining = self.max_packet_size.as_usize()
+                - bytes_written // The header we've already written
+                - if self.checksum { 3 } else { 0 } // save space for the checksum
+                - 1; // save space for the '\n' terminator
+            let mut wrote_word = false;
+            while let Some((index, word)) = words.next() {
+                let mut needed_bytes = word.len();
+                if index != 0 {
+                    needed_bytes += 1; // Leading delimiting space
+                }
+                if needed_bytes <= remaining {
+                    // This word fits
+                    if words.peek().is_some() && needed_bytes == remaining {
+                        // We cannot add the necessary trailing space (if the
+                        // next word fits in the packet) or the `\` (if the next
+                        // word does not). So we must split the packet before
+                        // this word.
+                        self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
+                        break;
+                    }
+
+                    if index != 0 {
+                        writer.write_all(b" ")?;
+                    }
+                    writer.write_all(word)?;
+                    wrote_word = true;
+                    remaining -= needed_bytes;
+
+                    // Move the offset past this word
+                    self.offset = words
+                        .peek()
+                        .map(|(_, word)| word.as_ptr() as usize - self.data.as_ptr() as usize)
+                        .unwrap_or_else(|| self.data.len())
+                } else {
+                    // The word doesn't fit, split here
+                    self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
+                    break;
+                }
+            }
+            if !wrote_word {
+                // Could not find a whitespace to split the command at
+                return Err(AsciiCommandSplitError::new((self.target, self.data.to_vec())).into());
+            }
+            if self.offset != self.data.len() {
+                writer.write_all(b"\\")?;
+            }
+        }
 
         if self.checksum {
-            write!(writer, ":{:02X}", self.checksum())?;
+            let checksum = writer.finish_hash();
+            write!(writer, ":{:02X}", checksum)?;
         }
-        writeln!(writer)
+        writer.write_all(b"\n")?;
+        self.packet_index += 1;
+        Ok(!self.is_complete())
+    }
+}
+
+/// Calculates the number of ASCII digits that are required to print `num`.
+fn ascii_char_count(num: u8) -> usize {
+    if num < 10 {
+        1
+    } else if num < 100 {
+        2
+    } else {
+        3
     }
 }
 
@@ -347,77 +490,207 @@ mod test {
     }
 
     #[test]
-    fn test_write_command() {
-        let mut generator = ConstId {};
+    fn test_command_writer() {
+        let mut buf = Vec::with_capacity(500);
+        struct Case {
+            command: &'static (u8, u8, &'static str),
+            generate_id: bool,
+            generate_checksum: bool,
+            expected: &'static [u8],
+        }
+        let cases = [
+            Case {
+                command: &(0, 0, ""),
+                generate_id: false,
+                generate_checksum: false,
+                expected: b"/\n",
+            },
+            Case {
+                command: &(0, 0, " \t"),
+                generate_id: false,
+                generate_checksum: false,
+                expected: b"/\n",
+            },
+            Case {
+                command: &(0, 0, ""),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/:00\n",
+            },
+            Case {
+                command: &(0, 0, " \t"),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/:00\n",
+            },
+            Case {
+                command: &(0, 0, ""),
+                generate_id: true,
+                generate_checksum: true,
+                expected: b"/0 0 5:2B\n",
+            },
+            Case {
+                command: &(0, 0, " \t"),
+                generate_id: true,
+                generate_checksum: true,
+                expected: b"/0 0 5:2B\n",
+            },
+            Case {
+                command: &(1, 0, ""),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/1:CF\n",
+            },
+            Case {
+                command: &(0, 1, ""),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/0 1:7F\n",
+            },
+            Case {
+                command: &(2, 1, ""),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/2 1:7D\n",
+            },
+            Case {
+                command: &(1, 0, "tools echo"),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/1 tools echo:BF\n",
+            },
+            Case {
+                command: &(0, 0, "get maxspeed"),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/get maxspeed:49\n",
+            },
+            Case {
+                command: &(2, 0, "get maxspeed"),
+                generate_id: true,
+                generate_checksum: true,
+                expected: b"/2 0 5 get maxspeed:52\n",
+            },
+            Case {
+                command: &(1, 0, "tools echo aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg hhhhhhhhhh iiiiiiiiii jjjjjjjjj"),
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/1 tools echo aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee\\:D0\n/1 cont 1 ffffffffff gggggggggg hhhhhhhhhh iiiiiiiiii jjjjjjjjj:24\n",
+            },
+            Case {
+                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Should just fit into one packet
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg:4B\n",
+            },
+            Case {
+                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg h"), // Extra h should pull the gg... into next packet to make room for `\`
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:15\n/cont 1 gggggggggg h:4D\n",
+            },
+            Case {
+                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff ggggggggg h"), // Extra h should _not_ pull the gg... into next packet as there is one fewer g.
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff ggggggggg\\:56\n/cont 1 h:73\n",
+            },
+            Case {
+                command: &(1, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Larger header should push gg... into next packet.
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/1 aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:C4\n/1 cont 1 gggggggggg:84\n",
+            },
+            Case {
+                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Larger header should push gg... into next packet.
+                generate_id: true,
+                generate_checksum: true,
+                expected: b"/0 0 5 aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:20\n/0 0 5 cont 1 gggggggggg:E0\n",
+            },
+            Case {
+                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd     \teeeeeeeeee ffffffffff gggggggggg h"), // Extra space should be squashed
+                generate_id: false,
+                generate_checksum: true,
+                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:15\n/cont 1 gggggggggg h:4D\n",
+            },
+        ];
 
-        let mut buf = Vec::new();
+        for (case_index, case) in cases.into_iter().enumerate() {
+            eprintln!("cases[{}] = {:?}", case_index, case.command);
 
-        CommandInstance::new(&"get maxspeed", &mut generator, false, true)
-            .write_into(&mut buf)
-            .unwrap();
-        assert_eq!(
-            buf,
-            b"/get maxspeed:49\n",
-            "Unexpectedly got `{}`",
-            std::str::from_utf8(&buf).unwrap()
-        );
+            buf.clear();
+            let mut writer = CommandWriter::new(
+                &case.command,
+                ConstId {},
+                case.generate_id,
+                case.generate_checksum,
+                MaxPacketSize::default(),
+            );
+            let num_expected_packets = case.expected.iter().filter(|byte| **byte == b'\n').count();
+            for index in 0..num_expected_packets {
+                let more = writer.write_packet(&mut buf).unwrap();
+                assert_eq!(
+                    more,
+                    index + 1 != num_expected_packets,
+                    "packet {index}: unexpected write_packet result ({more}): {}",
+                    std::str::from_utf8(&buf).unwrap()
+                );
+            }
 
-        buf.clear();
-        CommandInstance::new(&(2, "get maxspeed"), &mut generator, true, true)
-            .write_into(&mut buf)
-            .unwrap();
-        assert_eq!(
-            buf,
-            b"/2 0 5 get maxspeed:52\n",
-            "Unexpectedly got `{}`",
-            std::str::from_utf8(&buf).unwrap()
-        );
-
-        buf.clear();
-        CommandInstance::new(&"", &mut generator, false, true)
-            .write_into(&mut buf)
-            .unwrap();
-        assert_eq!(
-            buf,
-            b"/:00\n",
-            "Unexpectedly got `{}`",
-            std::str::from_utf8(&buf).unwrap()
-        );
-
-        buf.clear();
-        CommandInstance::new(&(1, ""), &mut generator, false, true)
-            .write_into(&mut buf)
-            .unwrap();
-        assert_eq!(
-            buf,
-            b"/1:CF\n",
-            "Unexpectedly got `{}`",
-            std::str::from_utf8(&buf).unwrap()
-        );
-
-        buf.clear();
-        CommandInstance::new(&(1, 2, "tools echo bob"), &mut generator, false, false)
-            .write_into(&mut buf)
-            .unwrap();
-        assert_eq!(
-            buf,
-            b"/1 2 tools echo bob\n",
-            "Unexpectedly got `{}`",
-            std::str::from_utf8(&buf).unwrap()
-        );
+            assert_eq!(
+                buf,
+                case.expected,
+                "unexpected output: {}",
+                String::from_utf8_lossy(&buf)
+            );
+        }
     }
 
     #[test]
-    fn test_command_checksum() {
+    fn test_command_writer_custom_packet_size() {
         let mut buf = vec![];
-        CommandInstance::new(&(1, "tools echo"), ConstId {}, false, true)
-            .write_into(&mut buf)
+        let _79_bytes =
+            "1234567891123456789212345678931234567894123456789512345678961234567897123456789";
+        {
+            // Should be not be able to fit data plus the leading `/` and trailing `\n`
+            let mut writer = CommandWriter::new(
+                &_79_bytes,
+                ConstId {},
+                false,
+                false,
+                MaxPacketSize::default(),
+            );
+            writer.write_packet(&mut buf).unwrap_err();
+        }
+        {
+            // Should have just enough room for leading `/` and trailing `\n`
+            let mut writer = CommandWriter::new(
+                &_79_bytes,
+                ConstId {},
+                false,
+                false,
+                MaxPacketSize::new(81).unwrap(),
+            );
+            assert_eq!(writer.write_packet(&mut buf).unwrap(), false);
+        }
+    }
+
+    #[test]
+    fn test_command_writer_cannot_split() {
+        let mut buf = vec![];
+        let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true, MaxPacketSize::default());
+        assert_eq!(writer.write_packet(&mut buf).unwrap(), true);
+        let _: AsciiCommandSplitError = writer
+            .write_packet(&mut buf)
+            .unwrap_err()
+            .try_into()
             .unwrap();
-        assert_eq!(
-            buf,
-            b"/1 tools echo:BF\n",
-            "Unexpectedly got `{}`",
-            std::str::from_utf8(&buf).unwrap()
-        );
+    }
+
+    #[test]
+    fn test_max_packet_size() {
+        assert_eq!(MaxPacketSize::default().as_usize(), 80);
+        assert!(MaxPacketSize::new(79).is_none());
+        assert!(MaxPacketSize::new(80).is_some());
     }
 }

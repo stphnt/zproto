@@ -9,8 +9,8 @@ use crate::{
         checksum::Lrc,
         id,
         parse::{Packet, PacketKind},
-        Alert, AnyResponse, Command, CommandInstance, Info, Reply, Response, ResponseBuilder,
-        Status, Target,
+        Alert, AnyResponse, Command, CommandWriter, Info, MaxPacketSize, Reply, Response,
+        ResponseBuilder, Status, Target,
     },
     error::*,
     timeout_guard::TimeoutGuard,
@@ -45,6 +45,8 @@ pub struct OpenSerialOptions {
     generate_id: bool,
     /// Whether commands should include a checksum or not.
     generate_checksum: bool,
+    /// The maximum command packet size.
+    max_packet_size: MaxPacketSize,
 }
 
 impl OpenSerialOptions {
@@ -62,6 +64,7 @@ impl OpenSerialOptions {
             timeout: Some(Duration::from_secs(3)),
             generate_id: true,
             generate_checksum: true,
+            max_packet_size: MaxPacketSize::default(),
         }
     }
 
@@ -97,6 +100,14 @@ impl OpenSerialOptions {
         self
     }
 
+    /// Set the maximum command packet size.
+    ///
+    /// The default is [`MaxPacketSize::default`].
+    pub fn max_packet_size(&mut self, max_packet_size: MaxPacketSize) -> &mut Self {
+        self.max_packet_size = max_packet_size;
+        self
+    }
+
     /// Open a [`Serial`] port configured for the ASCII protocol at the specified path.
     fn open_serial_port(&self, path: &str) -> Result<Serial, AsciiError> {
         // Due to https://gitlab.com/susurrus/serialport-rs/-/issues/102, the
@@ -124,6 +135,7 @@ impl OpenSerialOptions {
             self.open_serial_port(path)?,
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 
@@ -138,6 +150,7 @@ impl OpenSerialOptions {
             Box::new(self.open_serial_port(path)?),
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 }
@@ -170,6 +183,8 @@ pub struct OpenTcpOptions {
     generate_id: bool,
     /// Whether commands should include a checksum or not.
     generate_checksum: bool,
+    /// The maximum command packet size.
+    max_packet_size: MaxPacketSize,
 }
 
 impl OpenTcpOptions {
@@ -183,6 +198,7 @@ impl OpenTcpOptions {
             timeout: Some(Duration::from_secs(3)),
             generate_id: true,
             generate_checksum: true,
+            max_packet_size: MaxPacketSize::default(),
         }
     }
 
@@ -210,6 +226,14 @@ impl OpenTcpOptions {
         self
     }
 
+    /// Set the maximum command packet size.
+    ///
+    /// The default is [`MaxPacketSize::default`].
+    pub fn max_packet_size(&mut self, max_packet_size: MaxPacketSize) -> &mut Self {
+        self.max_packet_size = max_packet_size;
+        self
+    }
+
     /// Open a [`TcpStream`] configured for the ASCII protocol at the specified address.
     fn open_tcp_stream<A: ToSocketAddrs>(&self, address: A) -> io::Result<TcpStream> {
         let stream = TcpStream::connect(address)?;
@@ -223,6 +247,7 @@ impl OpenTcpOptions {
             self.open_tcp_stream(address)?,
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 
@@ -240,6 +265,7 @@ impl OpenTcpOptions {
             Box::new(self.open_tcp_stream(address)?),
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         ))
     }
 }
@@ -324,6 +350,8 @@ pub struct Port<'a, B> {
     generate_id: bool,
     /// Whether commands should include checksums or not.
     generate_checksum: bool,
+    /// The maximum command packet size.
+    max_packet_size: MaxPacketSize,
     /// If populated, the error that has "poisoned" the port. This error MUST be
     /// reported before the port is used for communication again.
     ///
@@ -391,18 +419,24 @@ impl<'a> Port<'a, TcpStream> {
 impl<'a> Port<'a, Mock> {
     /// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
     pub fn open_mock() -> Port<'a, Mock> {
-        Port::from_backend(Mock::new(), false, false)
+        Port::from_backend(Mock::new(), false, false, MaxPacketSize::default())
     }
 }
 
 impl<'a, B: Backend> Port<'a, B> {
     /// Create a `Port` from a [`Backend`] type.
-    fn from_backend(backend: B, generate_id: bool, generate_checksum: bool) -> Self {
+    fn from_backend(
+        backend: B,
+        generate_id: bool,
+        generate_checksum: bool,
+        max_packet_size: MaxPacketSize,
+    ) -> Self {
         Port {
             backend,
             ids: id::Counter::default(),
             generate_id,
             generate_checksum,
+            max_packet_size,
             poison: None,
             builder: ResponseBuilder::default(),
             packet_hook: None,
@@ -423,6 +457,9 @@ impl<'a, B: Backend> Port<'a, B> {
     ///
     /// On success, the generated message ID (if any) is returned.
     ///
+    /// If necessary, the command will be split into multiple packets so that no
+    /// packet is longer than [`max_packet_size`](Self::max_packet_size).
+    ///
     /// ## Example
     ///
     /// ```rust
@@ -437,28 +474,36 @@ impl<'a, B: Backend> Port<'a, B> {
         self.check_poisoned()?;
 
         let mut buffer = Vec::new();
-        let instance = CommandInstance::new(
+        let mut writer = CommandWriter::new(
             &cmd,
             &mut self.ids,
             self.generate_id,
             self.generate_checksum,
+            self.max_packet_size,
         );
-        instance.write_into(&mut buffer)?;
-        log::debug!(
-            "{} TX:   {}",
-            self.backend
-                .name()
-                .unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
-            String::from_utf8_lossy(buffer.as_slice()).trim_end()
-        );
-        self.backend.write_all(buffer.as_slice())?;
-        if let Some(ref mut callback) = self.packet_hook {
-            (callback.0)(buffer.as_slice(), Direction::Tx);
+        let mut more_packets = true;
+        while more_packets {
+            more_packets = writer.write_packet(&mut buffer)?;
+            log::debug!(
+                "{} TX:   {}",
+                self.backend
+                    .name()
+                    .unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
+                String::from_utf8_lossy(buffer.as_slice()).trim_end()
+            );
+            self.backend.write_all(buffer.as_slice())?;
+            if let Some(ref mut callback) = self.packet_hook {
+                (callback.0)(buffer.as_slice(), Direction::Tx);
+            }
+            buffer.clear();
         }
-        Ok(instance.id)
+        Ok(writer.id)
     }
 
     /// Transmit a command, receive a reply, and check it with the [`strict`](check::strict) check.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If the reply is split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -502,6 +547,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and receive a reply.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
@@ -533,6 +581,9 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Transmit a command and then receive a reply and all subsequent info messages.
     ///
     /// The reply and info messages are checked with the [`strict`](check::strict) check.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If the reply or info messages are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -600,6 +651,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
@@ -649,6 +703,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command, receive n replies, and check each reply with the [`strict`](check::strict) check.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
     /// ## Example
@@ -696,6 +753,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Transmit a command and then receive n replies.
     ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
     ///
@@ -724,6 +784,9 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Transmit a command, receive replies until the port times out, and check each reply with the [`strict`](check::strict) check.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If any of the replies are split across multiple packets, the continuation messages will automatically be read.
     ///
@@ -772,6 +835,9 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 
     /// Transmit a command and then receive replies until the port times out.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no packet is longer than
+    /// [`max_packet_size`](Self::max_packet_size).
     ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
@@ -1285,6 +1351,9 @@ impl<'a, B: Backend> Port<'a, B> {
     /// the replies are checked with the [`strict`](check::strict)
     /// check.
     ///
+    /// If necessary, the command will be split into multiple packets so that no
+    /// packet is longer than [`max_packet_size`](Self::max_packet_size).
+    ///
     /// If any of the replies are split across multiple packets, the
     /// continuation messages will automatically be read.
     ///
@@ -1340,6 +1409,9 @@ impl<'a, B: Backend> Port<'a, B> {
 
     /// Send the specified command repeatedly until the predicate returns true
     /// for a reply.
+    ///
+    /// If necessary, the command will be split into multiple packets so that no
+    /// packet is longer than [`max_packet_size`](Self::max_packet_size).
     ///
     /// If any response is spread across multiple packets, continuation packets will be read.
     /// `header_check` should be a function that produces data for validating the response's header.
@@ -1472,6 +1544,18 @@ impl<'a, B: Backend> Port<'a, B> {
     /// Get whether the port will include message IDs or not in commands.
     pub fn message_ids(&self) -> bool {
         self.generate_id
+    }
+
+    /// Set the maximum command packet size.
+    ///
+    /// The previous value is returned.
+    pub fn set_max_packet_size(&mut self, value: MaxPacketSize) -> MaxPacketSize {
+        std::mem::replace(&mut self.max_packet_size, value)
+    }
+
+    /// Get the maximum command packet size.
+    pub fn max_packet_size(&self) -> MaxPacketSize {
+        self.max_packet_size
     }
 
     /// Set the read timeout and return the old timeout.
@@ -2185,6 +2269,19 @@ mod test {
         assert!(port.checksums());
         assert!(port.set_checksums(true));
         assert!(port.checksums());
+    }
+
+    #[test]
+    fn set_max_packet_size() {
+        use super::MaxPacketSize;
+
+        let _81 = MaxPacketSize::new(81).unwrap();
+        let default = MaxPacketSize::default();
+
+        let mut port = Port::open_mock();
+        assert_eq!(port.max_packet_size(), default);
+        assert_eq!(port.set_max_packet_size(_81), default);
+        assert_eq!(port.max_packet_size(), _81);
     }
 
     #[test]
