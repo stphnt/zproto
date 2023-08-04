@@ -21,15 +21,8 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libudev-dev
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check --all-features
 
   test:
     name: Test Suite
@@ -47,15 +40,8 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libudev-dev
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --features=ascii,binary --workspace --verbose
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --features=ascii,binary --workspace --verbose
 
   fmt:
     name: Rustfmt
@@ -63,16 +49,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+          components: rustfmt
+      - run: cargo fmt
 
   clippy:
     name: Clippy
@@ -84,16 +64,10 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libudev-dev
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-features -- -D warnings
+          components: clippy
+      - run: cargo clippy --all-features -- -D warnings
 
   spelling:
     name: Spell Check
@@ -115,13 +89,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libudev-dev
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-      - run: rustup component add rust-docs
-      - uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --all-features
+          components: rust-docs
+      - run: cargo doc --no-deps --all-features
