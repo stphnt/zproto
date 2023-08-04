@@ -15,13 +15,13 @@ jobs:
       RUSTFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
       - name: Install libudev
         if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install libudev-dev
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v1
       - run: cargo check --all-features
 
   test:
@@ -34,13 +34,13 @@ jobs:
       RUSTFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
       - name: Install libudev
         if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install libudev-dev
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v1
       - run: cargo test --features=ascii,binary --workspace --verbose
 
   fmt:
@@ -48,10 +48,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+      - uses: Swatinem/rust-cache@v1
       - run: cargo fmt
 
   clippy:
@@ -59,7 +59,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
       - name: Install libudev
         run: |
           sudo apt update
@@ -67,6 +66,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - uses: Swatinem/rust-cache@v1
       - run: cargo clippy --all-features -- -D warnings
 
   spelling:
@@ -84,7 +84,6 @@ jobs:
       RUSTDOCFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v2
-      - uses: Swatinem/rust-cache@v1
       - name: Install libudev
         run: |
           sudo apt update
@@ -92,4 +91,5 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-docs
+      - uses: Swatinem/rust-cache@v1
       - run: cargo doc --no-deps --all-features
