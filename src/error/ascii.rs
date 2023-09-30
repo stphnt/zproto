@@ -121,6 +121,28 @@ macro_rules! impl_from_specific_to_any_response {
     };
 }
 
+/// Implement the conversion from Type<AnyResponse> to Type<SpecificResponse>
+/// for error types that can hold either.
+macro_rules! impl_try_from_any_response_to_specific {
+    ($error_type:ident) => {
+        impl_try_from_any_response_to_specific! { @private $error_type : Reply }
+        impl_try_from_any_response_to_specific! { @private $error_type : Alert }
+        impl_try_from_any_response_to_specific! { @private $error_type : Info }
+    };
+    (@private $error_type:ident : $specific_type:ident) => {
+        impl TryFrom<$error_type<AnyResponse>> for $error_type<$specific_type> {
+            type Error = $error_type<AnyResponse>;
+            fn try_from(other: $error_type<AnyResponse>) -> Result<Self, Self::Error> {
+                let response = other.0 .1;
+                match $specific_type::try_from(response) {
+                    Ok(specific) => Ok($error_type::new(other.0 .0, specific)),
+                    Err(response) => Err($error_type::new(other.0 .0, response)),
+                }
+            }
+        }
+    };
+}
+
 /// An ASCII packet was missing a start byte.
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
@@ -319,6 +341,7 @@ impl<R: Response> AsciiCheckStatusError<R> {
     }
 }
 
+impl_try_from_any_response_to_specific! { AsciiCheckStatusError }
 impl_from_specific_to_any_response! { AsciiCheckStatusError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckStatusError) -> R { 0.1 } }
 
@@ -341,6 +364,7 @@ impl<R: Response> AsciiCheckWarningError<R> {
     }
 }
 
+impl_try_from_any_response_to_specific! { AsciiCheckWarningError }
 impl_from_specific_to_any_response! { AsciiCheckWarningError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckWarningError) -> R { 0.1 } }
 
@@ -363,6 +387,7 @@ impl_error_display! {
     self => "{}: {}", self.0.0, self.0.1
 }
 
+impl_try_from_any_response_to_specific! { AsciiCheckDataError }
 impl_from_specific_to_any_response! { AsciiCheckDataError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckDataError) -> R { 0.1 } }
 
@@ -392,6 +417,7 @@ impl<R: Response> AsciiCheckCustomError<R> {
     }
 }
 
+impl_try_from_any_response_to_specific! { AsciiCheckCustomError }
 impl_from_specific_to_any_response! { AsciiCheckCustomError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckCustomError) -> R { 0.1 } }
 
@@ -511,6 +537,69 @@ impl TryFrom<AsciiError> for AsciiCheckError<AnyResponse> {
     }
 }
 
+impl TryFrom<AsciiCheckError<AnyResponse>> for AsciiCheckError<Reply> {
+    type Error = AsciiCheckError<AnyResponse>;
+    fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
+        match other {
+            AsciiCheckError::Flag(e) => Ok(AsciiCheckError::Flag(e)),
+            AsciiCheckError::Status(e) => AsciiCheckStatusError::<Reply>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Reply>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Data(e) => AsciiCheckDataError::<Reply>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Reply>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+        }
+    }
+}
+
+impl TryFrom<AsciiCheckError<AnyResponse>> for AsciiCheckError<Info> {
+    type Error = AsciiCheckError<AnyResponse>;
+    fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
+        match other {
+            AsciiCheckError::Flag(e) => Err(AsciiCheckError::Flag(e)),
+            AsciiCheckError::Status(e) => AsciiCheckStatusError::<Info>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Info>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Data(e) => AsciiCheckDataError::<Info>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Info>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+        }
+    }
+}
+
+impl TryFrom<AsciiCheckError<AnyResponse>> for AsciiCheckError<Alert> {
+    type Error = AsciiCheckError<AnyResponse>;
+    fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
+        match other {
+            AsciiCheckError::Flag(e) => Err(AsciiCheckError::Flag(e)),
+            AsciiCheckError::Status(e) => AsciiCheckStatusError::<Alert>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Alert>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Data(e) => AsciiCheckDataError::<Alert>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+            AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Alert>::try_from(e)
+                .map(Into::into)
+                .map_err(Into::into),
+        }
+    }
+}
+
 impl<R> From<AsciiCheckError<R>> for AsciiCheckError<AnyResponse>
 where
     R: SpecificResponse,
@@ -620,6 +709,9 @@ mod test {
         From<AsciiCheckError<Info>>,
         From<AsciiCheckError<Alert>>
     );
+    assert_impl_all!(AsciiCheckError<Reply>: TryFrom<AsciiCheckError<AnyResponse>>);
+    assert_impl_all!(AsciiCheckError<Info>: TryFrom<AsciiCheckError<AnyResponse>>);
+    assert_impl_all!(AsciiCheckError<Alert>: TryFrom<AsciiCheckError<AnyResponse>>);
 
     assert_accessor_traits_to_response!(AsciiCheckFlagError => Reply);
 
@@ -627,19 +719,23 @@ mod test {
     assert_accessor_traits_to_response!(AsciiCheckStatusError<Reply> => Reply);
     assert_accessor_traits_to_response!(AsciiCheckStatusError<Info> => Info);
     assert_accessor_traits_to_response!(AsciiCheckStatusError<Alert> => Alert);
+    assert_impl_all!(AsciiCheckStatusError<Reply>: TryFrom<AsciiCheckStatusError<AnyResponse>>);
 
     assert_accessor_traits_to_response!(AsciiCheckWarningError<AnyResponse> => AnyResponse);
     assert_accessor_traits_to_response!(AsciiCheckWarningError<Reply> => Reply);
     assert_accessor_traits_to_response!(AsciiCheckWarningError<Info> => Info);
     assert_accessor_traits_to_response!(AsciiCheckWarningError<Alert> => Alert);
+    assert_impl_all!(AsciiCheckWarningError<Reply>: TryFrom<AsciiCheckWarningError<AnyResponse>>);
 
     assert_accessor_traits_to_response!(AsciiCheckDataError<AnyResponse> => AnyResponse);
     assert_accessor_traits_to_response!(AsciiCheckDataError<Reply> => Reply);
     assert_accessor_traits_to_response!(AsciiCheckDataError<Info> => Info);
     assert_accessor_traits_to_response!(AsciiCheckDataError<Alert> => Alert);
+    assert_impl_all!(AsciiCheckDataError<Reply>: TryFrom<AsciiCheckDataError<AnyResponse>>);
 
     assert_accessor_traits_to_response!(AsciiCheckCustomError<AnyResponse> => AnyResponse);
     assert_accessor_traits_to_response!(AsciiCheckCustomError<Reply> => Reply);
     assert_accessor_traits_to_response!(AsciiCheckCustomError<Info> => Info);
     assert_accessor_traits_to_response!(AsciiCheckCustomError<Alert> => Alert);
+    assert_impl_all!(AsciiCheckCustomError<Reply>: TryFrom<AsciiCheckCustomError<AnyResponse>>);
 }
