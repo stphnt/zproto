@@ -669,7 +669,19 @@ impl<'a, B: Backend> Port<'a, B> {
         K: check::Check<AnyResponse>,
     {
         let target = cmd.as_ref().target();
-        let reply = self.command_reply(cmd)?;
+        let reply_checker = checker.as_ref().map(|checker| {
+            // It should be reasonably safe to unwrap here. All checks implemented by this crate return the same response
+            // they received. It is possible for a user to create their own check that doesn't do that but it would
+            // be hard to do since only this crate can create responses (users can create packets from bytes, but
+            // they can't create `Reply`s, `Info`s, or `Alert`s directly).
+            |reply: Reply| {
+                checker
+                    .check(AnyResponse::from(reply))
+                    .map(|response| Reply::try_from(response).unwrap())
+                    .map_err(|err| AsciiCheckError::<Reply>::try_from(err).unwrap())
+            }
+        });
+        let reply = self.internal_command_reply_with_check(cmd, reply_checker)?;
         let old_generate_id = self.set_message_ids(true);
         let sentinel_id = self.command((target, ""));
         self.set_message_ids(old_generate_id);
@@ -2444,6 +2456,9 @@ mod test {
                 ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
                 ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
 
+                ok case  b"@01 1 OK IDLE -- 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos(""),
+                err case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("") => AsciiCheckWarningError,
+
                 err case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckFlagError,
                 err case b"@01 1 OK IDLE WR 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckWarningError,
 
@@ -2474,6 +2489,8 @@ mod test {
 
                 ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_with_check("", |_| true, check::predicate(|_| true)),
                 ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle_with_check(1, check::predicate(|_| true)),
+
+                ok case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos_with_check("", check::unchecked()),
             }
         }
     }
