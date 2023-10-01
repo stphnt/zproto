@@ -4,8 +4,6 @@ mod options;
 #[cfg(test)]
 mod test;
 
-#[cfg(test)]
-use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
     ascii::{
@@ -161,14 +159,6 @@ impl<'a> Port<'a, TcpStream> {
     /// ```
     pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream>, io::Error> {
         OpenTcpOptions::new().open(address)
-    }
-}
-
-#[cfg(test)]
-impl<'a> Port<'a, Mock> {
-    /// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
-    pub fn open_mock() -> Port<'a, Mock> {
-        Port::from_backend(Mock::new(), false, false, MaxPacketSize::default())
     }
 }
 
