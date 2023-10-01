@@ -18,10 +18,12 @@ use crate::{
     timeout_guard::TimeoutGuard,
 };
 pub use options::*;
-use std::convert::TryFrom;
-use std::io;
-use std::net::{TcpStream, ToSocketAddrs};
-use std::time::Duration;
+use std::{
+    convert::TryFrom,
+    io,
+    net::{TcpStream, ToSocketAddrs},
+    time::Duration,
+};
 
 /// A callback that is called after a packet is either transmitted or received.
 ///
