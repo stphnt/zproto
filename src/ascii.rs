@@ -161,6 +161,7 @@ mod id;
 pub mod parse;
 mod port;
 mod response;
+pub mod scope;
 
 pub use command::*;
 pub use port::*;
