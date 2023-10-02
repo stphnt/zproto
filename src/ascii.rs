@@ -156,6 +156,7 @@
 
 pub(crate) mod checksum;
 mod command;
+pub mod data_type;
 mod id;
 pub mod parse;
 mod port;
