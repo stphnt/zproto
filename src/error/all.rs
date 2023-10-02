@@ -33,6 +33,7 @@ error_enum! {
         BinaryUnexpectedCommand(BinaryUnexpectedCommandError),
         LockPoisoned(LockPoisonedError),
         LockUnavailable(LockUnavailableError),
+        Conversion(ConversionError),
     }
 
     impl From<AsciiProtocolError> {
@@ -59,6 +60,7 @@ error_enum! {
         ReservedCharacter => AsciiReservedCharacter,
         LockPoisoned => LockPoisoned,
         LockUnavailable => LockUnavailable,
+        Conversion => Conversion,
     }
 
     impl From<BinaryUnexpectedError> {
@@ -126,6 +128,11 @@ error_enum! {
         Unavailable(LockUnavailableError),
     }
 }
+
+/// Converting a value failed.
+#[derive(Debug)]
+pub struct ConversionError(pub(crate) Box<str>);
+impl_error_display! { ConversionError, self => "conversion failure: {}", self.0 }
 
 #[cfg(test)]
 mod test {
