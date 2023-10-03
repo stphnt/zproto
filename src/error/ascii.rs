@@ -5,7 +5,9 @@ use crate::ascii::{
     parse::Packet, Alert, AnyResponse, Command, Flag, Info, Reply, Response, SpecificResponse,
     Status, Target,
 };
-use crate::error::{ConversionError, LockError, LockPoisonedError, LockUnavailableError};
+use crate::error::{
+    ConversionError, DuplicateAddressError, LockError, LockPoisonedError, LockUnavailableError,
+};
 
 /// Implement the `new()` and `as_bytes()` methods errors storing bytes.
 macro_rules! impl_for_type_containing_bytes {
@@ -643,6 +645,7 @@ error_enum! {
         LockPoisoned(LockPoisonedError),
         LockUnavailable(LockUnavailableError),
         Conversion(ConversionError),
+        DuplicateAddress(DuplicateAddressError),
     }
 
     impl From<AsciiProtocolError> {

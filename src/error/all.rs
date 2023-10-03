@@ -34,6 +34,7 @@ error_enum! {
         LockPoisoned(LockPoisonedError),
         LockUnavailable(LockUnavailableError),
         Conversion(ConversionError),
+        DuplicateAddress(DuplicateAddressError),
     }
 
     impl From<AsciiProtocolError> {
@@ -61,6 +62,7 @@ error_enum! {
         LockPoisoned => LockPoisoned,
         LockUnavailable => LockUnavailable,
         Conversion => Conversion,
+        DuplicateAddress => DuplicateAddress,
     }
 
     impl From<BinaryUnexpectedError> {
@@ -133,6 +135,23 @@ error_enum! {
 #[derive(Debug)]
 pub struct ConversionError(pub(crate) Box<str>);
 impl_error_display! { ConversionError, self => "conversion failure: {}", self.0 }
+
+/// Multiple devices were discovered with the same address.
+///
+/// Device addresses must be unique. Sending the `renumber` command will
+/// automatically assign each device a unique address.
+#[derive(Debug)]
+pub struct DuplicateAddressError {
+    /// The duplicated device address
+    pub(crate) address: u8,
+}
+impl_error_display! { DuplicateAddressError, self => "multiple devices in the chain have the same device address (`{}`)", self.address }
+impl DuplicateAddressError {
+    /// Get the duplicated device address.
+    pub fn address(&self) -> u8 {
+        self.address
+    }
+}
 
 #[cfg(test)]
 mod test {
