@@ -158,6 +158,7 @@ pub(crate) mod checksum;
 mod command;
 pub mod data_type;
 mod id;
+mod marker;
 pub mod parse;
 mod port;
 mod response;
