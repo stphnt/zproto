@@ -163,6 +163,7 @@ pub mod parse;
 mod port;
 mod response;
 pub mod scope;
+pub mod setting;
 
 pub use command::*;
 pub use port::*;
