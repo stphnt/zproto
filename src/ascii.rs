@@ -154,6 +154,7 @@
 //! # }
 //! ```
 
+pub mod chain;
 pub(crate) mod checksum;
 mod command;
 pub mod data_type;
