@@ -119,6 +119,8 @@ macro_rules! define_any_setting {
     };
 }
 
+include!("setting/mod.inc");
+
 /// Any type that represents a setting
 pub trait Setting {
 	/// The setting's datatype.

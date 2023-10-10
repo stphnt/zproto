@@ -15,6 +15,9 @@ categories = ["hardware-support"]
 [package.metadata.docs.rs]
 all-features = true
 
+[workspace]
+members = ["scripts/generate-apis"]
+
 [features]
 default = ["ascii", "binary"]
 # Include the ASCII protocol
