@@ -1,6 +1,7 @@
 //! Types for opening and using a serial port with the ASCII protocol.
 
 mod options;
+pub mod routine;
 #[cfg(test)]
 mod test;
 
@@ -317,6 +318,11 @@ impl<'a, B: Backend> Port<'a, B> {
         )?;
         self.post_receive_response()?;
         Ok(response)
+    }
+
+    /// TODO
+    pub fn command_reply2<C: Command>(&mut self, cmd: C) -> routine::CommandReply<'_, 'a, B, C> {
+        routine::CommandReply { port: self, cmd }
     }
 
     /// Transmit a command and then receive a reply and all subsequent info messages.
