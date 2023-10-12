@@ -275,7 +275,7 @@ pub fn flag_ok() -> impl Check<Reply> {
 
 /// Return a check that verifies the response's [`Flag`] is `RJ`.
 pub fn flag_rj() -> impl Check<Reply> {
-    flag_is(Flag::Ok)
+    flag_is(Flag::Rj)
 }
 
 /// Return a check that verifies the response's [`Flag`] is `OK` and that the
@@ -713,6 +713,11 @@ mod test {
             Case {
                 reply: ok_busy_reply.clone(),
                 checker: &flag_is(Flag::Rj),
+                expected: Err(AsciiCheckFlagError::new(Flag::Rj, ok_busy_reply.clone()).into()),
+            },
+            Case {
+                reply: ok_busy_reply.clone(),
+                checker: &flag_rj(),
                 expected: Err(AsciiCheckFlagError::new(Flag::Rj, ok_busy_reply.clone()).into()),
             },
             Case {
