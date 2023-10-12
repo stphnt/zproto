@@ -11,7 +11,7 @@ Add this to your `Cargo.toml:
 
 ```toml
 [dependencies]
-zproto = "0.3.3"
+zproto = "0.3.4"
 ```
 
 ## Getting started
@@ -66,7 +66,7 @@ By default, both the ASCII and Binary protocols are enabled via the `ascii` and
 
 ```toml
 [dependencies]
-zproto = { version = "0.3.3", default-features = false, features = ["ascii"] }
+zproto = { version = "0.3.4", default-features = false, features = ["ascii"] }
 ```
 
 This will only include portions of the library related to the ASCII protocol
