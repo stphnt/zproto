@@ -2,20 +2,17 @@
 
 pub(crate) mod info;
 pub mod iter;
+pub mod setting;
 
 use crate::{
-    ascii::{
-        check,
-        marker::Markers,
-        setting::{AxisSettings, DeviceSettings, Settings},
-        Port, Target,
-    },
+    ascii::{check, marker::Markers, Port, Target},
     backend::Backend,
     error::AsciiError,
     shared::{Shared, SharedMut},
 };
 use info::ChainInfo;
 use iter::{ChainIntoIter, ChainIter, DeviceIntoIter, DeviceIter};
+use setting::{AxisSettings, DeviceSettings};
 use std::{
     cell::RefCell,
     num::NonZeroU8,
@@ -228,7 +225,7 @@ where
 
     /// Get access to this device's settings.
     pub fn settings(&self) -> DeviceSettings<'a, B, P> {
-        Settings::new_device(self.address, P::clone(&self.port))
+        DeviceSettings::new_device(self)
     }
 
     /// Get the [`Axis`] at the specified axis number (1-based).
@@ -338,7 +335,7 @@ where
 
     /// Get access to this axis's settings.
     pub fn settings(&self) -> AxisSettings<'a, B, P> {
-        Settings::new_axis(self.address, self.axis, P::clone(&self.port))
+        AxisSettings::new_axis(self)
     }
 }
 

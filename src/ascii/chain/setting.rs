@@ -2,6 +2,7 @@
 
 use crate::{
     ascii::{
+        chain::{info::ChainInfo, Axis, Device},
         check,
         data_type::DataType,
         marker::Markers,
@@ -12,7 +13,6 @@ use crate::{
     error::AsciiError,
     shared::SharedMut,
 };
-use std::num::NonZeroU8;
 
 /// Any type that represents a setting
 pub trait Setting {
@@ -55,9 +55,13 @@ impl DeviceScope for String {}
 impl AxisScope for String {}
 
 /// An interface for getting and/or setting the settings on a single device or axis.
+///
+/// A [`Settings`] instance is created via the [`Device::settings`](super::Device::settings) 
+/// and [`Axis::settings`](super::Axis::settings) methods.
 #[derive(Debug)]
-pub struct Settings<'a, B, P, S> {
+pub struct Settings<'a, B, P: SharedMut<Port<'a, B>>, S> {
     port: P,
+    _info: P::Wrapper<ChainInfo>,
     target: Target,
     _markers: Markers<'a, B>,
     _scope_marker: std::marker::PhantomData<S>,
@@ -68,11 +72,15 @@ pub struct Settings<'a, B, P, S> {
 /// For more details see [`Settings`].
 pub type AxisSettings<'a, B, P> = Settings<'a, B, P, AxisScopeMarker>;
 
-impl<'a, B, P> AxisSettings<'a, B, P> {
-    pub(crate) fn new_axis(address: NonZeroU8, axis: NonZeroU8, port: P) -> Self {
+impl<'a, B, P> AxisSettings<'a, B, P>
+where
+    P: SharedMut<Port<'a, B>>,
+{
+    pub(crate) fn new_axis(axis: &Axis<'a, B, P>) -> Self {
         Settings {
-            port,
-            target: Target::for_device(address.get()).with_axis(axis.get()),
+            port: axis.port.clone(),
+            _info: axis.info.clone(),
+            target: axis.target(),
             _markers: Markers::default(),
             _scope_marker: std::marker::PhantomData,
         }
@@ -84,11 +92,15 @@ impl<'a, B, P> AxisSettings<'a, B, P> {
 /// For more details see [`Settings`].
 pub type DeviceSettings<'a, B, P> = Settings<'a, B, P, DeviceScopeMarker>;
 
-impl<'a, B, P> DeviceSettings<'a, B, P> {
-    pub(crate) fn new_device(address: NonZeroU8, port: P) -> Self {
+impl<'a, B, P> DeviceSettings<'a, B, P>
+where
+    P: SharedMut<Port<'a, B>>,
+{
+    pub(crate) fn new_device(device: &Device<'a, B, P>) -> Self {
         Settings {
-            port,
-            target: Target::for_device(address.get()),
+            port: device.port.clone(),
+            _info: device.info.clone(),
+            target: device.target(),
             _markers: Markers::default(),
             _scope_marker: std::marker::PhantomData,
         }
@@ -178,10 +190,16 @@ where
         )?;
         Ok(())
     }
+
+    #[cfg(test)]
+    pub(crate) fn port(&self) -> &P {
+        &self.port
+    }
 }
 
 #[cfg(test)]
 mod test {
+    use super::super::test::new_mock_chain;
     use super::*;
     use crate::{
         ascii::{
@@ -212,35 +230,40 @@ mod test {
 
     type SharedPort<'a, B> = Rc<RefCell<Port<'a, B>>>;
 
-    const ONE: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(1) };
-
-    fn make_mock_device_settings() -> DeviceSettings<'static, Mock, SharedPort<'static, Mock>> {
-        let port = Rc::new(RefCell::new(Port::open_mock()));
-        DeviceSettings::new_device(ONE, port)
+    fn new_mock_device_settings() -> DeviceSettings<'static, Mock, SharedPort<'static, Mock>> {
+        new_mock_chain(1, 1).device(1).unwrap().settings()
     }
-    fn make_mock_axis_settings() -> AxisSettings<'static, Mock, SharedPort<'static, Mock>> {
-        let port = Rc::new(RefCell::new(Port::open_mock()));
-        AxisSettings::new_axis(ONE, ONE, port)
+    fn new_mock_axis_settings() -> AxisSettings<'static, Mock, SharedPort<'static, Mock>> {
+        new_mock_chain(1, 1)
+            .device(1)
+            .unwrap()
+            .axis(1)
+            .unwrap()
+            .settings()
     }
 
     /// Ensure settings of the appropriate scope are accepted by the `get()` and
     /// `set()` methods.
     #[test]
     fn setting_scope_restrictions() {
-        let mut port = Port::open_mock();
-        {
-            let backend = port.backend_mut();
-            backend.append_data(b"@01 0 OK IDLE FZ 23\r\n");
-            backend.append_data(b"@01 1 OK IDLE FZ 34\r\n");
-        }
-        let port = Rc::new(RefCell::new(port));
+        let chain = new_mock_chain(1, 1);
+
         // `get()` accepts appropriately scoped settings and parse the values as the
         // appropriate type
-        let device_settings = DeviceSettings::new_device(ONE, port.clone());
+        let device = chain.device(1).unwrap();
+        let device_settings = device.settings();
+        {
+            let mut port = device_settings.port().borrow_mut();
+            port.backend_mut().append_data(b"@01 0 OK IDLE FZ 23\r\n");
+        }
         let value = device_settings.get(DeviceSetting).unwrap();
         assert_eq!(value, 23u8);
 
-        let axis_settings = AxisSettings::new_axis(ONE, ONE, port.clone());
+        let axis_settings = device.axis(1).unwrap().settings();
+        {
+            let mut port = device_settings.port().borrow_mut();
+            port.backend_mut().append_data(b"@01 1 OK IDLE FZ 34\r\n");
+        }
         let value = axis_settings.get(AxisSetting).unwrap();
         assert_eq!(value, 34u32);
 
@@ -252,7 +275,7 @@ mod test {
     /// Ensure `set()` accepts the appropriate types
     #[test]
     fn set_accepted_values() {
-        let settings = make_mock_device_settings();
+        let settings = new_mock_device_settings();
         // The value's type should be appropriately inferred.
         let _ = settings.set(DeviceSetting, 1);
         // Explicit type (u8) should work.
@@ -269,13 +292,13 @@ mod test {
     #[test]
     fn strings_as_settings() {
         {
-            let settings = make_mock_device_settings();
+            let settings = new_mock_device_settings();
             let _: Result<String, AsciiError> = settings.get("anything");
             let _: Result<String, AsciiError> = settings.get("anything".to_string());
             let _: Result<String, AsciiError> = settings.get(&"anything".to_string());
         }
         {
-            let settings = make_mock_axis_settings();
+            let settings = new_mock_axis_settings();
             let _: Result<String, AsciiError> = settings.get("anything");
             let _: Result<String, AsciiError> = settings.get("anything".to_string());
             let _: Result<String, AsciiError> = settings.get(&"anything".to_string());
