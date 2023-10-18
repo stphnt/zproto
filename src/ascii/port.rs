@@ -7,6 +7,7 @@ mod test;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
     ascii::{
+        chain::{Chain, SyncChain},
         check,
         checksum::Lrc,
         id,
@@ -1353,6 +1354,16 @@ impl<'a, B: Backend> Port<'a, B> {
     /// ensure that all expected data has been sent and received.
     pub fn into_backend(self) -> B {
         self.backend
+    }
+
+    /// Consume the port, converting it into a [`Chain`].
+    pub fn into_chain(self) -> Result<Chain<'a, B>, AsciiError> {
+        Chain::new(self)
+    }
+
+    /// Consume the port, converting it into a [`SyncChain`].
+    pub fn into_sync_chain(self) -> Result<SyncChain<'a, B>, AsciiError> {
+        Chain::new_sync(self)
     }
 
     /// Set a callback that will be called immediately after any ASCII packet is

@@ -5,6 +5,9 @@ use crate::ascii::{
     parse::Packet, Alert, AnyResponse, Command, Flag, Info, Reply, Response, SpecificResponse,
     Status, Target,
 };
+use crate::error::{
+    ConversionError, DuplicateAddressError, LockError, LockPoisonedError, LockUnavailableError,
+};
 
 /// Implement the `new()` and `as_bytes()` methods errors storing bytes.
 macro_rules! impl_for_type_containing_bytes {
@@ -639,12 +642,21 @@ error_enum! {
         CheckCustom(AsciiCheckCustomError<AnyResponse>),
         CommandSplit(AsciiCommandSplitError),
         ReservedCharacter(AsciiReservedCharacterError),
+        LockPoisoned(LockPoisonedError),
+        LockUnavailable(LockUnavailableError),
+        Conversion(ConversionError),
+        DuplicateAddress(DuplicateAddressError),
     }
 
     impl From<AsciiProtocolError> {
         PacketMissingStart => PacketMissingStart,
         PacketMissingEnd => PacketMissingEnd,
         PacketMalformed => PacketMalformed,
+    }
+
+    impl From<LockError> {
+        Poisoned => LockPoisoned,
+        Unavailable => LockUnavailable,
     }
 }
 impl_is_timeout! { AsciiError }
@@ -682,9 +694,11 @@ mod test {
     assert_impl_all!(AsciiError: From<AsciiCheckError<Reply>>);
     assert_impl_all!(AsciiError: From<AsciiCheckError<Info>>);
     assert_impl_all!(AsciiError: From<AsciiCheckError<Alert>>);
+    assert_impl_all!(AsciiError: From<LockError>);
 
     assert_impl_all!(AsciiProtocolError: TryFrom<AsciiError>);
     assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<AsciiError>);
+    assert_impl_all!(LockError: TryFrom<AsciiError>);
 
     // Check that error types and responses they wrap implement AsRef and From,
     // respectively.

@@ -31,6 +31,10 @@ error_enum! {
         BinaryUnexpectedTarget(BinaryUnexpectedTargetError),
         BinaryUnexpectedId(BinaryUnexpectedIdError),
         BinaryUnexpectedCommand(BinaryUnexpectedCommandError),
+        LockPoisoned(LockPoisonedError),
+        LockUnavailable(LockUnavailableError),
+        Conversion(ConversionError),
+        DuplicateAddress(DuplicateAddressError),
     }
 
     impl From<AsciiProtocolError> {
@@ -55,6 +59,10 @@ error_enum! {
         CheckCustom => AsciiCheckCustom,
         CommandSplit => AsciiCommandSplit,
         ReservedCharacter => AsciiReservedCharacter,
+        LockPoisoned => LockPoisoned,
+        LockUnavailable => LockUnavailable,
+        Conversion => Conversion,
+        DuplicateAddress => DuplicateAddress,
     }
 
     impl From<BinaryUnexpectedError> {
@@ -70,6 +78,11 @@ error_enum! {
         UnexpectedTarget => BinaryUnexpectedTarget,
         UnexpectedId => BinaryUnexpectedId,
         UnexpectedCommand => BinaryUnexpectedCommand,
+    }
+
+    impl From<LockError> {
+        Poisoned => LockPoisoned,
+        Unavailable => LockUnavailable,
     }
 }
 impl_is_timeout! { Error }
@@ -99,6 +112,47 @@ impl TryFrom<Error> for AsciiCheckError<AnyResponse> {
     }
 }
 
+/// The locking mechanism protecting the data is "poisoned" and can no longer be relied upon.
+#[derive(Debug)]
+pub struct LockPoisonedError;
+impl_error_display! { LockPoisonedError, self => "data locking mechanism is poisoned and can no longer be relied upon" }
+
+/// The data is already locked and is therefore unavailable.
+#[derive(Debug)]
+pub struct LockUnavailableError;
+impl_error_display! { LockUnavailableError, self => "data is already locked and is therefore unavailable" }
+
+error_enum! {
+    /// Errors returned when trying to lock a resource.
+    #[derive(Debug)]
+    pub enum LockError {
+        Poisoned(LockPoisonedError),
+        Unavailable(LockUnavailableError),
+    }
+}
+
+/// Converting a value failed.
+#[derive(Debug)]
+pub struct ConversionError(pub(crate) Box<str>);
+impl_error_display! { ConversionError, self => "conversion failure: {}", self.0 }
+
+/// Multiple devices were discovered with the same address.
+///
+/// Device addresses must be unique. Sending the `renumber` command will
+/// automatically assign each device a unique address.
+#[derive(Debug)]
+pub struct DuplicateAddressError {
+    /// The duplicated device address
+    pub(crate) address: u8,
+}
+impl_error_display! { DuplicateAddressError, self => "multiple devices in the chain have the same device address (`{}`)", self.address }
+impl DuplicateAddressError {
+    /// Get the duplicated device address.
+    pub fn address(&self) -> u8 {
+        self.address
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -118,6 +172,7 @@ mod test {
     assert_impl_all!(Error: From<AsciiCheckError<Alert>>);
     assert_impl_all!(Error: From<AsciiError>);
     assert_impl_all!(Error: From<BinaryError>);
+    assert_impl_all!(Error: From<LockError>);
 
     assert_impl_all!(AsciiError: TryFrom<Error>);
 
@@ -125,4 +180,6 @@ mod test {
     assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<Error>);
 
     assert_impl_all!(BinaryError: TryFrom<Error>);
+
+    assert_impl_all!(LockError: TryFrom<Error>);
 }
