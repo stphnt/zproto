@@ -162,7 +162,7 @@ fn command_reply_n_ok() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let _ = port.command_reply_n("", 2).unwrap();
+	let _ = port.command_reply_n("", 2, check::strict()).unwrap();
 
 	// Interleaved multi-packet replies
 	{
@@ -172,7 +172,7 @@ fn command_reply_n_ok() {
 		buf.append_data(b"#02 0 cont 2part2\r\n");
 		buf.append_data(b"#01 0 cont 1part2\r\n");
 	}
-	let replies = port.command_reply_n("", 2).unwrap();
+	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
 }
@@ -187,7 +187,7 @@ fn command_reply_n_fail() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let err = port.command_reply_n("", 3).unwrap_err();
+	let err = port.command_reply_n("", 3, check::strict()).unwrap_err();
 	assert!(err.is_timeout());
 
 	// Timeout waiting for non-existent packet.
@@ -196,7 +196,7 @@ fn command_reply_n_fail() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\\\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let err = port.command_reply_n("", 2).unwrap_err();
+	let err = port.command_reply_n("", 2, check::strict()).unwrap_err();
 	assert!(err.is_timeout());
 }
 
@@ -216,7 +216,7 @@ fn command_reply_n_unexpected_alert() {
 		buf.append_data(b"!03 0 IDLE --\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let _ = port.command_reply_n("", 2).unwrap();
+	let _ = port.command_reply_n("", 2, check::strict()).unwrap();
 	assert_eq!(alert_count.get(), 1);
 
 	// Interleaved multi-packet replies
@@ -230,7 +230,7 @@ fn command_reply_n_unexpected_alert() {
 		buf.append_data(b"#01 0 cont 1part2\r\n");
 		buf.append_data(b"!05 0 IDLE --\r\n"); // Shouldn't be read
 	}
-	let replies = port.command_reply_n("", 2).unwrap();
+	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
 	assert_eq!(alert_count.get(), 3);
@@ -736,8 +736,7 @@ make_poison_test!(command, "");
 make_poison_test!(command_reply, "");
 make_poison_test!(command_reply_infos, "");
 make_poison_test!(command_reply_infos_with_check, "", unchecked());
-make_poison_test!(command_reply_n, "", 1);
-make_poison_test!(command_reply_n_with_check, "", 1, unchecked());
+make_poison_test!(command_reply_n, "", 1, unchecked());
 make_poison_test!(poll_until, "", |_| true);
 make_poison_test!(poll_until_with_check, "", |_| true, check::flag_ok());
 make_poison_test!(poll_until_idle, 1);
