@@ -441,7 +441,7 @@ fn type_inference_regression_test() {
 
 	let mut port = Port::open_mock();
 	let _ = port.response_with_check::<AnyResponse, _>(strict());
-	let _ = port.response_n_with_check::<AnyResponse, _>(2, strict());
+	let _ = port.response_n::<AnyResponse, _>(2, strict());
 	let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(strict());
 }
 
@@ -594,7 +594,9 @@ fn set_packet_handler() {
 	});
 
 	port.command((1, 3, "get pos")).unwrap();
-	let _ = port.response_n::<AnyResponse>(3).unwrap();
+	let _ = port
+		.response_n::<AnyResponse, _>(3, check::strict())
+		.unwrap();
 
 	let mut expected = Vec::with_capacity(4);
 	expected.push((b"/1 3 get pos\n".to_vec(), super::Direction::Tx));
@@ -759,8 +761,7 @@ make_poison_test!(poll_until_with_check, "", |_| true, check::flag_ok());
 make_poison_test!(poll_until_idle, 1);
 make_poison_test!(poll_until_idle_with_check, 1, check::flag_ok());
 make_poison_test!(response::<AnyResponse>);
-make_poison_test!(response_n::<AnyResponse>, 1);
-make_poison_test!(response_n_with_check, 1, unchecked::<AnyResponse>());
+make_poison_test!(response_n::<AnyResponse, _>, 1, unchecked::<AnyResponse>());
 make_poison_test!(response_with_check, unchecked::<AnyResponse>());
 make_poison_test!(responses_until_timeout::<AnyResponse>);
 make_poison_test!(

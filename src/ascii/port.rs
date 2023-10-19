@@ -1,5 +1,6 @@
 //! Types for opening and using a serial port with the ASCII protocol.
 
+pub mod iter;
 mod options;
 #[cfg(test)]
 mod test;
@@ -265,7 +266,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	) -> Result<NotChecked<Reply>, AsciiError> {
 		let id = self.command(cmd)?;
 		self.pre_receive_response();
-		let response = self.receive_response(|_| HeaderCheckAction::Check {
+		let response = self.receive_response(HeaderCheck::Matches {
 			target: cmd.target(),
 			id,
 		})?;
@@ -372,20 +373,14 @@ impl<'a, B: Backend> Port<'a, B> {
 		self.set_message_ids(old_generate_id);
 		let sentinel_id = sentinel_id?;
 		let mut infos = Vec::new();
-		let header_check = |response: &AnyResponse| match response {
-			AnyResponse::Info(_) => HeaderCheckAction::Check {
-				target,
-				id: reply.id(),
-			},
-			AnyResponse::Reply(_) => HeaderCheckAction::Check {
-				target,
-				id: sentinel_id,
-			},
-			_ => HeaderCheckAction::Unexpected,
+		let header_check = HeaderCheck::InfoSentinelReplyMatches {
+			target,
+			info_id: reply.id(),
+			sentinel_id,
 		};
 		self.pre_receive_response();
 		loop {
-			match self.receive_response(&header_check)?.check(checker)? {
+			match self.receive_response(header_check)?.check(checker)? {
 				AnyResponse::Info(info) => infos.push(info),
 				AnyResponse::Reply(_) => {
 					// This is the reply we've been waiting for. Stop.
@@ -463,7 +458,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		let id = self.command(cmd)?;
 		self.internal_response_n_with_check(
 			n,
-			|_| HeaderCheckAction::Check {
+			HeaderCheck::Matches {
 				target: cmd.target(),
 				id,
 			},
@@ -535,7 +530,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	) -> Result<Vec<Reply>, AsciiError> {
 		let id = self.command(cmd)?;
 		self.internal_responses_until_timeout_with_check(
-			|_| HeaderCheckAction::Check {
+			HeaderCheck::Matches {
 				target: cmd.target(),
 				id,
 			},
@@ -736,18 +731,20 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// `header_check` should be a function that produces data for validating the response's header.
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R`.
-	fn receive_response<R, F>(&mut self, mut header_check: F) -> Result<NotChecked<R>, AsciiError>
+	fn receive_response<R>(
+		&mut self,
+		header_check: HeaderCheck,
+	) -> Result<NotChecked<R>, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
-		F: FnMut(&AnyResponse) -> HeaderCheckAction,
 	{
 		self.check_poisoned()?;
 		loop {
 			let result = || -> Result<NotChecked<R>, AsciiError> {
 				let mut response = self.build_response()?;
-				response = header_check(&response).check(response)?;
+				response = header_check.check(response)?;
 				R::try_from(response)
 					.map(NotChecked::new)
 					.map_err(AsciiUnexpectedResponseError::new)
@@ -781,6 +778,17 @@ impl<'a, B: Backend> Port<'a, B> {
 		}
 	}
 
+	fn internal_response_n_iter<R>(
+		&mut self,
+		n: usize,
+		header_check: HeaderCheck,
+	) -> iter::NResponses<'_, 'a, B, R>
+	where
+		R: Response,
+	{
+		iter::NResponses::new(self, header_check, n)
+	}
+
 	/// Receive `n` responses.
 	///
 	/// If any response is spread across multiple packets, continuation packets will be read.
@@ -788,22 +796,21 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
-	fn internal_response_n_with_check<R, F>(
+	fn internal_response_n_with_check<R>(
 		&mut self,
 		n: usize,
-		mut header_check: F,
+		header_check: HeaderCheck,
 		checker: &dyn check::Check<R>,
 	) -> Result<Vec<R>, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
-		F: FnMut(&AnyResponse) -> HeaderCheckAction,
 	{
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		for _ in 0..n {
-			responses.push(self.receive_response(|r| header_check(r))?.check(checker)?);
+			responses.push(self.receive_response(header_check)?.check(checker)?);
 		}
 		self.post_receive_response()?;
 		Ok(responses)
@@ -816,21 +823,20 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
-	fn internal_responses_until_timeout_with_check<R, F>(
+	fn internal_responses_until_timeout_with_check<R>(
 		&mut self,
-		mut header_check: F,
+		header_check: HeaderCheck,
 		checker: &dyn check::Check<R>,
 	) -> Result<Vec<R>, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
-		F: FnMut(&AnyResponse) -> HeaderCheckAction,
 	{
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		loop {
-			match self.receive_response(|response| header_check(response)) {
+			match self.receive_response(header_check) {
 				Ok(r) => responses.push(r.check(checker)?),
 				Err(e) if e.is_timeout() => break,
 				Err(e) => return Err(e),
@@ -864,7 +870,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		self.pre_receive_response();
 		let response = self
-			.receive_response(|_| HeaderCheckAction::DoNotCheck)?
+			.receive_response(HeaderCheck::DoNotCheck)?
 			.check(check::strict())?;
 		self.post_receive_response()?;
 		Ok(response)
@@ -891,61 +897,74 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		self.pre_receive_response();
 		let response = self
-			.receive_response(|_| HeaderCheckAction::DoNotCheck)?
+			.receive_response(HeaderCheck::DoNotCheck)?
 			.check(checker)?;
 		self.post_receive_response()?;
 		Ok(response)
 	}
 
-	/// Receive `n` responses and check each one with the [`strict`](check::strict) check.
+	/// Generate an iterator that will read `n` response of type `R` from the port when used.
 	///
 	/// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
 	///
 	/// If the response is split across multiple packets, the continuation messages will automatically be read.
+	///
+	/// The iterator produces a `Result<NotChecked<R>>`, which must be handled by the caller on each iteration.
+	///
+	/// To simply check and collect all the responses into a vector, use [`response_n`](Port::response_n).
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
+	/// # fn do_something_with(_info: Info) {}
+	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+	/// for result in port.response_n_iter(3) {
+	///     /// Handle any communication errors and check the contents of the response.
+	///     let response: Info = result?.check_minimal()?;
+	///     do_something_with(response);
+	/// }
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn response_n_iter<R>(&mut self, n: usize) -> iter::NResponses<'_, 'a, B, R>
+	where
+		R: Response,
+	{
+		self.internal_response_n_iter(n, HeaderCheck::DoNotCheck)
+	}
+
+	/// Receive `n` responses, collecting them into a vector. Each one is checked with the custom [`Check`](check::Check).
+	///
+	/// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
+	///
+	/// If the response is split across multiple packets, the continuation messages will automatically be read.
+	///
+	/// To avoid collecting the responses into a vector use [`response_n_iter`](Port::response_n_iter).
 	///
 	/// ## Example
 	///
 	/// ```rust
 	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// let reply: Vec<Info> = port.response_n(3)?;
+	/// use zproto::ascii::check::unchecked;
+	/// let reply: Vec<Info> = port.response_n(3, unchecked())?;
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn response_n<R>(&mut self, n: usize) -> Result<Vec<R>, AsciiError>
-	where
-		R: Response,
-		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
-		AsciiError: From<AsciiCheckError<R>>,
-	{
-		self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, &check::strict())
-	}
-
-	/// Same as [`Port::response_n`] except that the responses are validated with the custom [`Check`](check::Check).
-	///
-	/// ## Example
-	///
-	/// ```rust
-	/// # use zproto::{ascii::{Reply, Port}, backend::Backend};
-	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::{flag_ok_and, warning_below_fault};
-	///
-	/// let reply: Vec<Reply> = port.response_n_with_check(3, flag_ok_and(warning_below_fault()))?;
-	/// # Ok(())
-	/// # }
-	/// ```
-	pub fn response_n_with_check<R, K>(
-		&mut self,
-		n: usize,
-		checker: K,
-	) -> Result<Vec<R>, AsciiError>
+	pub fn response_n<R, K>(&mut self, n: usize, checker: K) -> Result<Vec<R>, AsciiError>
 	where
 		R: Response,
 		K: check::Check<R>,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 	{
-		self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, &checker)
+		let mut responses = Vec::new();
+		let checker: &dyn check::Check<R> = &checker;
+		for result in self.internal_response_n_iter(n, HeaderCheck::DoNotCheck) {
+			responses.push(result?.check(checker)?)
+		}
+		Ok(responses)
 	}
 
 	/// Receive responses until the port times out and check each one with the [`strict`](check::strict) check.
@@ -970,10 +989,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 	{
-		self.internal_responses_until_timeout_with_check(
-			|_| HeaderCheckAction::DoNotCheck,
-			&check::strict(),
-		)
+		self.internal_responses_until_timeout_with_check(HeaderCheck::DoNotCheck, &check::strict())
 	}
 
 	/// Same as [`Port::responses_until_timeout`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -999,10 +1015,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 	{
-		self.internal_responses_until_timeout_with_check(
-			|_| HeaderCheckAction::DoNotCheck,
-			&checker,
-		)
+		self.internal_responses_until_timeout_with_check(HeaderCheck::DoNotCheck, &checker)
 	}
 
 	/// Send the specified command repeatedly until the predicate returns true
@@ -1434,29 +1447,48 @@ impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
 	}
 }
 
-#[derive(Debug, Clone)]
-enum HeaderCheckAction {
-	/// Check the response against the specified target and optional message ID.
-	Check { target: Target, id: Option<u8> },
-	/// Do not check the response's header
+/// How the header of a message should be checked.
+#[derive(Debug, Copy, Clone)]
+pub(super) enum HeaderCheck {
+	/// Do not check the header
 	DoNotCheck,
-	/// The response is unexpected, return an error.
-	Unexpected,
+	/// Check that the header has a target and ID that matches these.
+	Matches { target: Target, id: Option<u8> },
+	/// Check that all responses have the specified target. Replies should have
+	/// the `sentinel_id` and info messages should have the `info_id`.
+	InfoSentinelReplyMatches {
+		target: Target,
+		info_id: Option<u8>,
+		sentinel_id: Option<u8>,
+	},
 }
 
-impl HeaderCheckAction {
+impl HeaderCheck {
 	fn check(&self, response: AnyResponse) -> Result<AnyResponse, AsciiError> {
-		use HeaderCheckAction::*;
+		use HeaderCheck::*;
 		match self {
-			Check { target, id } => {
+			DoNotCheck => Ok(response),
+			Matches { target, id } => {
 				if !response.target().elicited_by_command_to(*target) || response.id() != *id {
 					Err(AsciiUnexpectedResponseError::new(response).into())
 				} else {
 					Ok(response)
 				}
 			}
-			Unexpected => Err(AsciiUnexpectedResponseError::new(response).into()),
-			DoNotCheck => Ok(response),
+			InfoSentinelReplyMatches {
+				target,
+				info_id,
+				sentinel_id,
+			} => {
+				if !response.target().elicited_by_command_to(*target) {
+					return Err(AsciiUnexpectedResponseError::new(response).into());
+				}
+				match response {
+					AnyResponse::Info(ref info) if info.id() == *info_id => Ok(response),
+					AnyResponse::Reply(ref reply) if reply.id() == *sentinel_id => Ok(response),
+					_ => Err(AsciiUnexpectedResponseError::new(response).into()),
+				}
+			}
 		}
 	}
 }
