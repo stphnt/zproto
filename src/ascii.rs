@@ -115,7 +115,7 @@
 //! ```rust
 //! # use zproto::{ascii::{Alert, Port}, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! let alert: Alert = port.response()?;
+//! let alert: Alert = port.response()?.check_minimal()?;
 //! # Ok(())
 //! # }
 //! ```

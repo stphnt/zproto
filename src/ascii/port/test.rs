@@ -440,7 +440,7 @@ fn type_inference_regression_test() {
 	use super::check::strict;
 
 	let mut port = Port::open_mock();
-	let _ = port.response_with_check::<AnyResponse, _>(strict());
+	let _ = port.response::<AnyResponse>();
 	let _ = port.response_n::<AnyResponse, _>(2, strict());
 	let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(strict());
 }
@@ -622,16 +622,8 @@ mod response_check {
 			ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
 			ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
 
-			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<Reply>() => AsciiCheckWarningError,
-			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckWarningError,
-
-			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckFlagError,
-			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckFlagError,
-
 			ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
 			ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
-			err case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>() => AsciiCheckWarningError,
-			err case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckWarningError,
 
 			ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
 			ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
@@ -654,18 +646,8 @@ mod response_check {
 
 		check_cases! { port,
 			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply("").unwrap().flag_ok(),
-			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<Reply, _>(check::flag_ok()),
-			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::flag_ok().into()),
 
 			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("").unwrap().check(check::warning_is_none()),
-			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<Reply, _>(check::warning_is_none()),
-			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::warning_is_none::<Reply>().into()),
-
-			ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_with_check::<Alert, _>(check::status_idle()),
-			ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::status_idle::<Alert>().into()),
-
-			err case b"#01 1 some info\r\n" via |p| p.response_with_check::<Info, _>(check::predicate(|info: &Info| info.data().contains("bob"))) => AsciiCheckCustomError,
-			err case b"#01 1 some info\r\n" via |p| p.response_with_check::<AnyResponse, _>(check::predicate(|_: &AnyResponse| false)) => AsciiCheckCustomError,
 
 			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_with_check("", |_| true, check::predicate(|_| true)),
 			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle_with_check(1, check::predicate(|_| true)),
@@ -762,7 +744,6 @@ make_poison_test!(poll_until_idle, 1);
 make_poison_test!(poll_until_idle_with_check, 1, check::flag_ok());
 make_poison_test!(response::<AnyResponse>);
 make_poison_test!(response_n::<AnyResponse, _>, 1, unchecked::<AnyResponse>());
-make_poison_test!(response_with_check, unchecked::<AnyResponse>());
 make_poison_test!(responses_until_timeout::<AnyResponse>);
 make_poison_test!(
 	responses_until_timeout_with_check,

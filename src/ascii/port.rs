@@ -857,48 +857,19 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ```rust
 	/// # use zproto::{ascii::{Reply, Info, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// let reply: Reply = port.response()?;
-	/// let info: Info = port.response()?;
+	/// let reply: Reply = port.response()?.check_minimal()?;
+	/// let info: Info = port.response()?.check_minimal()?;
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn response<R>(&mut self) -> Result<R, AsciiError>
+	pub fn response<R>(&mut self) -> Result<NotChecked<R>, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 	{
 		self.pre_receive_response();
-		let response = self
-			.receive_response(HeaderCheck::DoNotCheck)?
-			.check(check::strict())?;
-		self.post_receive_response()?;
-		Ok(response)
-	}
-
-	/// Same as [`Port::response`] except that the response is validated with the custom [`Check`](check::Check).
-	///
-	/// ## Example
-	///
-	/// ```rust
-	/// # use zproto::{ascii::{Alert, Port}, backend::Backend};
-	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::warning_below_fault;
-	/// let reply: Alert = port.response_with_check(warning_below_fault())?;
-	/// # Ok(())
-	/// # }
-	/// ```
-	pub fn response_with_check<R, K>(&mut self, checker: K) -> Result<R, AsciiError>
-	where
-		R: Response,
-		K: check::Check<R>,
-		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
-		AsciiError: From<AsciiCheckError<R>>,
-	{
-		self.pre_receive_response();
-		let response = self
-			.receive_response(HeaderCheck::DoNotCheck)?
-			.check(checker)?;
+		let response = self.receive_response(HeaderCheck::DoNotCheck)?;
 		self.post_receive_response()?;
 		Ok(response)
 	}
