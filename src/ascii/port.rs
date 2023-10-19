@@ -8,7 +8,7 @@ use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
 	ascii::{
 		chain::{Chain, SyncChain},
-		check,
+		check::{self, NotChecked},
 		checksum::Lrc,
 		id,
 		parse::{Packet, PacketKind},
@@ -228,49 +228,29 @@ impl<'a, B: Backend> Port<'a, B> {
 		Ok(writer.id)
 	}
 
-	/// Transmit a command, receive a reply, and check it with the [`strict`](check::strict) check.
+	/// Transmit a command and receive a reply.
 	///
 	/// If necessary, the command will be split into multiple packets so that no packet is longer than
 	/// [`max_packet_size`](Self::max_packet_size).
 	///
 	/// If the reply is split across multiple packets, the continuation messages will automatically be read.
 	///
+	/// The contents of the reply are not checked, as the [`NotChecked<Reply>`](NotChecked) return type indicates.
+	/// To access the reply, the caller must check the contents of reply via one of the methods on [`NotChecked`].
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::{ascii::Port, backend::Backend};
-	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// let reply = port.command_reply("get maxspeed")?;
-	/// # Ok(())
+	/// # use zproto::{ascii::{Port, Reply}, backend::Backend};
+	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<Reply, Box<dyn std::error::Error>> {
+	/// let reply = port.command_reply("get maxspeed")?.check_minimal()?;
+	/// # Ok(reply)
 	/// # }
 	/// ```
-	pub fn command_reply<C: Command>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
-		self.internal_command_reply_with_check(&cmd, &check::strict())
-	}
-
-	/// Same as [`Port::command_reply`] except that the reply is validated with the custom [`Check`](check::Check).
-	///
-	/// ## Example
-	///
-	/// ```rust
-	/// # use zproto::{ascii::Port, backend::Backend};
-	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::flag_ok;
-	/// // Home, but ignore any warning flags that might be present
-	/// let reply = port.command_reply_with_check((1, "home"), flag_ok())?;
-	/// # Ok(())
-	/// # }
-	/// ```
-	pub fn command_reply_with_check<C, K>(
-		&mut self,
-		cmd: C,
-		checker: K,
-	) -> Result<Reply, AsciiError>
+	pub fn command_reply<C>(&mut self, cmd: C) -> Result<NotChecked<Reply>, AsciiError>
 	where
 		C: Command,
-		K: check::Check<Reply>,
 	{
-		self.internal_command_reply_with_check(&cmd, &checker)
+		self.internal_command_reply(&cmd)
 	}
 
 	/// Transmit a command and receive a reply.
@@ -279,24 +259,16 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// [`max_packet_size`](Self::max_packet_size).
 	///
 	/// If any response is spread across multiple packets, continuation packets will be read.
-	/// `header_check` should be a function that produces data for validating the response's header.
-	///
-	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-	/// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()' is used.
-	fn internal_command_reply_with_check(
+	fn internal_command_reply(
 		&mut self,
 		cmd: &dyn Command,
-		checker: &dyn check::Check<Reply>,
-	) -> Result<Reply, AsciiError> {
+	) -> Result<NotChecked<Reply>, AsciiError> {
 		let id = self.command(cmd)?;
 		self.pre_receive_response();
-		let response = self.receive_response(
-			|_| HeaderCheckAction::Check {
-				target: cmd.target(),
-				id,
-			},
-			checker,
-		)?;
+		let response = self.receive_response(|_| HeaderCheckAction::Check {
+			target: cmd.target(),
+			id,
+		})?;
 		self.post_receive_response()?;
 		Ok(response)
 	}
@@ -378,10 +350,6 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// [`max_packet_size`](Self::max_packet_size).
 	///
 	/// If any response is spread across multiple packets, continuation packets will be read.
-	/// `header_check` should be a function that produces data for validating the response's header.
-	///
-	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
 	fn internal_command_reply_infos_with_check(
 		&mut self,
 		cmd: &dyn Command,
@@ -398,7 +366,7 @@ impl<'a, B: Backend> Port<'a, B> {
 				.map(|response| Reply::try_from(response).unwrap())
 				.map_err(|err| AsciiCheckError::<Reply>::try_from(err).unwrap())
 		};
-		let reply = self.internal_command_reply_with_check(cmd, &reply_checker)?;
+		let reply = self.internal_command_reply(cmd)?.check(reply_checker)?;
 		let old_generate_id = self.set_message_ids(true);
 		let sentinel_id = self.command((target, ""));
 		self.set_message_ids(old_generate_id);
@@ -417,7 +385,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		};
 		self.pre_receive_response();
 		loop {
-			match self.receive_response(&header_check, checker)? {
+			match self.receive_response(&header_check)?.check(checker)? {
 				AnyResponse::Info(info) => infos.push(info),
 				AnyResponse::Reply(_) => {
 					// This is the reply we've been waiting for. Stop.
@@ -486,10 +454,6 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// [`max_packet_size`](Self::max_packet_size).
 	///
 	/// If any response is spread across multiple packets, continuation packets will be read.
-	/// `header_check` should be a function that produces data for validating the response's header.
-	///
-	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
 	fn internal_command_reply_n_with_check(
 		&mut self,
 		cmd: &dyn Command,
@@ -564,10 +528,6 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// [`max_packet_size`](Self::max_packet_size).
 	///
 	/// If any response is spread across multiple packets, continuation packets will be read.
-	/// `header_check` should be a function that produces data for validating the response's header.
-	///
-	/// The contents of the responses are validated with `checker`. If `checker` is `None`, then the port's default
-	/// check is used.
 	fn internal_command_replies_until_timeout_with_check(
 		&mut self,
 		cmd: &dyn Command,
@@ -775,14 +735,8 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// If the response is spread across multiple packets, continuation packets will be read.
 	/// `header_check` should be a function that produces data for validating the response's header.
 	///
-	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-	/// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()` will be used
-	/// to check the response's contents.
-	fn receive_response<R, F>(
-		&mut self,
-		mut header_check: F,
-		checker: &dyn check::Check<R>,
-	) -> Result<R, AsciiError>
+	/// If the `header_check` passes, the message will be converted to the desired message type `R`.
+	fn receive_response<R, F>(&mut self, mut header_check: F) -> Result<NotChecked<R>, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
@@ -791,11 +745,13 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		self.check_poisoned()?;
 		loop {
-			let result = || -> Result<R, AsciiError> {
+			let result = || -> Result<NotChecked<R>, AsciiError> {
 				let mut response = self.build_response()?;
 				response = header_check(&response).check(response)?;
-				let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
-				checker.check(response).map_err(Into::into)
+				R::try_from(response)
+					.map(NotChecked::new)
+					.map_err(AsciiUnexpectedResponseError::new)
+					.map_err(From::from)
 			}();
 			if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
 				// There is an handler for alerts, check if we need to call it.
@@ -847,7 +803,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		for _ in 0..n {
-			responses.push(self.receive_response(|r| header_check(r), checker)?);
+			responses.push(self.receive_response(|r| header_check(r))?.check(checker)?);
 		}
 		self.post_receive_response()?;
 		Ok(responses)
@@ -874,8 +830,8 @@ impl<'a, B: Backend> Port<'a, B> {
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		loop {
-			match self.receive_response(|response| header_check(response), checker) {
-				Ok(r) => responses.push(r),
+			match self.receive_response(|response| header_check(response)) {
+				Ok(r) => responses.push(r.check(checker)?),
 				Err(e) if e.is_timeout() => break,
 				Err(e) => return Err(e),
 			}
@@ -907,8 +863,9 @@ impl<'a, B: Backend> Port<'a, B> {
 		AsciiError: From<AsciiCheckError<R>>,
 	{
 		self.pre_receive_response();
-		let response =
-			self.receive_response(|_| HeaderCheckAction::DoNotCheck, &check::strict())?;
+		let response = self
+			.receive_response(|_| HeaderCheckAction::DoNotCheck)?
+			.check(check::strict())?;
 		self.post_receive_response()?;
 		Ok(response)
 	}
@@ -933,7 +890,9 @@ impl<'a, B: Backend> Port<'a, B> {
 		AsciiError: From<AsciiCheckError<R>>,
 	{
 		self.pre_receive_response();
-		let response = self.receive_response(|_| HeaderCheckAction::DoNotCheck, &checker)?;
+		let response = self
+			.receive_response(|_| HeaderCheckAction::DoNotCheck)?
+			.check(checker)?;
 		self.post_receive_response()?;
 		Ok(response)
 	}
@@ -1116,10 +1075,6 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// packet is longer than [`max_packet_size`](Self::max_packet_size).
 	///
 	/// If any response is spread across multiple packets, continuation packets will be read.
-	/// `header_check` should be a function that produces data for validating the response's header.
-	///
-	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
-	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
 	fn internal_poll_until_with_check<F>(
 		&mut self,
 		cmd: &dyn Command,
@@ -1131,7 +1086,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		let mut reply;
 		loop {
-			reply = self.internal_command_reply_with_check(cmd, checker)?;
+			reply = self.internal_command_reply(cmd)?.check(checker)?;
 			if predicate(&reply) {
 				break;
 			}
@@ -1204,12 +1159,14 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// {
 	///     let mut guard = port.timeout_guard(Some(Duration::from_secs(3)))?;
 	///     // All commands within this scope will use a 3 second timeout
-	///     guard.command_reply("system reset");
+	///     guard.command_reply("system reset")?.flag_ok()?;
 	///
 	/// }  // The guard is dropped and the timeout is reset.
 	///
 	/// // This command-reply uses the original timeout
-	/// port.command_reply("get device.id")
+	/// # Ok(
+	/// port.command_reply("get device.id")?.flag_ok()?
+	/// # )
 	/// # }
 	/// ```
 	pub fn timeout_guard(

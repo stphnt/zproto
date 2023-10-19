@@ -78,7 +78,7 @@
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend, error::Error};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! let reply = port.command_reply("get device.id")?;
+//! let reply = port.command_reply("get device.id")?.flag_ok()?;
 //! let device_id: u32 = reply.data().parse()?;
 //! # Ok(())
 //! # }
@@ -93,15 +93,13 @@
 //! or you can write your own:
 //!
 //! ```rust
-//! # use zproto::{ascii::Port, backend::Backend, error::Error};
-//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::{flag_ok_and, warning_is};
+//! # use zproto::{ascii::{Port, Reply}, backend::Backend, error::Error};
+//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<Reply, Box<dyn std::error::Error>> {
+//! use zproto::ascii::check::warning_is;
 //!
-//! let reply = port.command_reply_with_check(
-//!    (1, "get device.id"),
-//!    flag_ok_and(warning_is("WR"))
-//! )?;
-//! # Ok(())
+//! let reply = port.command_reply((1, "get device.id"))?
+//!     .flag_ok_and(warning_is("WR"))?;
+//! # Ok(reply)
 //! # }
 //! ```
 //!

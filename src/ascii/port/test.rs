@@ -75,7 +75,7 @@ macro_rules! check_cases {
 fn command_reply_ok() {
 	let mut port = Port::open_mock();
 	port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.target(), (1, 0).into());
 
 	// Multi-packet Reply
@@ -85,7 +85,7 @@ fn command_reply_ok() {
 		backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
 		backend.append_data(b"#01 0 cont part3\r\n");
 	}
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.data(), "part1 part2a part2b part3");
 }
 
@@ -136,7 +136,7 @@ fn command_reply_unexpected_alert() {
 
 	port.backend.append_data(b"!01 0 IDLE --\r\n");
 	port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.target(), (1, 0).into());
 	assert_eq!(alert_count.get(), 1);
 
@@ -149,7 +149,7 @@ fn command_reply_unexpected_alert() {
 		backend.append_data(b"!02 1 IDLE --\r\n");
 		backend.append_data(b"#01 0 cont part3\r\n");
 	}
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.data(), "part1 part2a part2b part3");
 	assert_eq!(alert_count.get(), 3);
 }
@@ -620,11 +620,9 @@ mod response_check {
 			ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
 			ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
 
-			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply("") => AsciiCheckWarningError,
 			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<Reply>() => AsciiCheckWarningError,
 			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckWarningError,
 
-			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("") => AsciiCheckFlagError,
 			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckFlagError,
 			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckFlagError,
 
@@ -653,11 +651,11 @@ mod response_check {
 		let mut port = Port::open_mock();
 
 		check_cases! { port,
-			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply_with_check("", check::flag_ok()),
+			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply("").unwrap().flag_ok(),
 			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<Reply, _>(check::flag_ok()),
 			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::flag_ok().into()),
 
-			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply_with_check("", check::warning_is_none()),
+			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("").unwrap().check(check::warning_is_none()),
 			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<Reply, _>(check::warning_is_none()),
 			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::warning_is_none::<Reply>().into()),
 
@@ -756,7 +754,6 @@ make_poison_test!(command_reply_infos, "");
 make_poison_test!(command_reply_infos_with_check, "", unchecked());
 make_poison_test!(command_reply_n, "", 1);
 make_poison_test!(command_reply_n_with_check, "", 1, unchecked());
-make_poison_test!(command_reply_with_check, "", unchecked());
 make_poison_test!(poll_until, "", |_| true);
 make_poison_test!(poll_until_with_check, "", |_| true, check::flag_ok());
 make_poison_test!(poll_until_idle, 1);
