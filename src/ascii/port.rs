@@ -417,7 +417,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		};
 		self.pre_receive_response();
 		loop {
-			match self.receive_response(&header_check, &gen_new_checker(checker))? {
+			match self.receive_response(&header_check, checker)? {
 				AnyResponse::Info(info) => infos.push(info),
 				AnyResponse::Reply(_) => {
 					// This is the reply we've been waiting for. Stop.
@@ -847,7 +847,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		for _ in 0..n {
-			responses.push(self.receive_response(|r| header_check(r), &gen_new_checker(checker))?);
+			responses.push(self.receive_response(|r| header_check(r), checker)?);
 		}
 		self.post_receive_response()?;
 		Ok(responses)
@@ -874,9 +874,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		loop {
-			match self
-				.receive_response(|response| header_check(response), &gen_new_checker(checker))
-			{
+			match self.receive_response(|response| header_check(response), checker) {
 				Ok(r) => responses.push(r),
 				Err(e) if e.is_timeout() => break,
 				Err(e) => return Err(e),
@@ -1133,7 +1131,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		let mut reply;
 		loop {
-			reply = self.internal_command_reply_with_check(cmd, &gen_new_checker(checker))?;
+			reply = self.internal_command_reply_with_check(cmd, checker)?;
 			if predicate(&reply) {
 				break;
 			}
@@ -1477,18 +1475,6 @@ impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
 	fn poison(&mut self, e: io::Error) {
 		self.poison = Some(e)
 	}
-}
-
-/// Given an optional checker, generate a new one with appropriate lifetime
-/// constraints and types.
-//
-// Inlining helps ensure that the extra function call boundaries will be
-// optimized away.
-#[inline(always)]
-fn gen_new_checker<'a, 'b: 'a, R: Response>(
-	checker: &'b dyn check::Check<R>,
-) -> impl check::Check<R> + 'a {
-	move |response| checker.check(response)
 }
 
 #[derive(Debug, Clone)]
