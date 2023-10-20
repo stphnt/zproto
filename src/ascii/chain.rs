@@ -5,7 +5,7 @@ pub mod iter;
 pub mod setting;
 
 use crate::{
-	ascii::{check, marker::Markers, Port, Target},
+	ascii::{marker::Markers, Port, Target},
 	backend::Backend,
 	error::AsciiError,
 	shared::{Shared, SharedMut},
@@ -58,7 +58,9 @@ impl ChainOptions {
 		mut port: Port<'a, B>,
 	) -> Result<Chain<'a, B>, AsciiError> {
 		if self.renumber {
-			port.command_replies_until_timeout_with_check("renumber", check::flag_ok())?;
+			for result in port.command_replies_until_timeout_iter("renumber")? {
+				result?.flag_ok()?;
+			}
 		}
 		Ok(Chain {
 			info: Rc::new(RefCell::new(ChainInfo::new(&mut port)?)),
@@ -76,7 +78,9 @@ impl ChainOptions {
 		mut port: Port<'a, B>,
 	) -> Result<SyncChain<'a, B>, AsciiError> {
 		if self.renumber {
-			port.command_replies_until_timeout_with_check("renumber", check::flag_ok())?;
+			for result in port.command_replies_until_timeout_iter("renumber")? {
+				result?.flag_ok()?;
+			}
 		}
 		Ok(Chain {
 			info: Arc::new(Mutex::new(ChainInfo::new(&mut port)?)),

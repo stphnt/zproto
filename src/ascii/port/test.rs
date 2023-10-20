@@ -244,7 +244,9 @@ fn command_replies_until_timeout_ok() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	assert_eq!(replies.len(), 2);
 }
 
@@ -260,7 +262,9 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, expected);
 
@@ -271,7 +275,9 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	// When the continuations come shouldn't change the response order.
 	assert_eq!(reply_data, expected);
@@ -283,7 +289,9 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	// The initial packet order should change the response order.
 	assert_eq!(
@@ -302,7 +310,7 @@ fn command_replies_until_timeout_fail() {
 		buf.append_data(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
 	}
 	let err = port
-		.command_replies_until_timeout(((0, 1), "get pos")) // To all first axes
+		.command_replies_until_timeout(((0, 1), "get pos"), check::strict()) // To all first axes
 		.unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 }
@@ -324,7 +332,9 @@ fn command_replies_until_timeout_unexpected_alert() {
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"!04 0 IDLE --\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	assert_eq!(replies.len(), 2);
 	assert_eq!(alert_count.get(), 2);
 }
@@ -351,7 +361,9 @@ fn command_replies_mixed_cont_until_timeout_unexpected_alert() {
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 		buf.append_data(b"!05 0 IDLE --\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, expected);
 	assert_eq!(alert_count.get(), 3);
