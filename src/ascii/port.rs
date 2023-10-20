@@ -929,7 +929,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		Ok(responses)
 	}
 
-	/// Receive responses until the port times out and check each one with the [`strict`](check::strict) check.
+	/// Receive responses until the port times out and validate each one with the custom [`Check`](check::Check).
 	///
 	/// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
 	///
@@ -941,43 +941,65 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # use zproto::ascii::{AnyResponse, Port};
 	/// # use zproto::backend::Backend;
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// let reply: Vec<AnyResponse> = port.responses_until_timeout()?;
+	/// use zproto::ascii::check::minimal;
+	/// let reply: Vec<AnyResponse> = port.responses_until_timeout(minimal())?;
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn responses_until_timeout<R>(&mut self) -> Result<Vec<R>, AsciiError>
-	where
-		R: Response,
-		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
-		AsciiError: From<AsciiCheckError<R>>,
-	{
-		self.internal_responses_until_timeout_with_check(HeaderCheck::DoNotCheck, &check::strict())
-	}
-
-	/// Same as [`Port::responses_until_timeout`] except that the responses are validated with the custom [`Check`](check::Check).
-	///
-	/// ## Example
-	///
-	/// ```rust
-	/// # use zproto::ascii::{AnyResponse, Port};
-	/// # use zproto::backend::Backend;
-	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::unchecked;
-	/// let reply: Vec<AnyResponse> = port.responses_until_timeout_with_check(unchecked())?;
-	/// # Ok(())
-	/// # }
-	/// ```
-	pub fn responses_until_timeout_with_check<R, K>(
-		&mut self,
-		checker: K,
-	) -> Result<Vec<R>, AsciiError>
+	pub fn responses_until_timeout<R, K>(&mut self, checker: K) -> Result<Vec<R>, AsciiError>
 	where
 		R: Response,
 		K: check::Check<R>,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 	{
-		self.internal_responses_until_timeout_with_check(HeaderCheck::DoNotCheck, &checker)
+		let mut responses = Vec::new();
+		let checker: &dyn check::Check<_> = &checker;
+		for result in self.internal_responses_until_timeout_iter(HeaderCheck::DoNotCheck) {
+			responses.push(result?.check(checker)?);
+		}
+		Ok(responses)
+	}
+
+	/// Generate an iterator that will read responses of type `R` from the port until it times out.
+	///
+	/// The type of response must be specified: [`Reply`], [`Info`], [`Alert`], or [`AnyResponse`].
+	///
+	/// If the response is split across multiple packets, the continuation messages will automatically be read.
+	///
+	/// The iterator produces a `Result<NotChecked<R>>`, which must be handled by the caller on each iteration.
+	///
+	/// To simply check and collect all the responses into a vector, use [`responses_until_timeout`](Port::responses_until_timeout).
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
+	/// # fn do_something_with(_info: Info) {}
+	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+	/// for result in port.responses_until_timeout_iter() {
+	///     /// Handle any communication errors and check the contents of the response.
+	///     let response: Info = result?.check_minimal()?;
+	///     do_something_with(response);
+	/// }
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn responses_until_timeout_iter<R>(&mut self) -> iter::ResponsesUntilTimeout<'_, 'a, B, R>
+	where
+		R: Response,
+	{
+		self.internal_responses_until_timeout_iter(HeaderCheck::DoNotCheck)
+	}
+
+	fn internal_responses_until_timeout_iter<R>(
+		&mut self,
+		header_check: HeaderCheck,
+	) -> iter::ResponsesUntilTimeout<'_, 'a, B, R>
+	where
+		R: Response,
+	{
+		iter::ResponsesUntilTimeout::new(self, header_check)
 	}
 
 	/// Send the specified command repeatedly until the predicate returns true

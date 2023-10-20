@@ -59,3 +59,61 @@ where
 		}
 	}
 }
+
+/// An iterator that will read responses of type `R` from a port until a read times out.
+#[derive(Debug)]
+#[must_use = "ResponsesUntilTimeout is an iterator and will not read responses unless consumed."]
+pub struct ResponsesUntilTimeout<'i, 'p, B, R> {
+	/// The port to read responses on
+	port: &'i mut Port<'p, B>,
+	/// How to check the headers of the responses.
+	header_check: HeaderCheck,
+	/// Whether iteration is complete.
+	done: bool,
+	_marker: std::marker::PhantomData<(B, R)>,
+}
+
+impl<'i, 'p, B, R> ResponsesUntilTimeout<'i, 'p, B, R>
+where
+	B: Backend,
+	R: Response,
+{
+	/// Create a new `ResponsesUntilTimeout` iterator.
+	pub(super) fn new(port: &'i mut Port<'p, B>, header_check: HeaderCheck) -> Self {
+		port.pre_receive_response();
+		ResponsesUntilTimeout {
+			port,
+			header_check,
+			done: false,
+			_marker: std::marker::PhantomData,
+		}
+	}
+}
+
+impl<'i, 'p, B, R> Iterator for ResponsesUntilTimeout<'i, 'p, B, R>
+where
+	B: Backend,
+	R: Response,
+	AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
+	AsciiError: From<AsciiCheckError<R>>,
+{
+	type Item = Result<NotChecked<R>, AsciiError>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.done {
+			return None;
+		}
+		let result = self.port.receive_response(self.header_check);
+		match result {
+			Err(ref e) if e.is_timeout() => {
+				// We're done reading responses. Clean up.
+				self.done = true;
+				match self.port.post_receive_response() {
+					Err(e) => Some(Err(e)),
+					Ok(()) => None,
+				}
+			}
+			_ => Some(result),
+		}
+	}
+}

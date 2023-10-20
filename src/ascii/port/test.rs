@@ -366,7 +366,7 @@ fn response_until_timeout_ok() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
+	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["0", "0"]);
 
@@ -378,7 +378,7 @@ fn response_until_timeout_ok() {
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 	}
-	let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
+	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["part 1a part 1b", "part 2a part 2b"]);
 }
@@ -394,7 +394,9 @@ fn response_until_timeout_fail() {
 		buf.append_data(b"!02 1 IDLE -- \r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let err = port.responses_until_timeout::<Reply>().unwrap_err();
+	let err = port
+		.responses_until_timeout::<Reply, _>(check::strict())
+		.unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 	// Can read the final reply
 	let _ = port.response::<Reply>().unwrap();
@@ -405,7 +407,9 @@ fn response_until_timeout_fail() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"#01 0 cont something\r\n");
 	}
-	let err = port.responses_until_timeout::<Reply>().unwrap_err();
+	let err = port
+		.responses_until_timeout::<Reply, _>(check::strict())
+		.unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
 }
 
@@ -442,7 +446,7 @@ fn type_inference_regression_test() {
 	let mut port = Port::open_mock();
 	let _ = port.response::<AnyResponse>();
 	let _ = port.response_n::<AnyResponse, _>(2, strict());
-	let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(strict());
+	let _ = port.responses_until_timeout::<AnyResponse, _>(strict());
 }
 
 #[test]
@@ -743,9 +747,5 @@ make_poison_test!(poll_until_idle, 1);
 make_poison_test!(poll_until_idle_with_check, 1, check::flag_ok());
 make_poison_test!(response::<AnyResponse>);
 make_poison_test!(response_n::<AnyResponse, _>, 1, unchecked::<AnyResponse>());
-make_poison_test!(responses_until_timeout::<AnyResponse>);
-make_poison_test!(
-	responses_until_timeout_with_check,
-	unchecked::<AnyResponse>()
-);
+make_poison_test!(responses_until_timeout, unchecked::<AnyResponse>());
 make_poison_test!(timeout_guard, None);
