@@ -276,12 +276,73 @@ impl<'a, B: Backend> Port<'a, B> {
 
 	/// Transmit a command and then receive a reply and all subsequent info messages.
 	///
-	/// The reply and info messages are checked with the [`strict`](check::strict) check.
+	/// The reply and info messages are checked with the custom [`checker`](check::Check).
 	///
 	/// If necessary, the command will be split into multiple packets so that no packet is longer than
-	/// [`max_packet_size`](Self::max_packet_size).
+	/// [`max_packet_size`](Self::max_packet_size). If the reply or info messages are split across multiple
+	/// packets, the continuation messages will automatically be read.
 	///
-	/// If the reply or info messages are split across multiple packets, the continuation messages will automatically be read.
+	/// To avoid collecting the info messages into a vector use [`command_reply_infos_iter`](Port::command_reply_infos_iter).
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::{
+	/// #     ascii::{check, Port, AnyResponse},
+	/// #     backend::Backend,
+	/// #     error::{AsciiCheckError, AsciiError}
+	/// # };
+	/// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
+	/// let (reply, info_messages) = port.command_reply_infos(
+	///    (1, "stream buffer 1 print"),
+	///    check::minimal(),
+	/// )?;
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn command_reply_infos<C, K>(
+		&mut self,
+		cmd: C,
+		checker: K,
+	) -> Result<(Reply, Vec<Info>), AsciiError>
+	where
+		C: Command,
+		K: check::Check<AnyResponse>,
+	{
+		let checker: &dyn check::Check<_> = &checker;
+		let reply_checker = |reply| {
+			checker
+				.check(AnyResponse::from(reply))
+				.map(|response| Reply::try_from(response).unwrap())
+				.map_err(|err| AsciiCheckError::try_from(err).unwrap())
+		};
+		let info_checker = |info| {
+			checker
+				.check(AnyResponse::from(info))
+				.map(|response| Info::try_from(response).unwrap())
+				.map_err(|err| AsciiCheckError::try_from(err).unwrap())
+		};
+		let (reply, info_iter) = self.command_reply_infos_iter(cmd)?;
+		let reply = reply.check(reply_checker)?;
+		let mut infos = Vec::new();
+		for result in info_iter {
+			let info = result?.check(info_checker)?;
+			infos.push(info);
+		}
+		Ok((reply, infos))
+	}
+
+	/// Transmit a command and return it's reply and an iterator to read all subsequent info messages when used.
+	///
+	/// If necessary, the command will be split into multiple packets so that no packet is longer than
+	/// [`max_packet_size`](Self::max_packet_size). If the reply or info messages are split across multiple
+	/// packets, the continuation messages will automatically be read.
+	///
+	/// The iterator produces a `Result<NotChecked<Info>>`, which must be handled by the caller on each iteration.
+	///
+	/// To simply check and collect all the info messages into a vector, use [`command_reply_infos`](Port::command_reply_infos).
+	///
+	/// ## Under The Hood
 	///
 	/// A common pattern in the ASCII protocol is to send additional information
 	/// in info messages after replying to a command. In order to reliably
@@ -298,99 +359,45 @@ impl<'a, B: Backend> Port<'a, B> {
 	///   * a reply to the final empty command is never received.
 	///
 	/// ## Example
-	/// ```rust
-	/// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
-	/// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-	/// let (reply, info_messages) = port.command_reply_infos("stream buffer 1 print")?;
-	/// # Ok(())
-	/// # }
-	/// ```
-	pub fn command_reply_infos<C: Command>(
-		&mut self,
-		cmd: C,
-	) -> Result<(Reply, Vec<Info>), AsciiError> {
-		self.internal_command_reply_infos_with_check(&cmd, &check::strict())
-	}
-
-	/// Same as [`Port::command_reply_infos`] except that the messages are validated with the custom [`Check`](check::Check).
 	///
-	/// ## Example
-	/// ```rust
+	/// ```
 	/// # use zproto::{
-	/// #     ascii::{Port, AnyResponse},
+	/// #     ascii::{check, Port, AnyResponse},
 	/// #     backend::Backend,
 	/// #     error::{AsciiCheckError, AsciiError}
 	/// # };
 	/// # fn wrapper<B: Backend>(port: &mut Port<B>) -> Result<(), AsciiError> {
-	/// let (reply, info_messages) = port.command_reply_infos_with_check(
-	///    (1, "stream buffer 1 print"),
-	///    |response| match response {
-	///        // Don't check replies or info messages, but error on alerts
-	///        AnyResponse::Reply(_) | AnyResponse::Info(_) => Ok(response),
-	///        AnyResponse::Alert(_) => Err(AsciiCheckError::custom("Alerts are not allowed!", response))
-	///    }
-	/// )?;
+	/// let (reply, info_iter) = port.command_reply_infos_iter((1, "stream buffer 1 print"))?;
+	/// let reply = reply.flag_ok()?;
+	/// for result in info_iter {
+	///     let info = result?.check_minimal()?;
+	///     println!("{info:?}");
+	/// }
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn command_reply_infos_with_check<C, K>(
+	pub fn command_reply_infos_iter<C: Command>(
 		&mut self,
 		cmd: C,
-		checker: K,
-	) -> Result<(Reply, Vec<Info>), AsciiError>
-	where
-		C: Command,
-		K: check::Check<AnyResponse>,
-	{
-		self.internal_command_reply_infos_with_check(&cmd, &checker)
+	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B>), AsciiError> {
+		self.internal_command_reply_infos_iter(&cmd)
 	}
 
-	/// Transmit a command and then receive a reply and all subsequent info messages.
-	///
-	/// If necessary, the command will be split into multiple packets so that no packet is longer than
-	/// [`max_packet_size`](Self::max_packet_size).
-	///
-	/// If any response is spread across multiple packets, continuation packets will be read.
-	fn internal_command_reply_infos_with_check(
+	fn internal_command_reply_infos_iter(
 		&mut self,
 		cmd: &dyn Command,
-		checker: &dyn check::Check<AnyResponse>,
-	) -> Result<(Reply, Vec<Info>), AsciiError> {
+	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B>), AsciiError> {
 		let target = cmd.target();
-		// It should be reasonably safe to unwrap here. All checks implemented by this crate return the same response
-		// they received. It is possible for a user to create their own check that doesn't do that but it would
-		// be hard to do since only this crate can create responses (users can create packets from bytes, but
-		// they can't create `Reply`s, `Info`s, or `Alert`s directly).
-		let reply_checker = |reply: Reply| {
-			checker
-				.check(AnyResponse::from(reply))
-				.map(|response| Reply::try_from(response).unwrap())
-				.map_err(|err| AsciiCheckError::<Reply>::try_from(err).unwrap())
-		};
-		let reply = self.internal_command_reply(cmd)?.check(reply_checker)?;
+		let reply = self.internal_command_reply(cmd)?;
 		let old_generate_id = self.set_message_ids(true);
-		let sentinel_id = self.command((target, ""));
+		let result = self.command((target, ""));
 		self.set_message_ids(old_generate_id);
-		let sentinel_id = sentinel_id?;
-		let mut infos = Vec::new();
-		let header_check = HeaderCheck::InfoSentinelReplyMatches {
-			target,
-			info_id: reply.id(),
-			sentinel_id,
-		};
-		self.pre_receive_response();
-		loop {
-			match self.receive_response(header_check)?.check(checker)? {
-				AnyResponse::Info(info) => infos.push(info),
-				AnyResponse::Reply(_) => {
-					// This is the reply we've been waiting for. Stop.
-					break;
-				}
-				_ => unreachable!(),
-			}
-		}
-		self.post_receive_response()?;
-		Ok((reply, infos))
+		let sentinel_id = result?;
+		let info_id = reply.id();
+		Ok((
+			reply,
+			iter::InfosUntilSentinel::new(self, target, info_id, sentinel_id),
+		))
 	}
 
 	/// Transmit a command, receive n replies, and check each reply with the [`strict`](check::strict) check.
@@ -1355,10 +1362,11 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	///
 	/// ```
-	/// # use zproto::ascii::Port;
 	/// # use std::cell::Cell;
 	/// #
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+	/// use zproto::ascii::{Port, check::minimal};
+	///
 	/// let mut port = Port::open_serial("...")?;
 	///
 	/// // Read a potentially large number of info messages. However, to ensure
@@ -1366,7 +1374,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// // configure the port to effectively ignore the alerts it may receive by
 	/// // dropping them.
 	/// port.set_unexpected_alert_handler(|_alert| Ok(()));
-	/// let (_reply, _infos) = port.command_reply_infos((1, "storage all print"))?;
+	/// let (_reply, _infos) = port.command_reply_infos((1, "storage all print"), minimal())?;
 	/// // ...
 	/// # Ok(())
 	/// # }

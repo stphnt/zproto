@@ -1,7 +1,7 @@
 //! Types for iterating over responses.
 use super::HeaderCheck;
 use crate::{
-	ascii::{check::NotChecked, AnyResponse, Port, Response},
+	ascii::{check::NotChecked, AnyResponse, Info, Port, Response, Target},
 	backend::Backend,
 	error::{AsciiCheckError, AsciiError},
 };
@@ -114,6 +114,80 @@ where
 				}
 			}
 			_ => Some(result),
+		}
+	}
+}
+
+/// An iterator that will read info message until a reply from a prior command is
+/// received.
+///
+/// See [Port::command_reply_infos_iter](super::Port::command_reply_infos_iter) for details.
+#[derive(Debug)]
+pub struct InfosUntilSentinel<'i, 'p, B> {
+	port: &'i mut Port<'p, B>,
+	header_check: HeaderCheck,
+	done: bool,
+}
+
+impl<'i, 'p, B> InfosUntilSentinel<'i, 'p, B>
+where
+	B: Backend,
+{
+	/// Create a new `InfosUntilSentinel` instance.
+	pub(crate) fn new(
+		port: &'i mut Port<'p, B>,
+		target: Target,
+		info_id: Option<u8>,
+		sentinel_id: Option<u8>,
+	) -> Self {
+		port.pre_receive_response();
+		InfosUntilSentinel {
+			port,
+			header_check: HeaderCheck::InfoSentinelReplyMatches {
+				target,
+				info_id,
+				sentinel_id,
+			},
+			done: false,
+		}
+	}
+}
+
+impl<'i, 'p, B> Iterator for InfosUntilSentinel<'i, 'p, B>
+where
+	B: Backend,
+{
+	type Item = Result<NotChecked<Info>, AsciiError>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.done {
+			return None;
+		}
+		match self.port.receive_response(self.header_check) {
+			Ok(response) => {
+				match response.into_inner() {
+					AnyResponse::Info(info) => Some(Ok(NotChecked::new(info))),
+					AnyResponse::Reply(_) => {
+						self.done = true;
+						if let Err(e) = self.port.post_receive_response() {
+							Some(Err(e))
+						} else {
+							None
+						}
+					}
+					// The header check should ensure all other response kinds
+					// are errors.
+					_ => unreachable!(),
+				}
+			}
+			Err(e) => {
+				self.done = true;
+				// Clean up if we can. However, if we encounter an error during
+				// clean up we should always return the original error as it is
+				// more important.
+				let _ = self.port.post_receive_response();
+				Some(Err(e))
+			}
 		}
 	}
 }

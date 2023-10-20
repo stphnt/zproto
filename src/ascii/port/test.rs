@@ -644,8 +644,8 @@ mod response_check {
 			ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
 			ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
 
-			ok case  b"@01 1 OK IDLE -- 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos(""),
-			err case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("") => AsciiCheckWarningError,
+			ok case  b"@01 1 OK IDLE -- 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("", check::strict()),
+			err case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("", check::strict()) => AsciiCheckWarningError,
 
 			err case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckFlagError,
 			err case b"@01 1 OK IDLE WR 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckWarningError,
@@ -668,7 +668,7 @@ mod response_check {
 			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_with_check("", |_| true, check::predicate(|_| true)),
 			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle_with_check(1, check::predicate(|_| true)),
 
-			ok case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos_with_check("", check::unchecked()),
+			ok case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("", check::unchecked()),
 		}
 	}
 }
@@ -750,8 +750,7 @@ macro_rules! make_poison_test {
 
 make_poison_test!(command, "");
 make_poison_test!(command_reply, "");
-make_poison_test!(command_reply_infos, "");
-make_poison_test!(command_reply_infos_with_check, "", unchecked());
+make_poison_test!(command_reply_infos, "", unchecked());
 make_poison_test!(command_reply_n, "", 1, unchecked());
 make_poison_test!(poll_until, "", |_| true);
 make_poison_test!(poll_until_with_check, "", |_| true, check::flag_ok());
