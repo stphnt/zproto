@@ -1,7 +1,7 @@
 //! Types for iterating over responses.
 use super::HeaderCheck;
 use crate::{
-	ascii::{check::NotChecked, AnyResponse, Info, Port, Response, Target},
+	ascii::{check::NotChecked, AnyResponse, Command, Info, Port, Reply, Response, Target},
 	backend::Backend,
 	error::{AsciiCheckError, AsciiError},
 };
@@ -189,5 +189,24 @@ where
 				Some(Err(e))
 			}
 		}
+	}
+}
+
+/// An iterator that will continually send a command and read a reply.
+#[derive(Debug)]
+pub struct Poll<'i, 'p, B, C> {
+	pub(super) port: &'i mut Port<'p, B>,
+	pub(super) command: C,
+}
+
+impl<'i, 'p, B, C> Iterator for Poll<'i, 'p, B, C>
+where
+	B: Backend,
+	C: Command,
+{
+	type Item = Result<NotChecked<Reply>, AsciiError>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		Some(self.port.command_reply(&self.command))
 	}
 }

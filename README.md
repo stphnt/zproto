@@ -32,12 +32,12 @@ fn main() -> Result<(), Error> {
         // Ignore warnings about it being unhomed.
         check::warning_in(("WR", "WH", "--"))
     )?;
-    port.poll_until_idle(1)?;
+    port.poll_until_idle(1, check::flag_ok())?;
 
     // Move towards the end of travel and monitor position as it goes.
     // Once the position exceeds 100000, interrupt the motion.
     port.command_reply((1, "move max"))?.flag_ok()?;
-    port.poll_until((1, "get pos"), |reply| {
+    port.poll_until((1, "get pos"), check::flag_ok(), |reply| {
         let pos: i32 = reply.data().parse().unwrap();
         pos >= 100_000
     })?;

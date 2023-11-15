@@ -997,12 +997,41 @@ impl<'a, B: Backend> Port<'a, B> {
 		iter::ResponsesUntilTimeout::new(self, header_check)
 	}
 
+	/// Return a iterator that will repeatedly send `command` and read a reply.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::ascii::{Port, Reply};
+	/// # use zproto::backend::Backend;
+	/// # use zproto::error::AsciiError;
+	/// # fn wrapper<B: Backend>(port: &mut Port<'_, B>) -> Result<(), AsciiError> {
+	/// for result in port.poll("get pos") {
+	///     let reply = result?.flag_ok()?;
+	///     let pos: i32 = reply.data().parse().unwrap();
+	///     println!("{pos}");
+	///     if pos > 50_000 {
+	///         break
+	///     }
+	/// }
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn poll<C>(&mut self, command: C) -> iter::Poll<'_, 'a, B, C>
+	where
+		C: Command,
+	{
+		iter::Poll {
+			port: self,
+			command,
+		}
+	}
+
 	/// Send the specified command repeatedly until the predicate returns true
 	/// for a reply.
 	///
 	/// The first reply to satisfy the predicate is returned. The contents of
-	/// the replies are checked with the [`strict`](check::strict)
-	/// check.
+	/// the replies are checked with the specified `checker`.
 	///
 	/// If necessary, the command will be split into multiple packets so that no
 	/// packet is longer than [`max_packet_size`](Self::max_packet_size).
@@ -1013,51 +1042,28 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::{ascii::Port, backend::Backend};
+	/// # use zproto::{ascii::{check, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// port.poll_until(
 	///     (1, 1, ""),
+	///     check::flag_ok(),
 	///     |reply| reply.warning() != "FZ"
 	/// )?;
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn poll_until<C, F>(&mut self, cmd: C, predicate: F) -> Result<Reply, AsciiError>
-	where
-		C: Command,
-		F: FnMut(&Reply) -> bool,
-	{
-		self.internal_poll_until_with_check(&cmd, predicate, &check::strict())
-	}
-
-	/// Same as [`Port::poll_until`] except that the replies are validated with
-	/// the custom [`Check`](check::Check).
-	///
-	/// ## Example
-	///
-	/// ```rust
-	/// # use zproto::{ascii::{check, Port}, backend::Backend};
-	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// port.poll_until_with_check(
-	///     (1, 1, ""),
-	///     |reply| reply.warning() != "FZ",
-	///     check::flag_ok()
-	/// )?;
-	/// # Ok(())
-	/// # }
-	/// ```
-	pub fn poll_until_with_check<C, F, K>(
+	pub fn poll_until<C, K, F>(
 		&mut self,
 		cmd: C,
-		predicate: F,
 		checker: K,
+		predicate: F,
 	) -> Result<Reply, AsciiError>
 	where
 		C: Command,
-		F: FnMut(&Reply) -> bool,
 		K: check::Check<Reply>,
+		F: FnMut(&Reply) -> bool,
 	{
-		self.internal_poll_until_with_check(&cmd, predicate, &checker)
+		self.internal_poll_until(&cmd, &checker, predicate)
 	}
 
 	/// Send the specified command repeatedly until the predicate returns true
@@ -1067,11 +1073,11 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// packet is longer than [`max_packet_size`](Self::max_packet_size).
 	///
 	/// If any response is spread across multiple packets, continuation packets will be read.
-	fn internal_poll_until_with_check<F>(
+	fn internal_poll_until<F>(
 		&mut self,
 		cmd: &dyn Command,
-		mut predicate: F,
 		checker: &dyn check::Check<Reply>,
+		mut predicate: F,
 	) -> Result<Reply, AsciiError>
 	where
 		F: FnMut(&Reply) -> bool,
@@ -1089,51 +1095,25 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// Poll the target with the empty command until the returned status is IDLE.
 	///
 	/// The first reply with the IDLE status is returned. The contents of
-	/// the replies are checked with the [`strict`](check::strict)
-	/// check.
+	/// the replies are checked with the specified `checker`.
 	///
 	/// ## Example
 	///
-	/// ```rust
-	/// # use zproto::{ascii::Port, backend::Backend};
-	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// port.poll_until_idle((1,1))?;
-	/// # Ok(())
-	/// # }
 	/// ```
-	pub fn poll_until_idle<T>(&mut self, target: T) -> Result<Reply, AsciiError>
-	where
-		T: Into<Target>,
-	{
-		self.poll_until((target.into(), ""), |reply| reply.status() == Status::Idle)
-	}
-
-	/// The same as [`Port::poll_until_idle`] except that the replies are
-	/// validated with the custom [`Check`](check::Check).
-	///
-	/// ## Example
-	///
-	/// ```rust
 	/// # use zproto::{ascii::{check, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// port.poll_until_idle_with_check((1,1), check::flag_ok())?;
+	/// port.poll_until_idle((1,1), check::flag_ok())?;
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn poll_until_idle_with_check<T, K>(
-		&mut self,
-		target: T,
-		checker: K,
-	) -> Result<Reply, AsciiError>
+	pub fn poll_until_idle<T, K>(&mut self, target: T, checker: K) -> Result<Reply, AsciiError>
 	where
 		T: Into<Target>,
 		K: check::Check<Reply>,
 	{
-		self.poll_until_with_check(
-			(target.into(), ""),
-			|reply| reply.status() == Status::Idle,
-			checker,
-		)
+		self.internal_poll_until(&(target.into(), ""), &checker, |reply| {
+			reply.status() == Status::Idle
+		})
 	}
 
 	/// Set the port timeout and return a "scope guard" that will reset the timeout when it goes out of scope.

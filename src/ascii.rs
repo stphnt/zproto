@@ -145,9 +145,10 @@
 //! #     backend::Backend
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+//! use zproto::ascii::check::flag_ok;
 //! let target = (1, 2);
-//! port.command_reply((target, "move max"))?;
-//! port.poll_until_idle(target)?;
+//! port.command_reply((target, "move max"))?.flag_ok()?;
+//! port.poll_until_idle(target, flag_ok())?;
 //! // Axis 2 on device 1 is now idle
 //! # Ok(())
 //! # }
