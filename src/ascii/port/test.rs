@@ -370,6 +370,30 @@ fn command_replies_mixed_cont_until_timeout_unexpected_alert() {
 }
 
 #[test]
+fn command_reply_infos_unexpected_alert() {
+	let alert_count = Cell::new(0);
+
+	let mut port = Port::open_mock();
+	port.set_unexpected_alert_handler(|_alert| {
+		alert_count.set(alert_count.get() + 1);
+		Ok(()) // Consume any alert
+	});
+
+	{
+		let buf = &mut port.backend;
+		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+		buf.append_data(b"#01 0 foo\r\n");
+		buf.append_data(b"#01 0 bar\r\n");
+		buf.append_data(b"!03 0 IDLE --\r\n");
+		buf.append_data(b"#01 1 baz\r\n");
+		buf.append_data(b"@01 0 1 OK IDLE -- 0\r\n");
+	}
+	let (_reply, infos) = port.command_reply_infos("", check::strict()).unwrap();
+	assert_eq!(infos.len(), 3);
+	assert_eq!(alert_count.get(), 1);
+}
+
+#[test]
 fn response_until_timeout_ok() {
 	let mut port = Port::open_mock();
 
