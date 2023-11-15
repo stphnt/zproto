@@ -471,10 +471,10 @@ fn explicit_alert_response_does_not_trigger_unexpected_alert_callback() {
 	assert_eq!(alert_count.get(), 0);
 }
 
-/// Ensure that setting explicit types is possible for all `*_with_check`
-/// methods. This inferencing was previously forbidden because `arg: impl Bound`
+/// Ensure that setting explicit types is possible for all. This
+/// inferencing was previously forbidden because `arg: impl Bound`
 /// syntax was used. Replacing that syntax with standard `where` bounds
-/// allows for the explicit type
+/// allows for the explicit type.
 #[test]
 fn type_inference_regression_test() {
 	use super::check::strict;

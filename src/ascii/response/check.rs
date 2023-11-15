@@ -1,5 +1,4 @@
-//! Types for checking the contents of an ASCII response via a `Port`'s
-//! `*_with_check` methods.
+//! Types for checking the contents of an ASCII response.
 //!
 //! The [`strict`] and [`minimal`] functions define two common sets of response
 //! checks. [`strict`] ensures all reply flags are OK and there are never any

@@ -86,11 +86,12 @@
 //!
 //! ## Checking Responses
 //!
-//! The library always checks the contents of responses and returns an error for
-//! rejected commands or replies with any warnings. However, that may not always
-//! be desirable, in which case you can explicitly define how the response should
-//! be checked. The [`check`] module defines many common validation functions,
-//! or you can write your own:
+//! The library requires users to be explicit about checking the contents of responses.
+//! To do this, many methods either take a validation function or return a
+//! [`NotChecked<R>`](check::NotChecked) (where `R` is the response type,
+//! like a [`Reply`]). To access the inner response, users must validate it's contents using
+//! the methods on `NotChecked` and/or the validation functions in the [`check`] module.
+//! If you want you can also write your own validation functions.
 //!
 //! ```rust
 //! # use zproto::{ascii::{Port, Reply}, backend::Backend, error::Error};
@@ -98,13 +99,12 @@
 //! use zproto::ascii::check::warning_is;
 //!
 //! let reply = port.command_reply((1, "get device.id"))?
-//!     .flag_ok_and(warning_is("WR"))?;
+//!     .flag_ok_and(warning_is("WR"))?; // check that the reply's flag is "OK"
+//!                                      // and the warning flag is "WR".
 //! # Ok(reply)
 //! # }
 //! ```
 //!
-//! Most [`Port`] methods have a `_with_check` version so you can override the
-//! default validation of a response.
 //!
 //! ## Other `Port` Methods
 //!
