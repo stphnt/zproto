@@ -70,61 +70,61 @@ macro_rules! impl_error_display {
 
 #[cfg(any(feature = "ascii", feature = "binary"))]
 macro_rules! impl_is_timeout {
-    ($name:ident) => {
-        paste::paste! {
-            impl $name {
-                /// A convenience function for determining if the error is due to the
-                /// port timing out.
-                ///
-                /// Note that a timeout error is a kind of IO error, so [`is_io`][1] will
-                /// also return true for timeout errors.
-                ///
-                #[doc = "[1]: " $name "::is_io"]
-                pub fn is_timeout(&self) -> bool {
-                    matches!(self, $name::Io(e) if e.kind() == std::io::ErrorKind::TimedOut)
-                }
-            }
-        }
-    };
+	($name:ident) => {
+		paste::paste! {
+			impl $name {
+				/// A convenience function for determining if the error is due to the
+				/// port timing out.
+				///
+				/// Note that a timeout error is a kind of IO error, so [`is_io`][1] will
+				/// also return true for timeout errors.
+				///
+				#[doc = "[1]: " $name "::is_io"]
+				pub fn is_timeout(&self) -> bool {
+					matches!(self, $name::Io(e) if e.kind() == std::io::ErrorKind::TimedOut)
+				}
+			}
+		}
+	};
 }
 
 #[cfg(any(feature = "ascii", feature = "binary"))]
 macro_rules! impl_is_io {
-    ($name:ident) => {
-        impl $name {
-            /// A convenience function for determining if the error is an IO error.
-            pub fn is_io(&self) -> bool {
-                matches!(self, $name::Io(_))
-            }
-        }
-    };
+	($name:ident) => {
+		impl $name {
+			/// A convenience function for determining if the error is an IO error.
+			pub fn is_io(&self) -> bool {
+				matches!(self, $name::Io(_))
+			}
+		}
+	};
 }
 
 #[cfg(any(feature = "ascii", feature = "binary"))]
 macro_rules! impl_from_serialport_error {
-    ($name:ident) => {
-        impl From<serialport::Error> for $name {
-            fn from(other: serialport::Error) -> Self {
-                use std::io;
+	($name:ident) => {
+		impl From<serialport::Error> for $name {
+			fn from(other: serialport::Error) -> Self {
+				use std::io;
 
-                match other.kind() {
-                    serialport::ErrorKind::NoDevice => $name::SerialDeviceInUseOrDisconnected(
-                        SerialDeviceInUseOrDisconnectedError(other.description.into_boxed_str()),
-                    ),
-                    serialport::ErrorKind::InvalidInput => $name::Io(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        other.description,
-                    )),
-                    serialport::ErrorKind::Unknown => {
-                        $name::Io(io::Error::new(io::ErrorKind::Other, other.description))
-                    }
-                    serialport::ErrorKind::Io(kind) => {
-                        $name::Io(io::Error::new(kind, other.description))
-                    }
-                }
-            }
-        }
-    };
+				match other.kind() {
+					serialport::ErrorKind::NoDevice => $name::SerialDeviceInUseOrDisconnected(
+						SerialDeviceInUseOrDisconnectedError(other.description.into_boxed_str()),
+					),
+					serialport::ErrorKind::InvalidInput => $name::Io(io::Error::new(
+						io::ErrorKind::InvalidInput,
+						other.description,
+					)),
+					serialport::ErrorKind::Unknown => {
+						$name::Io(io::Error::new(io::ErrorKind::Other, other.description))
+					}
+					serialport::ErrorKind::Io(kind) => {
+						$name::Io(io::Error::new(kind, other.description))
+					}
+				}
+			}
+		}
+	};
 }
 
 #[cfg(feature = "ascii")]
@@ -372,7 +372,7 @@ pub use all::*;
 pub struct SerialDeviceInUseOrDisconnectedError(Box<str>);
 
 impl_error_display! {
-    SerialDeviceInUseOrDisconnectedError,
-    self =>
-    "the specified device is either disconnected or already in use by another process: {}", self.0
+	SerialDeviceInUseOrDisconnectedError,
+	self =>
+	"the specified device is either disconnected or already in use by another process: {}", self.0
 }

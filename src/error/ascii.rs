@@ -2,60 +2,60 @@
 
 use super::SerialDeviceInUseOrDisconnectedError;
 use crate::ascii::{
-    parse::Packet, Alert, AnyResponse, Command, Flag, Info, Reply, Response, SpecificResponse,
-    Status, Target,
+	parse::Packet, Alert, AnyResponse, Command, Flag, Info, Reply, Response, SpecificResponse,
+	Status, Target,
 };
 use crate::error::{
-    ConversionError, DuplicateAddressError, LockError, LockPoisonedError, LockUnavailableError,
+	ConversionError, DuplicateAddressError, LockError, LockPoisonedError, LockUnavailableError,
 };
 
 /// Implement the `new()` and `as_bytes()` methods errors storing bytes.
 macro_rules! impl_for_type_containing_bytes {
-    (
+	(
         $name:ident
     ) => {
-        impl $name {
-            /// Create a instance of the error
-            pub(crate) fn new<R: AsRef<[u8]>>(bytes: R) -> Self {
-                $name(Box::from(bytes.as_ref()))
-            }
+		impl $name {
+			/// Create a instance of the error
+			pub(crate) fn new<R: AsRef<[u8]>>(bytes: R) -> Self {
+				$name(Box::from(bytes.as_ref()))
+			}
 
-            /// Get the bytes of the invalid packet.
-            pub fn as_bytes(&self) -> &[u8] {
-                &*self.0
-            }
-        }
-    };
+			/// Get the bytes of the invalid packet.
+			pub fn as_bytes(&self) -> &[u8] {
+				&*self.0
+			}
+		}
+	};
 }
 
 /// Implement the `new()` and `packet()` methods for errors storing an owned packet.
 macro_rules! impl_for_type_containing_packet {
-    (
+	(
         $name:ident
     ) => {
-        impl $name {
-            /// Create a instance of the error
-            pub(crate) fn new(packet: Packet) -> Self {
-                $name(packet)
-            }
+		impl $name {
+			/// Create a instance of the error
+			pub(crate) fn new(packet: Packet) -> Self {
+				$name(packet)
+			}
 
-            /// Get the packet
-            pub fn packet(&self) -> &Packet {
-                &self.0
-            }
-        }
-    };
+			/// Get the packet
+			pub fn packet(&self) -> &Packet {
+				&self.0
+			}
+		}
+	};
 }
 
 /// Implement `pub(crate) fn new<R: Into<AnyResponse>>(other: R) -> Self` for the specified type
 macro_rules! impl_new_for_into_any_response {
-    ($name:ident) => {
-        impl $name {
-            pub(crate) fn new<R: Into<AnyResponse>>(other: R) -> Self {
-                $name(other.into())
-            }
-        }
-    };
+	($name:ident) => {
+		impl $name {
+			pub(crate) fn new<R: Into<AnyResponse>>(other: R) -> Self {
+				$name(other.into())
+			}
+		}
+	};
 }
 
 /// Implement `AsRef<R> for Error` and `From<T> for Error` to give users access
@@ -112,38 +112,38 @@ macro_rules! impl_traits_to_access_inner_response {
 /// Implement the conversion from Type<SpecificResponse> to Type<AnyResponse>
 /// for error types that can hold either.
 macro_rules! impl_from_specific_to_any_response {
-    ($name:ident) => {
-        impl<R> From<$name<R>> for $name<AnyResponse>
-        where
-            R: SpecificResponse,
-        {
-            fn from(other: $name<R>) -> Self {
-                $name(Box::new((other.0 .0, other.0 .1.into())))
-            }
-        }
-    };
+	($name:ident) => {
+		impl<R> From<$name<R>> for $name<AnyResponse>
+		where
+			R: SpecificResponse,
+		{
+			fn from(other: $name<R>) -> Self {
+				$name(Box::new((other.0 .0, other.0 .1.into())))
+			}
+		}
+	};
 }
 
 /// Implement the conversion from Type<AnyResponse> to Type<SpecificResponse>
 /// for error types that can hold either.
 macro_rules! impl_try_from_any_response_to_specific {
-    ($error_type:ident) => {
-        impl_try_from_any_response_to_specific! { @private $error_type : Reply }
-        impl_try_from_any_response_to_specific! { @private $error_type : Alert }
-        impl_try_from_any_response_to_specific! { @private $error_type : Info }
-    };
-    (@private $error_type:ident : $specific_type:ident) => {
-        impl TryFrom<$error_type<AnyResponse>> for $error_type<$specific_type> {
-            type Error = $error_type<AnyResponse>;
-            fn try_from(other: $error_type<AnyResponse>) -> Result<Self, Self::Error> {
-                let response = other.0 .1;
-                match $specific_type::try_from(response) {
-                    Ok(specific) => Ok($error_type::new(other.0 .0, specific)),
-                    Err(response) => Err($error_type::new(other.0 .0, response)),
-                }
-            }
-        }
-    };
+	($error_type:ident) => {
+		impl_try_from_any_response_to_specific! { @private $error_type : Reply }
+		impl_try_from_any_response_to_specific! { @private $error_type : Alert }
+		impl_try_from_any_response_to_specific! { @private $error_type : Info }
+	};
+	(@private $error_type:ident : $specific_type:ident) => {
+		impl TryFrom<$error_type<AnyResponse>> for $error_type<$specific_type> {
+			type Error = $error_type<AnyResponse>;
+			fn try_from(other: $error_type<AnyResponse>) -> Result<Self, Self::Error> {
+				let response = other.0 .1;
+				match $specific_type::try_from(response) {
+					Ok(specific) => Ok($error_type::new(other.0 .0, specific)),
+					Err(response) => Err($error_type::new(other.0 .0, response)),
+				}
+			}
+		}
+	};
 }
 
 /// An ASCII packet was missing a start byte.
@@ -152,8 +152,8 @@ macro_rules! impl_try_from_any_response_to_specific {
 pub struct AsciiPacketMissingStartError(Box<[u8]>);
 
 impl_error_display! {
-    AsciiPacketMissingStartError,
-    self => "ASCII packet missing a start byte: {}", String::from_utf8_lossy(&self.0)
+	AsciiPacketMissingStartError,
+	self => "ASCII packet missing a start byte: {}", String::from_utf8_lossy(&self.0)
 }
 impl_for_type_containing_bytes! { AsciiPacketMissingStartError }
 
@@ -163,8 +163,8 @@ impl_for_type_containing_bytes! { AsciiPacketMissingStartError }
 pub struct AsciiPacketMissingEndError(Box<[u8]>);
 
 impl_error_display! {
-    AsciiPacketMissingEndError,
-    self => "ASCII packet missing end byte(s): {}", String::from_utf8_lossy(&self.0)
+	AsciiPacketMissingEndError,
+	self => "ASCII packet missing end byte(s): {}", String::from_utf8_lossy(&self.0)
 }
 impl_for_type_containing_bytes! { AsciiPacketMissingEndError }
 
@@ -174,24 +174,24 @@ impl_for_type_containing_bytes! { AsciiPacketMissingEndError }
 pub struct AsciiPacketMalformedError(Box<[u8]>);
 
 impl_error_display! {
-    AsciiPacketMalformedError,
-    self => "ASCII packet is malformed: {}", String::from_utf8_lossy(&self.0)
+	AsciiPacketMalformedError,
+	self => "ASCII packet is malformed: {}", String::from_utf8_lossy(&self.0)
 }
 impl_for_type_containing_bytes! { AsciiPacketMalformedError }
 
 error_enum! {
-    /// Received data that did not conform to the ASCII protocol.
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    #[non_exhaustive]
-    #[cfg_attr(
-    all(doc, feature = "doc_cfg"),
-    doc(cfg(feature = "ascii"))
+	/// Received data that did not conform to the ASCII protocol.
+	#[derive(Debug, PartialEq, Eq, Hash)]
+	#[non_exhaustive]
+	#[cfg_attr(
+	all(doc, feature = "doc_cfg"),
+	doc(cfg(feature = "ascii"))
 )]
-    pub enum AsciiProtocolError {
-        PacketMissingStart(AsciiPacketMissingStartError),
-        PacketMissingEnd(AsciiPacketMissingEndError),
-        PacketMalformed(AsciiPacketMalformedError),
-    }
+	pub enum AsciiProtocolError {
+		PacketMissingStart(AsciiPacketMissingStartError),
+		PacketMissingEnd(AsciiPacketMissingEndError),
+		PacketMalformed(AsciiPacketMalformedError),
+	}
 }
 
 /// A response packet had an invalid checksum, indicating it was corrupt.
@@ -200,8 +200,8 @@ error_enum! {
 pub struct AsciiInvalidChecksumError(Packet);
 
 impl_error_display! {
-    AsciiInvalidChecksumError,
-    self => "invalid checksum: {}", self.0
+	AsciiInvalidChecksumError,
+	self => "invalid checksum: {}", self.0
 }
 
 impl_for_type_containing_packet! { AsciiInvalidChecksumError }
@@ -217,8 +217,8 @@ impl_for_type_containing_packet! { AsciiInvalidChecksumError }
 pub struct AsciiUnexpectedResponseError(AnyResponse);
 
 impl_error_display! {
-    AsciiUnexpectedResponseError,
-    self => "unexpected response: {}", self.0
+	AsciiUnexpectedResponseError,
+	self => "unexpected response: {}", self.0
 }
 
 impl_traits_to_access_inner_response! { (AsciiUnexpectedResponseError) -> AnyResponse { 0 } }
@@ -236,8 +236,8 @@ impl_new_for_into_any_response! { AsciiUnexpectedResponseError }
 pub struct AsciiUnexpectedPacketError(Packet);
 
 impl_error_display! {
-    AsciiUnexpectedPacketError,
-    self => "unexpected packet: {}", self.0
+	AsciiUnexpectedPacketError,
+	self => "unexpected packet: {}", self.0
 }
 
 impl_traits_to_access_inner_response! { (AsciiUnexpectedPacketError) -> Packet { 0 } }
@@ -249,27 +249,27 @@ impl_for_type_containing_packet! { AsciiUnexpectedPacketError }
 pub struct AsciiCommandSplitError(Box<(Target, String)>);
 
 impl AsciiCommandSplitError {
-    /// Create a new `AsciiCommandSplitError` error given a command that could not be split
-    ///
-    /// `command` is the command that could not be split.
-    pub(crate) fn new(command: impl Command) -> AsciiCommandSplitError {
-        AsciiCommandSplitError(Box::new((
-            command.target(),
-            String::from_utf8_lossy(command.data().as_ref()).into_owned(),
-        )))
-    }
+	/// Create a new `AsciiCommandSplitError` error given a command that could not be split
+	///
+	/// `command` is the command that could not be split.
+	pub(crate) fn new(command: impl Command) -> AsciiCommandSplitError {
+		AsciiCommandSplitError(Box::new((
+			command.target(),
+			String::from_utf8_lossy(command.data().as_ref()).into_owned(),
+		)))
+	}
 }
 
 impl AsRef<(Target, String)> for AsciiCommandSplitError {
-    /// Get the command that caused the error
-    fn as_ref(&self) -> &(Target, String) {
-        &self.0
-    }
+	/// Get the command that caused the error
+	fn as_ref(&self) -> &(Target, String) {
+		&self.0
+	}
 }
 
 impl_error_display! {
-    AsciiCommandSplitError,
-    self => "cannot split command into packets: {} {} {}", self.0.0.device(), self.0.0.axis(), self.0.1
+	AsciiCommandSplitError,
+	self => "cannot split command into packets: {} {} {}", self.0.0.device(), self.0.0.axis(), self.0.1
 }
 
 /// A [`Command`] contains a [reserved character] and does not adhere to the ASCII protocol.
@@ -280,28 +280,28 @@ impl_error_display! {
 pub struct AsciiReservedCharacterError(Box<(Target, String)>, u8);
 
 impl AsciiReservedCharacterError {
-    /// Create a new `AsciiReservedCharacterError` error
-    pub(crate) fn new(command: impl Command, reserved: u8) -> AsciiReservedCharacterError {
-        AsciiReservedCharacterError(
-            Box::new((
-                command.target(),
-                String::from_utf8_lossy(command.data().as_ref()).into_owned(),
-            )),
-            reserved,
-        )
-    }
+	/// Create a new `AsciiReservedCharacterError` error
+	pub(crate) fn new(command: impl Command, reserved: u8) -> AsciiReservedCharacterError {
+		AsciiReservedCharacterError(
+			Box::new((
+				command.target(),
+				String::from_utf8_lossy(command.data().as_ref()).into_owned(),
+			)),
+			reserved,
+		)
+	}
 }
 
 impl AsRef<(Target, String)> for AsciiReservedCharacterError {
-    /// Get the command that caused the error
-    fn as_ref(&self) -> &(Target, String) {
-        &self.0
-    }
+	/// Get the command that caused the error
+	fn as_ref(&self) -> &(Target, String) {
+		&self.0
+	}
 }
 
 impl_error_display! {
-    AsciiReservedCharacterError,
-    self => "command contains a reserved character ({}): {} {} {}", self.1, self.0.0.device(), self.0.0.axis(), self.0.1
+	AsciiReservedCharacterError,
+	self => "command contains a reserved character ({}): {} {} {}", self.1, self.0.0.device(), self.0.0.axis(), self.0.1
 }
 
 /// A [`Reply`] was received with an unexpected reply flag.
@@ -310,17 +310,17 @@ impl_error_display! {
 pub struct AsciiCheckFlagError(Box<(Flag, Reply)>);
 
 impl_error_display! {
-    AsciiCheckFlagError,
-    self => "expected reply flag {}: {}", self.0.0, self.0.1
+	AsciiCheckFlagError,
+	self => "expected reply flag {}: {}", self.0.0, self.0.1
 }
 
 impl AsciiCheckFlagError {
-    /// Create a new `AsciiCheckFlagError` error.
-    ///
-    /// `expected` is the expected [`Flag`] and `reply` is the invalid response.
-    pub fn new(expected: Flag, reply: Reply) -> Self {
-        AsciiCheckFlagError(Box::new((expected, reply)))
-    }
+	/// Create a new `AsciiCheckFlagError` error.
+	///
+	/// `expected` is the expected [`Flag`] and `reply` is the invalid response.
+	pub fn new(expected: Flag, reply: Reply) -> Self {
+		AsciiCheckFlagError(Box::new((expected, reply)))
+	}
 }
 
 impl_traits_to_access_inner_response! { (AsciiCheckFlagError) -> Reply { 0.1 } }
@@ -331,17 +331,17 @@ impl_traits_to_access_inner_response! { (AsciiCheckFlagError) -> Reply { 0.1 } }
 pub struct AsciiCheckStatusError<R>(Box<(Status, R)>);
 
 impl_error_display! {
-    <R: Response> AsciiCheckStatusError<R>,
-    self => "expected status {}: {}", self.0.0, self.0.1
+	<R: Response> AsciiCheckStatusError<R>,
+	self => "expected status {}: {}", self.0.0, self.0.1
 }
 
 impl<R: Response> AsciiCheckStatusError<R> {
-    /// Create a new `AsciiCheckStatusError` error.
-    ///
-    /// `expected` is the expected [`Status`] and `response` is the invalid response.
-    pub fn new(expected: Status, response: R) -> Self {
-        AsciiCheckStatusError(Box::new((expected, response)))
-    }
+	/// Create a new `AsciiCheckStatusError` error.
+	///
+	/// `expected` is the expected [`Status`] and `response` is the invalid response.
+	pub fn new(expected: Status, response: R) -> Self {
+		AsciiCheckStatusError(Box::new((expected, response)))
+	}
 }
 
 impl_try_from_any_response_to_specific! { AsciiCheckStatusError }
@@ -354,17 +354,17 @@ impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckStatusError)
 pub struct AsciiCheckWarningError<R>(Box<(String, R)>);
 
 impl_error_display! {
-    <R: Response> AsciiCheckWarningError<R>,
-    self => "{}: {}", self.0.0, self.0.1
+	<R: Response> AsciiCheckWarningError<R>,
+	self => "{}: {}", self.0.0, self.0.1
 }
 
 impl<R: Response> AsciiCheckWarningError<R> {
-    /// Create a new `AsciiCheckWarningError` error.
-    ///
-    /// `message` is a description of the error and `response` is the invalid response.
-    pub fn new<T: Into<String>>(message: T, response: R) -> Self {
-        AsciiCheckWarningError(Box::new((message.into(), response)))
-    }
+	/// Create a new `AsciiCheckWarningError` error.
+	///
+	/// `message` is a description of the error and `response` is the invalid response.
+	pub fn new<T: Into<String>>(message: T, response: R) -> Self {
+		AsciiCheckWarningError(Box::new((message.into(), response)))
+	}
 }
 
 impl_try_from_any_response_to_specific! { AsciiCheckWarningError }
@@ -377,17 +377,17 @@ impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckWarningError
 pub struct AsciiCheckDataError<R>(Box<(String, R)>);
 
 impl<R: Response> AsciiCheckDataError<R> {
-    /// Create a new `AsciiCheckDataError` error.
-    ///
-    /// `message` is a description of the error and `response` is the invalid response.
-    pub fn new<T: Into<String>>(message: T, response: R) -> Self {
-        AsciiCheckDataError(Box::new((message.into(), response)))
-    }
+	/// Create a new `AsciiCheckDataError` error.
+	///
+	/// `message` is a description of the error and `response` is the invalid response.
+	pub fn new<T: Into<String>>(message: T, response: R) -> Self {
+		AsciiCheckDataError(Box::new((message.into(), response)))
+	}
 }
 
 impl_error_display! {
-    <R: Response> AsciiCheckDataError<R>,
-    self => "{}: {}", self.0.0, self.0.1
+	<R: Response> AsciiCheckDataError<R>,
+	self => "{}: {}", self.0.0, self.0.1
 }
 
 impl_try_from_any_response_to_specific! { AsciiCheckDataError }
@@ -402,22 +402,22 @@ impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckDataError) -
 pub struct AsciiCheckCustomError<R>(Box<(String, R)>);
 
 impl_error_display! {
-    <R: Response> AsciiCheckCustomError<R>,
-    self => "{}: {}", self.0.0, self.0.1
+	<R: Response> AsciiCheckCustomError<R>,
+	self => "{}: {}", self.0.0, self.0.1
 }
 
 impl<R: Response> AsciiCheckCustomError<R> {
-    /// Create a new `AsciiCheckCustomError` error.
-    ///
-    /// `message` is a description of the error and `response` is the invalid response.
-    pub fn new<T: Into<String>>(message: T, response: R) -> Self {
-        AsciiCheckCustomError(Box::new((message.into(), response)))
-    }
+	/// Create a new `AsciiCheckCustomError` error.
+	///
+	/// `message` is a description of the error and `response` is the invalid response.
+	pub fn new<T: Into<String>>(message: T, response: R) -> Self {
+		AsciiCheckCustomError(Box::new((message.into(), response)))
+	}
 
-    /// Create a new `AsciiCheckCustomError` indicating a response is invalid for some unknown reason.
-    pub fn unknown(response: R) -> Self {
-        AsciiCheckCustomError::new("invalid response", response)
-    }
+	/// Create a new `AsciiCheckCustomError` indicating a response is invalid for some unknown reason.
+	pub fn unknown(response: R) -> Self {
+		AsciiCheckCustomError::new("invalid response", response)
+	}
 }
 
 impl_try_from_any_response_to_specific! { AsciiCheckCustomError }
@@ -432,324 +432,324 @@ error_enum! {
 #[derive(Debug, PartialEq)]
 #[non_exhaustive]
 #[cfg_attr(
-    all(doc, feature = "doc_cfg"),
-    doc(cfg(feature = "ascii"))
+	all(doc, feature = "doc_cfg"),
+	doc(cfg(feature = "ascii"))
 )]
 pub enum AsciiCheckError<R> {
-    Flag(AsciiCheckFlagError),
-    Status(AsciiCheckStatusError<R>),
-    Warning(AsciiCheckWarningError<R>),
-    Data(AsciiCheckDataError<R>),
-    Custom(AsciiCheckCustomError<R>),
+	Flag(AsciiCheckFlagError),
+	Status(AsciiCheckStatusError<R>),
+	Warning(AsciiCheckWarningError<R>),
+	Data(AsciiCheckDataError<R>),
+	Custom(AsciiCheckCustomError<R>),
 }
 
 impl<R: Response>
 }
 
 impl<R: Response> AsciiCheckError<R> {
-    /// Create an `AsciiCheckError` error indicating the reply flag was unexpected.
-    pub fn unexpected_flag(expected: Flag, reply: Reply) -> AsciiCheckError<Reply> {
-        AsciiCheckFlagError::new(expected, reply).into()
-    }
+	/// Create an `AsciiCheckError` error indicating the reply flag was unexpected.
+	pub fn unexpected_flag(expected: Flag, reply: Reply) -> AsciiCheckError<Reply> {
+		AsciiCheckFlagError::new(expected, reply).into()
+	}
 
-    /// Create an `AsciiCheckError` error indicating the status was unexpected.
-    pub fn unexpected_status(expected: Status, response: R) -> AsciiCheckError<R> {
-        AsciiCheckStatusError::new(expected, response).into()
-    }
+	/// Create an `AsciiCheckError` error indicating the status was unexpected.
+	pub fn unexpected_status(expected: Status, response: R) -> AsciiCheckError<R> {
+		AsciiCheckStatusError::new(expected, response).into()
+	}
 
-    /// Create an `AsciiCheckError` error indicating the warning was unexpected.
-    pub fn unexpected_warning<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
-        AsciiCheckWarningError::new(message, response).into()
-    }
+	/// Create an `AsciiCheckError` error indicating the warning was unexpected.
+	pub fn unexpected_warning<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
+		AsciiCheckWarningError::new(message, response).into()
+	}
 
-    /// Create an `AsciiCheckError` error indicating the data was unexpected.
-    pub fn unexpected_data<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
-        AsciiCheckWarningError::new(message, response).into()
-    }
+	/// Create an `AsciiCheckError` error indicating the data was unexpected.
+	pub fn unexpected_data<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
+		AsciiCheckWarningError::new(message, response).into()
+	}
 
-    /// Create an `AsciiCheckError` error indicating the message was invalid for some custom reason.
-    pub fn custom<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
-        AsciiCheckCustomError::new(message, response).into()
-    }
+	/// Create an `AsciiCheckError` error indicating the message was invalid for some custom reason.
+	pub fn custom<T: Into<String>>(message: T, response: R) -> AsciiCheckError<R> {
+		AsciiCheckCustomError::new(message, response).into()
+	}
 
-    /// Create an `AsciiCheckError` error indicating the message was invalid for some unknown reason.
-    pub fn unknown(response: R) -> AsciiCheckError<R> {
-        AsciiCheckCustomError::unknown(response).into()
-    }
+	/// Create an `AsciiCheckError` error indicating the message was invalid for some unknown reason.
+	pub fn unknown(response: R) -> AsciiCheckError<R> {
+		AsciiCheckCustomError::unknown(response).into()
+	}
 }
 
 impl AsRef<Reply> for AsciiCheckError<Reply> {
-    /// Get a reference to the underlying [`Reply`].
-    ///
-    /// [`AsRef`] is only implemented for `AsciiCheckError<Reply>` because the
-    /// `Flag` variant always holds a `Reply`. So it is the only type that a
-    /// reference can always be returned for.
-    fn as_ref(&self) -> &Reply {
-        match self {
-            AsciiCheckError::Flag(e) => e.as_ref(),
-            AsciiCheckError::Status(e) => e.as_ref(),
-            AsciiCheckError::Warning(e) => e.as_ref(),
-            AsciiCheckError::Data(e) => e.as_ref(),
-            AsciiCheckError::Custom(e) => e.as_ref(),
-        }
-    }
+	/// Get a reference to the underlying [`Reply`].
+	///
+	/// [`AsRef`] is only implemented for `AsciiCheckError<Reply>` because the
+	/// `Flag` variant always holds a `Reply`. So it is the only type that a
+	/// reference can always be returned for.
+	fn as_ref(&self) -> &Reply {
+		match self {
+			AsciiCheckError::Flag(e) => e.as_ref(),
+			AsciiCheckError::Status(e) => e.as_ref(),
+			AsciiCheckError::Warning(e) => e.as_ref(),
+			AsciiCheckError::Data(e) => e.as_ref(),
+			AsciiCheckError::Custom(e) => e.as_ref(),
+		}
+	}
 }
 
 impl<R> From<AsciiCheckError<R>> for AnyResponse
 where
-    AnyResponse: From<R>,
-    R: From<AsciiCheckStatusError<R>>
-        + From<AsciiCheckWarningError<R>>
-        + From<AsciiCheckDataError<R>>
-        + From<AsciiCheckCustomError<R>>,
+	AnyResponse: From<R>,
+	R: From<AsciiCheckStatusError<R>>
+		+ From<AsciiCheckWarningError<R>>
+		+ From<AsciiCheckDataError<R>>
+		+ From<AsciiCheckCustomError<R>>,
 {
-    fn from(other: AsciiCheckError<R>) -> Self {
-        match other {
-            AsciiCheckError::Flag(e) => Into::<Reply>::into(e).into(),
-            AsciiCheckError::Status(e) => Into::<R>::into(e).into(),
-            AsciiCheckError::Warning(e) => Into::<R>::into(e).into(),
-            AsciiCheckError::Data(e) => Into::<R>::into(e).into(),
-            AsciiCheckError::Custom(e) => Into::<R>::into(e).into(),
-        }
-    }
+	fn from(other: AsciiCheckError<R>) -> Self {
+		match other {
+			AsciiCheckError::Flag(e) => Into::<Reply>::into(e).into(),
+			AsciiCheckError::Status(e) => Into::<R>::into(e).into(),
+			AsciiCheckError::Warning(e) => Into::<R>::into(e).into(),
+			AsciiCheckError::Data(e) => Into::<R>::into(e).into(),
+			AsciiCheckError::Custom(e) => Into::<R>::into(e).into(),
+		}
+	}
 }
 
 impl From<AsciiCheckError<Reply>> for Reply {
-    fn from(other: AsciiCheckError<Reply>) -> Self {
-        match other {
-            AsciiCheckError::Flag(e) => e.into(),
-            AsciiCheckError::Status(e) => e.into(),
-            AsciiCheckError::Warning(e) => e.into(),
-            AsciiCheckError::Data(e) => e.into(),
-            AsciiCheckError::Custom(e) => e.into(),
-        }
-    }
+	fn from(other: AsciiCheckError<Reply>) -> Self {
+		match other {
+			AsciiCheckError::Flag(e) => e.into(),
+			AsciiCheckError::Status(e) => e.into(),
+			AsciiCheckError::Warning(e) => e.into(),
+			AsciiCheckError::Data(e) => e.into(),
+			AsciiCheckError::Custom(e) => e.into(),
+		}
+	}
 }
 
 impl TryFrom<AsciiError> for AsciiCheckError<AnyResponse> {
-    type Error = AsciiError;
-    fn try_from(other: AsciiError) -> Result<Self, Self::Error> {
-        match other {
-            AsciiError::CheckFlag(e) => Ok(AsciiCheckError::Flag(e)),
-            AsciiError::CheckStatus(e) => Ok(AsciiCheckError::Status(e)),
-            AsciiError::CheckWarning(e) => Ok(AsciiCheckError::Warning(e)),
-            AsciiError::CheckData(e) => Ok(AsciiCheckError::Data(e)),
-            AsciiError::CheckCustom(e) => Ok(AsciiCheckError::Custom(e)),
-            e => Err(e),
-        }
-    }
+	type Error = AsciiError;
+	fn try_from(other: AsciiError) -> Result<Self, Self::Error> {
+		match other {
+			AsciiError::CheckFlag(e) => Ok(AsciiCheckError::Flag(e)),
+			AsciiError::CheckStatus(e) => Ok(AsciiCheckError::Status(e)),
+			AsciiError::CheckWarning(e) => Ok(AsciiCheckError::Warning(e)),
+			AsciiError::CheckData(e) => Ok(AsciiCheckError::Data(e)),
+			AsciiError::CheckCustom(e) => Ok(AsciiCheckError::Custom(e)),
+			e => Err(e),
+		}
+	}
 }
 
 impl TryFrom<AsciiCheckError<AnyResponse>> for AsciiCheckError<Reply> {
-    type Error = AsciiCheckError<AnyResponse>;
-    fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
-        match other {
-            AsciiCheckError::Flag(e) => Ok(AsciiCheckError::Flag(e)),
-            AsciiCheckError::Status(e) => AsciiCheckStatusError::<Reply>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Reply>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Data(e) => AsciiCheckDataError::<Reply>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Reply>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-        }
-    }
+	type Error = AsciiCheckError<AnyResponse>;
+	fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
+		match other {
+			AsciiCheckError::Flag(e) => Ok(AsciiCheckError::Flag(e)),
+			AsciiCheckError::Status(e) => AsciiCheckStatusError::<Reply>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Reply>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Data(e) => AsciiCheckDataError::<Reply>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Reply>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+		}
+	}
 }
 
 impl TryFrom<AsciiCheckError<AnyResponse>> for AsciiCheckError<Info> {
-    type Error = AsciiCheckError<AnyResponse>;
-    fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
-        match other {
-            AsciiCheckError::Flag(e) => Err(AsciiCheckError::Flag(e)),
-            AsciiCheckError::Status(e) => AsciiCheckStatusError::<Info>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Info>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Data(e) => AsciiCheckDataError::<Info>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Info>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-        }
-    }
+	type Error = AsciiCheckError<AnyResponse>;
+	fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
+		match other {
+			AsciiCheckError::Flag(e) => Err(AsciiCheckError::Flag(e)),
+			AsciiCheckError::Status(e) => AsciiCheckStatusError::<Info>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Info>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Data(e) => AsciiCheckDataError::<Info>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Info>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+		}
+	}
 }
 
 impl TryFrom<AsciiCheckError<AnyResponse>> for AsciiCheckError<Alert> {
-    type Error = AsciiCheckError<AnyResponse>;
-    fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
-        match other {
-            AsciiCheckError::Flag(e) => Err(AsciiCheckError::Flag(e)),
-            AsciiCheckError::Status(e) => AsciiCheckStatusError::<Alert>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Alert>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Data(e) => AsciiCheckDataError::<Alert>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-            AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Alert>::try_from(e)
-                .map(Into::into)
-                .map_err(Into::into),
-        }
-    }
+	type Error = AsciiCheckError<AnyResponse>;
+	fn try_from(other: AsciiCheckError<AnyResponse>) -> Result<Self, Self::Error> {
+		match other {
+			AsciiCheckError::Flag(e) => Err(AsciiCheckError::Flag(e)),
+			AsciiCheckError::Status(e) => AsciiCheckStatusError::<Alert>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Warning(e) => AsciiCheckWarningError::<Alert>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Data(e) => AsciiCheckDataError::<Alert>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+			AsciiCheckError::Custom(e) => AsciiCheckCustomError::<Alert>::try_from(e)
+				.map(Into::into)
+				.map_err(Into::into),
+		}
+	}
 }
 
 impl<R> From<AsciiCheckError<R>> for AsciiCheckError<AnyResponse>
 where
-    R: SpecificResponse,
+	R: SpecificResponse,
 {
-    fn from(other: AsciiCheckError<R>) -> Self {
-        match other {
-            AsciiCheckError::Flag(err) => AsciiCheckError::Flag(err),
-            AsciiCheckError::Status(err) => AsciiCheckError::Status(err.into()),
-            AsciiCheckError::Warning(err) => AsciiCheckError::Warning(err.into()),
-            AsciiCheckError::Data(err) => AsciiCheckError::Data(err.into()),
-            AsciiCheckError::Custom(err) => AsciiCheckError::Custom(err.into()),
-        }
-    }
+	fn from(other: AsciiCheckError<R>) -> Self {
+		match other {
+			AsciiCheckError::Flag(err) => AsciiCheckError::Flag(err),
+			AsciiCheckError::Status(err) => AsciiCheckError::Status(err.into()),
+			AsciiCheckError::Warning(err) => AsciiCheckError::Warning(err.into()),
+			AsciiCheckError::Data(err) => AsciiCheckError::Data(err.into()),
+			AsciiCheckError::Custom(err) => AsciiCheckError::Custom(err.into()),
+		}
+	}
 }
 
 error_enum! {
-    /// Any error returned by the [`ascii`](crate::ascii) module.
-    #[derive(Debug)]
-    #[non_exhaustive]
-    #[cfg_attr(
-    all(doc, feature = "doc_cfg"),
-    doc(cfg(feature = "ascii"))
+	/// Any error returned by the [`ascii`](crate::ascii) module.
+	#[derive(Debug)]
+	#[non_exhaustive]
+	#[cfg_attr(
+	all(doc, feature = "doc_cfg"),
+	doc(cfg(feature = "ascii"))
 )]
-    pub enum AsciiError {
-        SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
-        Io(std::io::Error),
-        PacketMissingStart(AsciiPacketMissingStartError),
-        PacketMissingEnd(AsciiPacketMissingEndError),
-        PacketMalformed(AsciiPacketMalformedError),
-        InvalidChecksum(AsciiInvalidChecksumError),
-        UnexpectedResponse(AsciiUnexpectedResponseError),
-        UnexpectedPacket(AsciiUnexpectedPacketError),
-        CheckFlag(AsciiCheckFlagError),
-        CheckStatus(AsciiCheckStatusError<AnyResponse>),
-        CheckWarning(AsciiCheckWarningError<AnyResponse>),
-        CheckData(AsciiCheckDataError<AnyResponse>),
-        CheckCustom(AsciiCheckCustomError<AnyResponse>),
-        CommandSplit(AsciiCommandSplitError),
-        ReservedCharacter(AsciiReservedCharacterError),
-        LockPoisoned(LockPoisonedError),
-        LockUnavailable(LockUnavailableError),
-        Conversion(ConversionError),
-        DuplicateAddress(DuplicateAddressError),
-    }
+	pub enum AsciiError {
+		SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
+		Io(std::io::Error),
+		PacketMissingStart(AsciiPacketMissingStartError),
+		PacketMissingEnd(AsciiPacketMissingEndError),
+		PacketMalformed(AsciiPacketMalformedError),
+		InvalidChecksum(AsciiInvalidChecksumError),
+		UnexpectedResponse(AsciiUnexpectedResponseError),
+		UnexpectedPacket(AsciiUnexpectedPacketError),
+		CheckFlag(AsciiCheckFlagError),
+		CheckStatus(AsciiCheckStatusError<AnyResponse>),
+		CheckWarning(AsciiCheckWarningError<AnyResponse>),
+		CheckData(AsciiCheckDataError<AnyResponse>),
+		CheckCustom(AsciiCheckCustomError<AnyResponse>),
+		CommandSplit(AsciiCommandSplitError),
+		ReservedCharacter(AsciiReservedCharacterError),
+		LockPoisoned(LockPoisonedError),
+		LockUnavailable(LockUnavailableError),
+		Conversion(ConversionError),
+		DuplicateAddress(DuplicateAddressError),
+	}
 
-    impl From<AsciiProtocolError> {
-        PacketMissingStart => PacketMissingStart,
-        PacketMissingEnd => PacketMissingEnd,
-        PacketMalformed => PacketMalformed,
-    }
+	impl From<AsciiProtocolError> {
+		PacketMissingStart => PacketMissingStart,
+		PacketMissingEnd => PacketMissingEnd,
+		PacketMalformed => PacketMalformed,
+	}
 
-    impl From<LockError> {
-        Poisoned => LockPoisoned,
-        Unavailable => LockUnavailable,
-    }
+	impl From<LockError> {
+		Poisoned => LockPoisoned,
+		Unavailable => LockUnavailable,
+	}
 }
 impl_is_timeout! { AsciiError }
 impl_is_io! { AsciiError }
 impl_from_serialport_error! { AsciiError }
 impl_from_ascii_check_error! {
-    AsciiError {
-        Flag => CheckFlag,
-        Status => CheckStatus,
-        Warning => CheckWarning,
-        Data => CheckData,
-        Custom => CheckCustom,
-    }
+	AsciiError {
+		Flag => CheckFlag,
+		Status => CheckStatus,
+		Warning => CheckWarning,
+		Data => CheckData,
+		Custom => CheckCustom,
+	}
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::ascii::*;
-    use static_assertions::{assert_impl_all, const_assert_eq};
+	use super::*;
+	use crate::ascii::*;
+	use static_assertions::{assert_impl_all, const_assert_eq};
 
-    // Make sure the error enums are at most 3 words large (the same size as a String).
-    // This will minimize the size of Result<R, Error>.
-    const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
-    const_assert_eq!(
-        std::mem::size_of::<AsciiCheckError<AnyResponse>>(), // AnyResponse is the largests response type
-        2 * _WORD_SIZE
-    );
-    const_assert_eq!(std::mem::size_of::<AsciiProtocolError>(), 3 * _WORD_SIZE);
-    const_assert_eq!(std::mem::size_of::<AsciiError>(), 3 * _WORD_SIZE);
+	// Make sure the error enums are at most 3 words large (the same size as a String).
+	// This will minimize the size of Result<R, Error>.
+	const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
+	const_assert_eq!(
+		std::mem::size_of::<AsciiCheckError<AnyResponse>>(), // AnyResponse is the largests response type
+		2 * _WORD_SIZE
+	);
+	const_assert_eq!(std::mem::size_of::<AsciiProtocolError>(), 3 * _WORD_SIZE);
+	const_assert_eq!(std::mem::size_of::<AsciiError>(), 3 * _WORD_SIZE);
 
-    // Make sure that error enum types are properly convertible
-    assert_impl_all!(AsciiError: From<AsciiProtocolError>);
-    assert_impl_all!(AsciiError: From<AsciiCheckError<AnyResponse>>);
-    assert_impl_all!(AsciiError: From<AsciiCheckError<Reply>>);
-    assert_impl_all!(AsciiError: From<AsciiCheckError<Info>>);
-    assert_impl_all!(AsciiError: From<AsciiCheckError<Alert>>);
-    assert_impl_all!(AsciiError: From<LockError>);
+	// Make sure that error enum types are properly convertible
+	assert_impl_all!(AsciiError: From<AsciiProtocolError>);
+	assert_impl_all!(AsciiError: From<AsciiCheckError<AnyResponse>>);
+	assert_impl_all!(AsciiError: From<AsciiCheckError<Reply>>);
+	assert_impl_all!(AsciiError: From<AsciiCheckError<Info>>);
+	assert_impl_all!(AsciiError: From<AsciiCheckError<Alert>>);
+	assert_impl_all!(AsciiError: From<LockError>);
 
-    assert_impl_all!(AsciiProtocolError: TryFrom<AsciiError>);
-    assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<AsciiError>);
-    assert_impl_all!(LockError: TryFrom<AsciiError>);
+	assert_impl_all!(AsciiProtocolError: TryFrom<AsciiError>);
+	assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<AsciiError>);
+	assert_impl_all!(LockError: TryFrom<AsciiError>);
 
-    // Check that error types and responses they wrap implement AsRef and From,
-    // respectively.
-    macro_rules! assert_accessor_traits_to_response {
+	// Check that error types and responses they wrap implement AsRef and From,
+	// respectively.
+	macro_rules! assert_accessor_traits_to_response {
         ($type:path => $response:path) => {
             assert_impl_all!($response: From<$type>);
             assert_impl_all!($type: AsRef<$response>);
         };
     }
 
-    assert_accessor_traits_to_response!(AsciiUnexpectedResponseError => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiUnexpectedPacketError => parse::Packet);
+	assert_accessor_traits_to_response!(AsciiUnexpectedResponseError => AnyResponse);
+	assert_accessor_traits_to_response!(AsciiUnexpectedPacketError => parse::Packet);
 
-    // Because the `AsciiCheckError::<R>::Flag` variant always holds a `Reply`,
-    // `AsciiCheckError<R>` can only implement `AsRef` when R == Reply. Similarly,
-    // R can only implement `From<AsciiCheckError<R>>` when R is in (Reply,
-    // AnyResponse).
-    assert_accessor_traits_to_response!(AsciiCheckError<Reply> => Reply);
-    assert_impl_all!(
-        AnyResponse: From<AsciiCheckError<AnyResponse>>,
-        From<AsciiCheckError<Reply>>,
-        From<AsciiCheckError<Info>>,
-        From<AsciiCheckError<Alert>>
-    );
-    assert_impl_all!(AsciiCheckError<Reply>: TryFrom<AsciiCheckError<AnyResponse>>);
-    assert_impl_all!(AsciiCheckError<Info>: TryFrom<AsciiCheckError<AnyResponse>>);
-    assert_impl_all!(AsciiCheckError<Alert>: TryFrom<AsciiCheckError<AnyResponse>>);
+	// Because the `AsciiCheckError::<R>::Flag` variant always holds a `Reply`,
+	// `AsciiCheckError<R>` can only implement `AsRef` when R == Reply. Similarly,
+	// R can only implement `From<AsciiCheckError<R>>` when R is in (Reply,
+	// AnyResponse).
+	assert_accessor_traits_to_response!(AsciiCheckError<Reply> => Reply);
+	assert_impl_all!(
+		AnyResponse: From<AsciiCheckError<AnyResponse>>,
+		From<AsciiCheckError<Reply>>,
+		From<AsciiCheckError<Info>>,
+		From<AsciiCheckError<Alert>>
+	);
+	assert_impl_all!(AsciiCheckError<Reply>: TryFrom<AsciiCheckError<AnyResponse>>);
+	assert_impl_all!(AsciiCheckError<Info>: TryFrom<AsciiCheckError<AnyResponse>>);
+	assert_impl_all!(AsciiCheckError<Alert>: TryFrom<AsciiCheckError<AnyResponse>>);
 
-    assert_accessor_traits_to_response!(AsciiCheckFlagError => Reply);
+	assert_accessor_traits_to_response!(AsciiCheckFlagError => Reply);
 
-    assert_accessor_traits_to_response!(AsciiCheckStatusError<AnyResponse> => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiCheckStatusError<Reply> => Reply);
-    assert_accessor_traits_to_response!(AsciiCheckStatusError<Info> => Info);
-    assert_accessor_traits_to_response!(AsciiCheckStatusError<Alert> => Alert);
-    assert_impl_all!(AsciiCheckStatusError<Reply>: TryFrom<AsciiCheckStatusError<AnyResponse>>);
+	assert_accessor_traits_to_response!(AsciiCheckStatusError<AnyResponse> => AnyResponse);
+	assert_accessor_traits_to_response!(AsciiCheckStatusError<Reply> => Reply);
+	assert_accessor_traits_to_response!(AsciiCheckStatusError<Info> => Info);
+	assert_accessor_traits_to_response!(AsciiCheckStatusError<Alert> => Alert);
+	assert_impl_all!(AsciiCheckStatusError<Reply>: TryFrom<AsciiCheckStatusError<AnyResponse>>);
 
-    assert_accessor_traits_to_response!(AsciiCheckWarningError<AnyResponse> => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiCheckWarningError<Reply> => Reply);
-    assert_accessor_traits_to_response!(AsciiCheckWarningError<Info> => Info);
-    assert_accessor_traits_to_response!(AsciiCheckWarningError<Alert> => Alert);
-    assert_impl_all!(AsciiCheckWarningError<Reply>: TryFrom<AsciiCheckWarningError<AnyResponse>>);
+	assert_accessor_traits_to_response!(AsciiCheckWarningError<AnyResponse> => AnyResponse);
+	assert_accessor_traits_to_response!(AsciiCheckWarningError<Reply> => Reply);
+	assert_accessor_traits_to_response!(AsciiCheckWarningError<Info> => Info);
+	assert_accessor_traits_to_response!(AsciiCheckWarningError<Alert> => Alert);
+	assert_impl_all!(AsciiCheckWarningError<Reply>: TryFrom<AsciiCheckWarningError<AnyResponse>>);
 
-    assert_accessor_traits_to_response!(AsciiCheckDataError<AnyResponse> => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiCheckDataError<Reply> => Reply);
-    assert_accessor_traits_to_response!(AsciiCheckDataError<Info> => Info);
-    assert_accessor_traits_to_response!(AsciiCheckDataError<Alert> => Alert);
-    assert_impl_all!(AsciiCheckDataError<Reply>: TryFrom<AsciiCheckDataError<AnyResponse>>);
+	assert_accessor_traits_to_response!(AsciiCheckDataError<AnyResponse> => AnyResponse);
+	assert_accessor_traits_to_response!(AsciiCheckDataError<Reply> => Reply);
+	assert_accessor_traits_to_response!(AsciiCheckDataError<Info> => Info);
+	assert_accessor_traits_to_response!(AsciiCheckDataError<Alert> => Alert);
+	assert_impl_all!(AsciiCheckDataError<Reply>: TryFrom<AsciiCheckDataError<AnyResponse>>);
 
-    assert_accessor_traits_to_response!(AsciiCheckCustomError<AnyResponse> => AnyResponse);
-    assert_accessor_traits_to_response!(AsciiCheckCustomError<Reply> => Reply);
-    assert_accessor_traits_to_response!(AsciiCheckCustomError<Info> => Info);
-    assert_accessor_traits_to_response!(AsciiCheckCustomError<Alert> => Alert);
-    assert_impl_all!(AsciiCheckCustomError<Reply>: TryFrom<AsciiCheckCustomError<AnyResponse>>);
+	assert_accessor_traits_to_response!(AsciiCheckCustomError<AnyResponse> => AnyResponse);
+	assert_accessor_traits_to_response!(AsciiCheckCustomError<Reply> => Reply);
+	assert_accessor_traits_to_response!(AsciiCheckCustomError<Info> => Info);
+	assert_accessor_traits_to_response!(AsciiCheckCustomError<Alert> => Alert);
+	assert_impl_all!(AsciiCheckCustomError<Reply>: TryFrom<AsciiCheckCustomError<AnyResponse>>);
 }

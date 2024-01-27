@@ -217,131 +217,131 @@ pub use port::*;
 /// A Binary Protocol message.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Message<C = u8> {
-    /// The targeted device
-    target: u8,
-    /// The command code
-    command: C,
-    /// The command data
-    data: [u8; 4],
-    /// The message ID
-    id: Option<u8>,
+	/// The targeted device
+	target: u8,
+	/// The command code
+	command: C,
+	/// The command data
+	data: [u8; 4],
+	/// The message ID
+	id: Option<u8>,
 }
 
 impl<C> Message<C> {
-    /// Get the message target.
-    pub const fn target(&self) -> u8 {
-        self.target
-    }
+	/// Get the message target.
+	pub const fn target(&self) -> u8 {
+		self.target
+	}
 
-    /// Get the raw message data without decoding it.
-    pub const fn raw_data(&self) -> [u8; 4] {
-        self.data
-    }
+	/// Get the raw message data without decoding it.
+	pub const fn raw_data(&self) -> [u8; 4] {
+		self.data
+	}
 
-    /// Get the message id, if there is one.
-    pub const fn id(&self) -> Option<u8> {
-        self.id
-    }
+	/// Get the message id, if there is one.
+	pub const fn id(&self) -> Option<u8> {
+		self.id
+	}
 }
 
 impl<C: traits::Command> Message<C> {
-    /// Get the message command code.
-    pub fn command(&self) -> u8 {
-        self.command.command()
-    }
+	/// Get the message command code.
+	pub fn command(&self) -> u8 {
+		self.command.command()
+	}
 
-    /// Get the decoded message data.
-    ///
-    /// The type `T` to decode to is determined by the implementation of
-    /// `ReplyData` for the command type `C`. For the types defined in
-    /// [`command`], there is only one data type. For other command types, like
-    /// `u8` (the type of the commands in [`command::untyped`]) any data type is
-    /// supported (though the conversion may fail at run time), so you will need
-    /// to specify the appropriate data type to decode.
-    ///
-    /// ## Example
-    ///
-    /// ```
-    /// # use zproto::{
-    /// #     binary::Port,
-    /// #     backend::Backend,
-    /// # };
-    /// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-    /// use zproto::binary::command::*;
-    /// let reply = port.tx_recv((0, RETURN_SETTING, SET_HOME_STATUS))?;
-    /// let homed = reply.data()?;  // `homed` is a `bool`
-    /// let reply = port.tx_recv((0, RETURN_SETTING, untyped::SET_HOME_STATUS))?;
-    /// let homed: bool = reply.data()?;  // The data type must be explicitly defined here
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn data<T>(&self) -> Result<T, T::Error>
-    where
-        T: traits::Data,
-        C: traits::ReplyData<T>,
-    {
-        T::try_from_data(self.data)
-    }
+	/// Get the decoded message data.
+	///
+	/// The type `T` to decode to is determined by the implementation of
+	/// `ReplyData` for the command type `C`. For the types defined in
+	/// [`command`], there is only one data type. For other command types, like
+	/// `u8` (the type of the commands in [`command::untyped`]) any data type is
+	/// supported (though the conversion may fail at run time), so you will need
+	/// to specify the appropriate data type to decode.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::{
+	/// #     binary::Port,
+	/// #     backend::Backend,
+	/// # };
+	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+	/// use zproto::binary::command::*;
+	/// let reply = port.tx_recv((0, RETURN_SETTING, SET_HOME_STATUS))?;
+	/// let homed = reply.data()?;  // `homed` is a `bool`
+	/// let reply = port.tx_recv((0, RETURN_SETTING, untyped::SET_HOME_STATUS))?;
+	/// let homed: bool = reply.data()?;  // The data type must be explicitly defined here
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn data<T>(&self) -> Result<T, T::Error>
+	where
+		T: traits::Data,
+		C: traits::ReplyData<T>,
+	{
+		T::try_from_data(self.data)
+	}
 
-    /// Get the message without any type constraints on it.
-    pub fn to_untyped(&self) -> Message<u8> {
-        Message {
-            target: self.target(),
-            command: self.command.command(),
-            data: self.data,
-            id: self.id,
-        }
-    }
+	/// Get the message without any type constraints on it.
+	pub fn to_untyped(&self) -> Message<u8> {
+		Message {
+			target: self.target(),
+			command: self.command.command(),
+			data: self.data,
+			id: self.id,
+		}
+	}
 
-    /// Try to construct a strongly-typed `Message` from an "untyped" one.
-    pub fn try_from_untyped(
-        other: Message,
-    ) -> Result<Message<C>, error::BinaryUnexpectedCommandError> {
-        if let Ok(command) = C::try_from(other.command()) {
-            Ok(Message {
-                target: other.target,
-                command,
-                data: other.data,
-                id: other.id,
-            })
-        } else {
-            Err(error::BinaryUnexpectedCommandError::new(other))
-        }
-    }
+	/// Try to construct a strongly-typed `Message` from an "untyped" one.
+	pub fn try_from_untyped(
+		other: Message,
+	) -> Result<Message<C>, error::BinaryUnexpectedCommandError> {
+		if let Ok(command) = C::try_from(other.command()) {
+			Ok(Message {
+				target: other.target,
+				command,
+				data: other.data,
+				id: other.id,
+			})
+		} else {
+			Err(error::BinaryUnexpectedCommandError::new(other))
+		}
+	}
 }
 
 impl Message<u8> {
-    /// Parse an array of 6 bytes into a [`Message`].
-    ///
-    /// Set `id` to `true` if the response is expected to contain a message ID.
-    pub(crate) const fn from_bytes(bytes: &[u8; 6], id: bool) -> Message<u8> {
-        Message {
-            target: bytes[0],
-            command: bytes[1],
-            data: [bytes[2], bytes[3], bytes[4], if id { 0 } else { bytes[5] }],
-            id: if id { Some(bytes[5]) } else { None },
-        }
-    }
+	/// Parse an array of 6 bytes into a [`Message`].
+	///
+	/// Set `id` to `true` if the response is expected to contain a message ID.
+	pub(crate) const fn from_bytes(bytes: &[u8; 6], id: bool) -> Message<u8> {
+		Message {
+			target: bytes[0],
+			command: bytes[1],
+			data: [bytes[2], bytes[3], bytes[4], if id { 0 } else { bytes[5] }],
+			id: if id { Some(bytes[5]) } else { None },
+		}
+	}
 }
 
 impl<C> std::fmt::Display for Message<C>
 where
-    C: traits::Command,
+	C: traits::Command,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "[{}, {}, {}",
-            self.target,
-            self.command.command(),
-            i32::from_le_bytes(self.raw_data())
-        )?;
-        if let Some(id) = self.id() {
-            write!(f, "{id}]")
-        } else {
-            write!(f, "]")
-        }
-    }
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(
+			f,
+			"[{}, {}, {}",
+			self.target,
+			self.command.command(),
+			i32::from_le_bytes(self.raw_data())
+		)?;
+		if let Some(id) = self.id() {
+			write!(f, "{id}]")
+		} else {
+			write!(f, "]")
+		}
+	}
 }
 
 /// Represents a version of firmware.
@@ -357,61 +357,61 @@ where
 pub struct Version(i32);
 
 impl Version {
-    /// Create a new version
-    pub fn new(major: i32, minor: i32) -> Result<Self, std::num::TryFromIntError> {
-        if minor % 100 != minor {
-            Err(u8::try_from(-1).unwrap_err())
-        } else {
-            Ok(Version(major * 100 + minor % 100))
-        }
-    }
+	/// Create a new version
+	pub fn new(major: i32, minor: i32) -> Result<Self, std::num::TryFromIntError> {
+		if minor % 100 != minor {
+			Err(u8::try_from(-1).unwrap_err())
+		} else {
+			Ok(Version(major * 100 + minor % 100))
+		}
+	}
 
-    /// Get the major version
-    pub fn major(&self) -> i32 {
-        self.0 / 100
-    }
-    /// Get the minor version
-    pub fn minor(&self) -> i32 {
-        self.0 % 100
-    }
+	/// Get the major version
+	pub fn major(&self) -> i32 {
+		self.0 / 100
+	}
+	/// Get the minor version
+	pub fn minor(&self) -> i32 {
+		self.0 % 100
+	}
 }
 
 impl traits::Data for Version {
-    type Error = Infallible;
-    fn fill_data(&self, _: &mut [u8]) {
-        // This type can never be sent
-        unimplemented!();
-    }
-    fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        Ok(Version(i32::try_from_data(buffer)?))
-    }
+	type Error = Infallible;
+	fn fill_data(&self, _: &mut [u8]) {
+		// This type can never be sent
+		unimplemented!();
+	}
+	fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
+		Ok(Version(i32::try_from_data(buffer)?))
+	}
 }
 
 impl PartialEq<f32> for Version {
-    // Ignore clippy warnings about allocating just for comparison -- it is a
-    // false positive in this case.
-    #[allow(clippy::cmp_owned)]
-    fn eq(&self, other: &f32) -> bool {
-        f32::from(*self) == *other
-    }
+	// Ignore clippy warnings about allocating just for comparison -- it is a
+	// false positive in this case.
+	#[allow(clippy::cmp_owned)]
+	fn eq(&self, other: &f32) -> bool {
+		f32::from(*self) == *other
+	}
 }
 
 impl PartialEq<Version> for f32 {
-    // Ignore clippy warnings about allocating just for comparison -- it is a
-    // false positive in this case.
-    #[allow(clippy::cmp_owned)]
-    fn eq(&self, other: &Version) -> bool {
-        *self == f32::from(*other)
-    }
+	// Ignore clippy warnings about allocating just for comparison -- it is a
+	// false positive in this case.
+	#[allow(clippy::cmp_owned)]
+	fn eq(&self, other: &Version) -> bool {
+		*self == f32::from(*other)
+	}
 }
 
 impl From<Version> for f32 {
-    fn from(other: Version) -> Self {
-        other.major() as f32 + other.minor() as f32 / 100f32
-    }
+	fn from(other: Version) -> Self {
+		other.major() as f32 + other.minor() as f32 / 100f32
+	}
 }
 
 /// Define an enum for device status and all associated traits.
@@ -470,23 +470,23 @@ macro_rules! define_status {
 }
 
 define_status! {
-    pub enum Status {
-        Idle = 0,
-        ExecutingHoming = 1,
-        ExecutingManualVelocityMove = 10,
-        ExecutingManualDisplacementMove = 11,
-        StalledStoppedOrDisplacedWhileStationary = 13,
-        ExecutingMoveStored = 18,
-        ExecutingMoveAbsolute = 20,
-        ExecutingMoveRelative = 21,
-        ExecutingMoveConstantSpeed = 22,
-        ExecutingStop = 23,
-        Parked = 65,
-        ExecutingMoveIndex = 78,
-        DriverDisabled = 90,
-        PeripheralInactive = 93,
-        ExecutingMotion = 99,
-    }
+	pub enum Status {
+		Idle = 0,
+		ExecutingHoming = 1,
+		ExecutingManualVelocityMove = 10,
+		ExecutingManualDisplacementMove = 11,
+		StalledStoppedOrDisplacedWhileStationary = 13,
+		ExecutingMoveStored = 18,
+		ExecutingMoveAbsolute = 20,
+		ExecutingMoveRelative = 21,
+		ExecutingMoveConstantSpeed = 22,
+		ExecutingStop = 23,
+		Parked = 65,
+		ExecutingMoveIndex = 78,
+		DriverDisabled = 90,
+		PeripheralInactive = 93,
+		ExecutingMotion = 99,
+	}
 }
 
 /// The state of multiple digital I/O channels.
@@ -494,127 +494,127 @@ define_status! {
 pub struct IoStates(u32);
 
 impl IoStates {
-    /// Return whether a channel is high.
-    ///
-    /// The `channel` index is one-based. This function will panic if `channel`
-    /// is 0 or greater than 32.
-    pub fn is_high(&self, channel: usize) -> bool {
-        self.is_high_checked(channel)
-            .expect("`channel` must be in the range (1, 32)")
-    }
+	/// Return whether a channel is high.
+	///
+	/// The `channel` index is one-based. This function will panic if `channel`
+	/// is 0 or greater than 32.
+	pub fn is_high(&self, channel: usize) -> bool {
+		self.is_high_checked(channel)
+			.expect("`channel` must be in the range (1, 32)")
+	}
 
-    /// Return whether a channel is high.
-    ///
-    /// The `channel` index is one-based. `None` is returned if `channel` is 0
-    /// or greater than 32.
-    pub const fn is_high_checked(&self, channel: usize) -> Option<bool> {
-        if channel > 0 && channel <= 32 {
-            Some(self.0 & (1 << (channel - 1)) != 0)
-        } else {
-            None
-        }
-    }
+	/// Return whether a channel is high.
+	///
+	/// The `channel` index is one-based. `None` is returned if `channel` is 0
+	/// or greater than 32.
+	pub const fn is_high_checked(&self, channel: usize) -> Option<bool> {
+		if channel > 0 && channel <= 32 {
+			Some(self.0 & (1 << (channel - 1)) != 0)
+		} else {
+			None
+		}
+	}
 }
 
 impl traits::Data for IoStates {
-    type Error = Infallible;
-    fn fill_data(&self, _: &mut [u8]) {
-        // This type can never be sent
-        unimplemented!();
-    }
-    fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error>
-    where
-        Self: Sized,
-    {
-        Ok(IoStates(i32::try_from_data(buffer)? as u32))
-    }
+	type Error = Infallible;
+	fn fill_data(&self, _: &mut [u8]) {
+		// This type can never be sent
+		unimplemented!();
+	}
+	fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
+		Ok(IoStates(i32::try_from_data(buffer)? as u32))
+	}
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+	use super::*;
 
-    #[test]
-    fn version() {
-        let version = Version(723);
-        assert_eq!(version.major(), 7);
-        assert_eq!(version.minor(), 23);
+	#[test]
+	fn version() {
+		let version = Version(723);
+		assert_eq!(version.major(), 7);
+		assert_eq!(version.minor(), 23);
 
-        assert_eq!(version, 7.23);
-        assert_eq!(version, Version::new(7, 23).unwrap());
+		assert_eq!(version, 7.23);
+		assert_eq!(version, Version::new(7, 23).unwrap());
 
-        assert!(Version::new(7, 100).is_err());
-    }
+		assert!(Version::new(7, 100).is_err());
+	}
 
-    #[test]
-    fn io_states() {
-        let states = IoStates(0b101);
-        assert!(states.is_high(1));
-        assert!(!states.is_high(2));
-        assert!(states.is_high(3));
-        assert!(!states.is_high(4));
-        assert!(!states.is_high(32));
-    }
+	#[test]
+	fn io_states() {
+		let states = IoStates(0b101);
+		assert!(states.is_high(1));
+		assert!(!states.is_high(2));
+		assert!(states.is_high(3));
+		assert!(!states.is_high(4));
+		assert!(!states.is_high(32));
+	}
 
-    #[test]
-    #[should_panic]
-    fn io_state_index_0() {
-        let states = IoStates(1);
-        states.is_high(0);
-    }
+	#[test]
+	#[should_panic]
+	fn io_state_index_0() {
+		let states = IoStates(1);
+		states.is_high(0);
+	}
 
-    #[test]
-    #[should_panic]
-    fn io_state_index_gt_32() {
-        let states = IoStates(1);
-        states.is_high(33);
-    }
+	#[test]
+	#[should_panic]
+	fn io_state_index_gt_32() {
+		let states = IoStates(1);
+		states.is_high(33);
+	}
 
-    #[test]
-    fn device_message_parsing_invalid_command_code() {
-        use crate::binary::command::{types::*, untyped};
+	#[test]
+	fn device_message_parsing_invalid_command_code() {
+		use crate::binary::command::{types::*, untyped};
 
-        // Incorrect command value results in an error.
-        let err = Message::<SetHomeSpeed>::try_from_untyped(Message::from_bytes(
-            &[3, untyped::SET_ACCELERATION, 0, 0, 0, 1],
-            false,
-        ))
-        .unwrap_err();
-        assert_eq!(
-            Message::from(err),
-            Message::from_bytes(&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
-        );
-    }
+		// Incorrect command value results in an error.
+		let err = Message::<SetHomeSpeed>::try_from_untyped(Message::from_bytes(
+			&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1],
+			false,
+		))
+		.unwrap_err();
+		assert_eq!(
+			Message::from(err),
+			Message::from_bytes(&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
+		);
+	}
 
-    #[test]
-    fn device_message_passing_with_id() {
-        use crate::binary::command::{types::*, untyped};
+	#[test]
+	fn device_message_passing_with_id() {
+		use crate::binary::command::{types::*, untyped};
 
-        // Parsing a message with an ID works properly.
-        let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
-            &[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
-            true,
-        ))
-        .unwrap();
-        assert_eq!(message.target(), 3);
-        assert_eq!(message.id(), Some(1));
-        assert_eq!(message.command(), untyped::SET_HOME_SPEED);
-        assert_eq!(message.data().unwrap(), 2);
-    }
+		// Parsing a message with an ID works properly.
+		let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
+			&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+			true,
+		))
+		.unwrap();
+		assert_eq!(message.target(), 3);
+		assert_eq!(message.id(), Some(1));
+		assert_eq!(message.command(), untyped::SET_HOME_SPEED);
+		assert_eq!(message.data().unwrap(), 2);
+	}
 
-    #[test]
-    fn device_message_passing_without_id() {
-        use crate::binary::command::{types::*, untyped};
+	#[test]
+	fn device_message_passing_without_id() {
+		use crate::binary::command::{types::*, untyped};
 
-        // Parsing a message without an ID works properly.
-        let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
-            &[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
-            false,
-        ))
-        .unwrap();
-        assert_eq!(message.target(), 3);
-        assert_eq!(message.id(), None);
-        assert_eq!(message.command(), untyped::SET_HOME_SPEED);
-        assert_eq!(message.data().unwrap(), i32::from_le_bytes([2, 0, 0, 1]));
-    }
+		// Parsing a message without an ID works properly.
+		let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
+			&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+			false,
+		))
+		.unwrap();
+		assert_eq!(message.target(), 3);
+		assert_eq!(message.id(), None);
+		assert_eq!(message.command(), untyped::SET_HOME_SPEED);
+		assert_eq!(message.data().unwrap(), i32::from_le_bytes([2, 0, 0, 1]));
+	}
 }

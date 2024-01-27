@@ -4,112 +4,112 @@ use super::*;
 use crate::ascii::{AnyResponse, SpecificResponse};
 
 error_enum! {
-    /// Any error returned by this library.
-    #[derive(Debug)]
-    #[non_exhaustive]
-    #[cfg_attr(
-        all(doc, feature = "doc_cfg"),
-        doc(cfg(all(feature = "ascii", feature = "binary")))
-    )]
-    pub enum Error {
-        SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
-        Io(std::io::Error),
-        AsciiPacketMissingStart(AsciiPacketMissingStartError),
-        AsciiPacketMissingEnd(AsciiPacketMissingEndError),
-        AsciiPacketMalformed(AsciiPacketMalformedError),
-        AsciiInvalidChecksum(AsciiInvalidChecksumError),
-        AsciiUnexpectedResponse(AsciiUnexpectedResponseError),
-        AsciiUnexpectedPacket(AsciiUnexpectedPacketError),
-        AsciiCheckFlag(AsciiCheckFlagError),
-        AsciiCheckStatus(AsciiCheckStatusError<AnyResponse>),
-        AsciiCheckWarning(AsciiCheckWarningError<AnyResponse>),
-        AsciiCheckData(AsciiCheckDataError<AnyResponse>),
-        AsciiCheckCustom(AsciiCheckCustomError<AnyResponse>),
-        AsciiCommandSplit(AsciiCommandSplitError),
-        AsciiReservedCharacter(AsciiReservedCharacterError),
-        BinaryCommandFailure(BinaryCommandFailureError),
-        BinaryUnexpectedTarget(BinaryUnexpectedTargetError),
-        BinaryUnexpectedId(BinaryUnexpectedIdError),
-        BinaryUnexpectedCommand(BinaryUnexpectedCommandError),
-        LockPoisoned(LockPoisonedError),
-        LockUnavailable(LockUnavailableError),
-        Conversion(ConversionError),
-        DuplicateAddress(DuplicateAddressError),
-    }
+	/// Any error returned by this library.
+	#[derive(Debug)]
+	#[non_exhaustive]
+	#[cfg_attr(
+		all(doc, feature = "doc_cfg"),
+		doc(cfg(all(feature = "ascii", feature = "binary")))
+	)]
+	pub enum Error {
+		SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
+		Io(std::io::Error),
+		AsciiPacketMissingStart(AsciiPacketMissingStartError),
+		AsciiPacketMissingEnd(AsciiPacketMissingEndError),
+		AsciiPacketMalformed(AsciiPacketMalformedError),
+		AsciiInvalidChecksum(AsciiInvalidChecksumError),
+		AsciiUnexpectedResponse(AsciiUnexpectedResponseError),
+		AsciiUnexpectedPacket(AsciiUnexpectedPacketError),
+		AsciiCheckFlag(AsciiCheckFlagError),
+		AsciiCheckStatus(AsciiCheckStatusError<AnyResponse>),
+		AsciiCheckWarning(AsciiCheckWarningError<AnyResponse>),
+		AsciiCheckData(AsciiCheckDataError<AnyResponse>),
+		AsciiCheckCustom(AsciiCheckCustomError<AnyResponse>),
+		AsciiCommandSplit(AsciiCommandSplitError),
+		AsciiReservedCharacter(AsciiReservedCharacterError),
+		BinaryCommandFailure(BinaryCommandFailureError),
+		BinaryUnexpectedTarget(BinaryUnexpectedTargetError),
+		BinaryUnexpectedId(BinaryUnexpectedIdError),
+		BinaryUnexpectedCommand(BinaryUnexpectedCommandError),
+		LockPoisoned(LockPoisonedError),
+		LockUnavailable(LockUnavailableError),
+		Conversion(ConversionError),
+		DuplicateAddress(DuplicateAddressError),
+	}
 
-    impl From<AsciiProtocolError> {
-        PacketMissingStart => AsciiPacketMissingStart,
-        PacketMissingEnd => AsciiPacketMissingEnd,
-        PacketMalformed => AsciiPacketMalformed,
-    }
+	impl From<AsciiProtocolError> {
+		PacketMissingStart => AsciiPacketMissingStart,
+		PacketMissingEnd => AsciiPacketMissingEnd,
+		PacketMalformed => AsciiPacketMalformed,
+	}
 
-    impl From<AsciiError> {
-        SerialDeviceInUseOrDisconnected => SerialDeviceInUseOrDisconnected,
-        Io => Io,
-        PacketMissingStart => AsciiPacketMissingStart,
-        PacketMissingEnd => AsciiPacketMissingEnd,
-        PacketMalformed => AsciiPacketMalformed,
-        InvalidChecksum => AsciiInvalidChecksum,
-        UnexpectedResponse => AsciiUnexpectedResponse,
-        UnexpectedPacket => AsciiUnexpectedPacket,
-        CheckFlag => AsciiCheckFlag,
-        CheckStatus => AsciiCheckStatus,
-        CheckWarning => AsciiCheckWarning,
-        CheckData => AsciiCheckData,
-        CheckCustom => AsciiCheckCustom,
-        CommandSplit => AsciiCommandSplit,
-        ReservedCharacter => AsciiReservedCharacter,
-        LockPoisoned => LockPoisoned,
-        LockUnavailable => LockUnavailable,
-        Conversion => Conversion,
-        DuplicateAddress => DuplicateAddress,
-    }
+	impl From<AsciiError> {
+		SerialDeviceInUseOrDisconnected => SerialDeviceInUseOrDisconnected,
+		Io => Io,
+		PacketMissingStart => AsciiPacketMissingStart,
+		PacketMissingEnd => AsciiPacketMissingEnd,
+		PacketMalformed => AsciiPacketMalformed,
+		InvalidChecksum => AsciiInvalidChecksum,
+		UnexpectedResponse => AsciiUnexpectedResponse,
+		UnexpectedPacket => AsciiUnexpectedPacket,
+		CheckFlag => AsciiCheckFlag,
+		CheckStatus => AsciiCheckStatus,
+		CheckWarning => AsciiCheckWarning,
+		CheckData => AsciiCheckData,
+		CheckCustom => AsciiCheckCustom,
+		CommandSplit => AsciiCommandSplit,
+		ReservedCharacter => AsciiReservedCharacter,
+		LockPoisoned => LockPoisoned,
+		LockUnavailable => LockUnavailable,
+		Conversion => Conversion,
+		DuplicateAddress => DuplicateAddress,
+	}
 
-    impl From<BinaryUnexpectedError> {
-        Target => BinaryUnexpectedTarget,
-        Id => BinaryUnexpectedId,
-        Command => BinaryUnexpectedCommand,
-    }
+	impl From<BinaryUnexpectedError> {
+		Target => BinaryUnexpectedTarget,
+		Id => BinaryUnexpectedId,
+		Command => BinaryUnexpectedCommand,
+	}
 
-    impl From<BinaryError> {
-        SerialDeviceInUseOrDisconnected => SerialDeviceInUseOrDisconnected,
-        Io => Io,
-        CommandFailure => BinaryCommandFailure,
-        UnexpectedTarget => BinaryUnexpectedTarget,
-        UnexpectedId => BinaryUnexpectedId,
-        UnexpectedCommand => BinaryUnexpectedCommand,
-    }
+	impl From<BinaryError> {
+		SerialDeviceInUseOrDisconnected => SerialDeviceInUseOrDisconnected,
+		Io => Io,
+		CommandFailure => BinaryCommandFailure,
+		UnexpectedTarget => BinaryUnexpectedTarget,
+		UnexpectedId => BinaryUnexpectedId,
+		UnexpectedCommand => BinaryUnexpectedCommand,
+	}
 
-    impl From<LockError> {
-        Poisoned => LockPoisoned,
-        Unavailable => LockUnavailable,
-    }
+	impl From<LockError> {
+		Poisoned => LockPoisoned,
+		Unavailable => LockUnavailable,
+	}
 }
 impl_is_timeout! { Error }
 impl_is_io! { Error }
 impl_from_serialport_error! { Error }
 impl_from_ascii_check_error! {
-    Error {
-        Flag => AsciiCheckFlag,
-        Status => AsciiCheckStatus,
-        Warning => AsciiCheckWarning,
-        Data => AsciiCheckData,
-        Custom => AsciiCheckCustom,
-    }
+	Error {
+		Flag => AsciiCheckFlag,
+		Status => AsciiCheckStatus,
+		Warning => AsciiCheckWarning,
+		Data => AsciiCheckData,
+		Custom => AsciiCheckCustom,
+	}
 }
 
 impl TryFrom<Error> for AsciiCheckError<AnyResponse> {
-    type Error = Error;
-    fn try_from(other: Error) -> Result<Self, Self::Error> {
-        match other {
-            Error::AsciiCheckFlag(e) => Ok(AsciiCheckError::Flag(e)),
-            Error::AsciiCheckStatus(e) => Ok(AsciiCheckError::Status(e)),
-            Error::AsciiCheckWarning(e) => Ok(AsciiCheckError::Warning(e)),
-            Error::AsciiCheckData(e) => Ok(AsciiCheckError::Data(e)),
-            Error::AsciiCheckCustom(e) => Ok(AsciiCheckError::Custom(e)),
-            e => Err(e),
-        }
-    }
+	type Error = Error;
+	fn try_from(other: Error) -> Result<Self, Self::Error> {
+		match other {
+			Error::AsciiCheckFlag(e) => Ok(AsciiCheckError::Flag(e)),
+			Error::AsciiCheckStatus(e) => Ok(AsciiCheckError::Status(e)),
+			Error::AsciiCheckWarning(e) => Ok(AsciiCheckError::Warning(e)),
+			Error::AsciiCheckData(e) => Ok(AsciiCheckError::Data(e)),
+			Error::AsciiCheckCustom(e) => Ok(AsciiCheckError::Custom(e)),
+			e => Err(e),
+		}
+	}
 }
 
 /// The locking mechanism protecting the data is "poisoned" and can no longer be relied upon.
@@ -123,12 +123,12 @@ pub struct LockUnavailableError;
 impl_error_display! { LockUnavailableError, self => "data is already locked and is therefore unavailable" }
 
 error_enum! {
-    /// Errors returned when trying to lock a resource.
-    #[derive(Debug)]
-    pub enum LockError {
-        Poisoned(LockPoisonedError),
-        Unavailable(LockUnavailableError),
-    }
+	/// Errors returned when trying to lock a resource.
+	#[derive(Debug)]
+	pub enum LockError {
+		Poisoned(LockPoisonedError),
+		Unavailable(LockUnavailableError),
+	}
 }
 
 /// Converting a value failed.
@@ -142,44 +142,44 @@ impl_error_display! { ConversionError, self => "conversion failure: {}", self.0 
 /// automatically assign each device a unique address.
 #[derive(Debug)]
 pub struct DuplicateAddressError {
-    /// The duplicated device address
-    pub(crate) address: u8,
+	/// The duplicated device address
+	pub(crate) address: u8,
 }
 impl_error_display! { DuplicateAddressError, self => "multiple devices in the chain have the same device address (`{}`)", self.address }
 impl DuplicateAddressError {
-    /// Get the duplicated device address.
-    pub fn address(&self) -> u8 {
-        self.address
-    }
+	/// Get the duplicated device address.
+	pub fn address(&self) -> u8 {
+		self.address
+	}
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::ascii::{Alert, Info, Reply};
-    use static_assertions::{assert_impl_all, const_assert_eq};
+	use super::*;
+	use crate::ascii::{Alert, Info, Reply};
+	use static_assertions::{assert_impl_all, const_assert_eq};
 
-    // Make sure the error enums are at most 3 words large (the same size as a String).
-    // This will minimize the size of Result<R, Error>.
-    const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
-    const_assert_eq!(std::mem::size_of::<Error>(), 3 * _WORD_SIZE);
+	// Make sure the error enums are at most 3 words large (the same size as a String).
+	// This will minimize the size of Result<R, Error>.
+	const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
+	const_assert_eq!(std::mem::size_of::<Error>(), 3 * _WORD_SIZE);
 
-    // Make sure that error enum types are properly convertible
-    assert_impl_all!(Error: From<AsciiProtocolError>);
-    assert_impl_all!(Error: From<AsciiCheckError<AnyResponse>>);
-    assert_impl_all!(Error: From<AsciiCheckError<Reply>>);
-    assert_impl_all!(Error: From<AsciiCheckError<Info>>);
-    assert_impl_all!(Error: From<AsciiCheckError<Alert>>);
-    assert_impl_all!(Error: From<AsciiError>);
-    assert_impl_all!(Error: From<BinaryError>);
-    assert_impl_all!(Error: From<LockError>);
+	// Make sure that error enum types are properly convertible
+	assert_impl_all!(Error: From<AsciiProtocolError>);
+	assert_impl_all!(Error: From<AsciiCheckError<AnyResponse>>);
+	assert_impl_all!(Error: From<AsciiCheckError<Reply>>);
+	assert_impl_all!(Error: From<AsciiCheckError<Info>>);
+	assert_impl_all!(Error: From<AsciiCheckError<Alert>>);
+	assert_impl_all!(Error: From<AsciiError>);
+	assert_impl_all!(Error: From<BinaryError>);
+	assert_impl_all!(Error: From<LockError>);
 
-    assert_impl_all!(AsciiError: TryFrom<Error>);
+	assert_impl_all!(AsciiError: TryFrom<Error>);
 
-    assert_impl_all!(AsciiProtocolError: TryFrom<Error>);
-    assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<Error>);
+	assert_impl_all!(AsciiProtocolError: TryFrom<Error>);
+	assert_impl_all!(AsciiCheckError<AnyResponse>: TryFrom<Error>);
 
-    assert_impl_all!(BinaryError: TryFrom<Error>);
+	assert_impl_all!(BinaryError: TryFrom<Error>);
 
-    assert_impl_all!(LockError: TryFrom<Error>);
+	assert_impl_all!(LockError: TryFrom<Error>);
 }
