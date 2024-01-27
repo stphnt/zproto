@@ -1,31 +1,31 @@
 //! Types and traits for generating ASCII commands.
 
 use crate::{
-    ascii::{checksum::LrcWriter, id, Target},
-    error::{AsciiCommandSplitError, AsciiError, AsciiReservedCharacterError},
+	ascii::{checksum::LrcWriter, id, Target},
+	error::{AsciiCommandSplitError, AsciiError, AsciiReservedCharacterError},
 };
 use std::borrow::Cow;
 use std::io;
 
 mod private {
-    use super::*;
-    pub trait Sealed {}
+	use super::*;
+	pub trait Sealed {}
 
-    impl Sealed for str {}
-    impl Sealed for String {}
-    impl Sealed for [u8] {}
-    impl<const N: usize> Sealed for [u8; N] {}
-    impl Sealed for Vec<u8> {}
-    impl<T, D> Sealed for (T, D)
-    where
-        T: Into<Target> + Copy,
-        D: AsRef<[u8]>,
-    {
-    }
-    impl<D: AsRef<[u8]>> Sealed for (u8, u8, D) {}
-    impl<T> Sealed for &T where T: Sealed + ?Sized {}
-    impl<T> Sealed for &mut T where T: Sealed + ?Sized {}
-    impl<T> Sealed for Box<T> where T: Sealed + ?Sized {}
+	impl Sealed for str {}
+	impl Sealed for String {}
+	impl Sealed for [u8] {}
+	impl<const N: usize> Sealed for [u8; N] {}
+	impl Sealed for Vec<u8> {}
+	impl<T, D> Sealed for (T, D)
+	where
+		T: Into<Target> + Copy,
+		D: AsRef<[u8]>,
+	{
+	}
+	impl<D: AsRef<[u8]>> Sealed for (u8, u8, D) {}
+	impl<T> Sealed for &T where T: Sealed + ?Sized {}
+	impl<T> Sealed for &mut T where T: Sealed + ?Sized {}
+	impl<T> Sealed for Box<T> where T: Sealed + ?Sized {}
 }
 
 /// A trait that is implemented by all ASCII commands.
@@ -61,176 +61,176 @@ mod private {
 /// is defined by the [`Port`](crate::ascii::Port). By default they are both
 /// enabled.
 pub trait Command: private::Sealed {
-    /// The type returned when calling `as_ref`, below.
-    type Ref: Command + ?Sized;
+	/// The type returned when calling `as_ref`, below.
+	type Ref: Command + ?Sized;
 
-    /// Get a reference to the command.
-    ///
-    /// This is roughly equivalent to `AsRef` except that it is not generic over
-    /// the return type, which allows this trait to also not be generic.
-    /// Including it as part of the trait directly rather than a supertrait
-    /// avoids requiring call sites to add a somewhat complicated `AsRef` bound.
-    fn as_ref(&self) -> &Self::Ref;
-    /// Get the command's target.
-    fn target(&self) -> Target;
-    /// Get the command's data.
-    fn data(&self) -> Cow<[u8]>;
+	/// Get a reference to the command.
+	///
+	/// This is roughly equivalent to `AsRef` except that it is not generic over
+	/// the return type, which allows this trait to also not be generic.
+	/// Including it as part of the trait directly rather than a supertrait
+	/// avoids requiring call sites to add a somewhat complicated `AsRef` bound.
+	fn as_ref(&self) -> &Self::Ref;
+	/// Get the command's target.
+	fn target(&self) -> Target;
+	/// Get the command's data.
+	fn data(&self) -> Cow<[u8]>;
 }
 
 impl Command for str {
-    type Ref = str;
+	type Ref = str;
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        Target::for_all()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        self.as_bytes().into()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		Target::for_all()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		self.as_bytes().into()
+	}
 }
 
 impl Command for [u8] {
-    type Ref = [u8];
+	type Ref = [u8];
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        Target::for_all()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        self.into()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		Target::for_all()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		self.into()
+	}
 }
 
 impl<const N: usize> Command for [u8; N] {
-    type Ref = [u8; N];
+	type Ref = [u8; N];
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        Target::for_all()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        self.as_slice().into()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		Target::for_all()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		self.as_slice().into()
+	}
 }
 
 impl Command for String {
-    type Ref = [u8];
+	type Ref = [u8];
 
-    fn as_ref(&self) -> &Self::Ref {
-        self.as_bytes()
-    }
-    fn target(&self) -> Target {
-        Target::for_all()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        self.as_bytes().into()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self.as_bytes()
+	}
+	fn target(&self) -> Target {
+		Target::for_all()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		self.as_bytes().into()
+	}
 }
 
 impl Command for Vec<u8> {
-    type Ref = [u8];
+	type Ref = [u8];
 
-    fn as_ref(&self) -> &Self::Ref {
-        self.as_slice()
-    }
-    fn target(&self) -> Target {
-        Target::for_all()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        self.as_slice().into()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self.as_slice()
+	}
+	fn target(&self) -> Target {
+		Target::for_all()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		self.as_slice().into()
+	}
 }
 
 impl<T, D> Command for (T, D)
 where
-    T: Into<Target> + Copy,
-    D: AsRef<[u8]>,
+	T: Into<Target> + Copy,
+	D: AsRef<[u8]>,
 {
-    type Ref = (T, D);
+	type Ref = (T, D);
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        self.0.into()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        self.1.as_ref().into()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		self.0.into()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		self.1.as_ref().into()
+	}
 }
 
 impl<D> Command for (u8, u8, D)
 where
-    D: AsRef<[u8]>,
+	D: AsRef<[u8]>,
 {
-    type Ref = (u8, u8, D);
+	type Ref = (u8, u8, D);
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        Target::for_device(self.0).with_axis(self.1)
-    }
-    fn data(&self) -> Cow<[u8]> {
-        self.2.as_ref().into()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		Target::for_device(self.0).with_axis(self.1)
+	}
+	fn data(&self) -> Cow<[u8]> {
+		self.2.as_ref().into()
+	}
 }
 
 impl<T> Command for &T
 where
-    T: Command + ?Sized,
+	T: Command + ?Sized,
 {
-    type Ref = T;
+	type Ref = T;
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        (**self).target()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        (**self).data()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		(**self).target()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		(**self).data()
+	}
 }
 
 impl<T> Command for &mut T
 where
-    T: Command + ?Sized,
+	T: Command + ?Sized,
 {
-    type Ref = T;
+	type Ref = T;
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        (**self).target()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        (**self).data()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		(**self).target()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		(**self).data()
+	}
 }
 
 impl<T> Command for Box<T>
 where
-    T: Command + ?Sized,
+	T: Command + ?Sized,
 {
-    type Ref = T;
+	type Ref = T;
 
-    fn as_ref(&self) -> &Self::Ref {
-        self
-    }
-    fn target(&self) -> Target {
-        (**self).target()
-    }
-    fn data(&self) -> Cow<[u8]> {
-        (**self).data()
-    }
+	fn as_ref(&self) -> &Self::Ref {
+		self
+	}
+	fn target(&self) -> Target {
+		(**self).target()
+	}
+	fn data(&self) -> Cow<[u8]> {
+		(**self).data()
+	}
 }
 
 /// The maximum number of bytes to put in a command packet.
@@ -240,277 +240,277 @@ where
 pub struct MaxPacketSize(usize);
 
 impl MaxPacketSize {
-    const MIN_PACKET_SIZE: usize = 80;
+	const MIN_PACKET_SIZE: usize = 80;
 
-    /// Create a new MaxPacketSize if the value is >= 80.
-    pub const fn new(value: usize) -> Option<Self> {
-        if value >= Self::MIN_PACKET_SIZE {
-            Some(MaxPacketSize(value))
-        } else {
-            None
-        }
-    }
+	/// Create a new MaxPacketSize if the value is >= 80.
+	pub const fn new(value: usize) -> Option<Self> {
+		if value >= Self::MIN_PACKET_SIZE {
+			Some(MaxPacketSize(value))
+		} else {
+			None
+		}
+	}
 
-    /// The default maximum command packet size is 80 bytes.
-    pub const fn default() -> MaxPacketSize {
-        MaxPacketSize(Self::MIN_PACKET_SIZE)
-    }
+	/// The default maximum command packet size is 80 bytes.
+	pub const fn default() -> MaxPacketSize {
+		MaxPacketSize(Self::MIN_PACKET_SIZE)
+	}
 
-    /// Get the number of bytes as a `usize`.
-    pub const fn as_usize(self) -> usize {
-        self.0
-    }
+	/// Get the number of bytes as a `usize`.
+	pub const fn as_usize(self) -> usize {
+		self.0
+	}
 }
 
 impl Default for MaxPacketSize {
-    /// The default maximum command packet size is 80 bytes.
-    fn default() -> Self {
-        MaxPacketSize::default()
-    }
+	/// The default maximum command packet size is 80 bytes.
+	fn default() -> Self {
+		MaxPacketSize::default()
+	}
 }
 
 /// A type for writing commands to the serial port.
 pub(crate) struct CommandWriter<'a> {
-    /// The targeted device/axis
-    pub target: Target,
-    /// The message ID
-    pub id: Option<u8>,
-    /// The command data
-    pub data: Cow<'a, [u8]>,
-    /// The current offset into the data
-    pub offset: usize,
-    /// Whether to generate a checksum
-    pub checksum: bool,
-    /// The maximum number of bytes to put in a packet
-    pub max_packet_size: MaxPacketSize,
-    /// The index of the next packet to send. 0 is the first packet.
-    pub packet_index: usize,
+	/// The targeted device/axis
+	pub target: Target,
+	/// The message ID
+	pub id: Option<u8>,
+	/// The command data
+	pub data: Cow<'a, [u8]>,
+	/// The current offset into the data
+	pub offset: usize,
+	/// Whether to generate a checksum
+	pub checksum: bool,
+	/// The maximum number of bytes to put in a packet
+	pub max_packet_size: MaxPacketSize,
+	/// The index of the next packet to send. 0 is the first packet.
+	pub packet_index: usize,
 }
 
 impl<'a> CommandWriter<'a> {
-    /// Create a command writer.
-    ///
-    /// Returns an error if the command data contains any [reserved characters].
-    ///
-    /// [reserved characters]: https://www.zaber.com/protocol-manual?protocol=ASCII#topic_message_format__reserved_characters
-    pub fn new<C, G>(
-        command: &'a C,
-        mut generator: G,
-        generate_id: bool,
-        generate_checksum: bool,
-        max_packet_size: MaxPacketSize,
-    ) -> Result<CommandWriter<'a>, AsciiReservedCharacterError>
-    where
-        C: Command,
-        G: id::Generator,
-    {
-        let data = command.data();
-        // Check that the command data doesn't contain any reserved ASCII protocol
-        // characters
-        if let Some(reserved) = data
-            .iter()
-            .find(|byte| **byte > 127 || b"/@#!\r\n:\\".contains(byte))
-        {
-            return Err(AsciiReservedCharacterError::new(command, *reserved));
-        }
-        Ok(CommandWriter {
-            target: command.target(),
-            id: if generate_id {
-                Some(generator.next_id())
-            } else {
-                None
-            },
-            data,
-            offset: 0,
-            checksum: generate_checksum,
-            max_packet_size,
-            packet_index: 0,
-        })
-    }
+	/// Create a command writer.
+	///
+	/// Returns an error if the command data contains any [reserved characters].
+	///
+	/// [reserved characters]: https://www.zaber.com/protocol-manual?protocol=ASCII#topic_message_format__reserved_characters
+	pub fn new<C, G>(
+		command: &'a C,
+		mut generator: G,
+		generate_id: bool,
+		generate_checksum: bool,
+		max_packet_size: MaxPacketSize,
+	) -> Result<CommandWriter<'a>, AsciiReservedCharacterError>
+	where
+		C: Command,
+		G: id::Generator,
+	{
+		let data = command.data();
+		// Check that the command data doesn't contain any reserved ASCII protocol
+		// characters
+		if let Some(reserved) = data
+			.iter()
+			.find(|byte| **byte > 127 || b"/@#!\r\n:\\".contains(byte))
+		{
+			return Err(AsciiReservedCharacterError::new(command, *reserved));
+		}
+		Ok(CommandWriter {
+			target: command.target(),
+			id: if generate_id {
+				Some(generator.next_id())
+			} else {
+				None
+			},
+			data,
+			offset: 0,
+			checksum: generate_checksum,
+			max_packet_size,
+			packet_index: 0,
+		})
+	}
 
-    /// Returns `true` if the command has been completely written out.
-    fn is_complete(&self) -> bool {
-        self.packet_index > 0
-            && (self.offset >= self.data.len() || self.data.iter().all(u8::is_ascii_whitespace))
-    }
+	/// Returns `true` if the command has been completely written out.
+	fn is_complete(&self) -> bool {
+		self.packet_index > 0
+			&& (self.offset >= self.data.len() || self.data.iter().all(u8::is_ascii_whitespace))
+	}
 
-    /// Write the packet header and return the number of bytes written.
-    ///
-    /// Only the minimum number of bytes is used and no trailing whitespace is added.
-    fn write_packet_header<W: io::Write>(
-        &mut self,
-        writer: &mut LrcWriter<W>,
-    ) -> io::Result<usize> {
-        use std::io::Write as _;
+	/// Write the packet header and return the number of bytes written.
+	///
+	/// Only the minimum number of bytes is used and no trailing whitespace is added.
+	fn write_packet_header<W: io::Write>(
+		&mut self,
+		writer: &mut LrcWriter<W>,
+	) -> io::Result<usize> {
+		use std::io::Write as _;
 
-        let device_char_count = ascii_char_count(self.target.device());
-        let axis_char_count = ascii_char_count(self.target.axis());
-        write!(writer, "/")?;
-        let mut bytes_written = 1; // '/'
+		let device_char_count = ascii_char_count(self.target.device());
+		let axis_char_count = ascii_char_count(self.target.axis());
+		write!(writer, "/")?;
+		let mut bytes_written = 1; // '/'
 
-        // Do not include the leading slash in the checksum
-        writer.reset_hash();
+		// Do not include the leading slash in the checksum
+		writer.reset_hash();
 
-        // Only output the address, axis or message ID if it is necessary.
-        match self.id {
-            Some(id) => {
-                write!(
-                    writer,
-                    "{} {} {}",
-                    self.target.device(),
-                    self.target.axis(),
-                    id
-                )?;
-                bytes_written += device_char_count + axis_char_count + ascii_char_count(id) + 2;
-                // 2 spaces
-            }
-            None => {
-                if self.target.axis() != 0 {
-                    write!(writer, "{} {}", self.target.device(), self.target.axis())?;
-                    bytes_written += device_char_count + axis_char_count + 1; // 1 space
-                } else if self.target.device() != 0 {
-                    write!(writer, "{}", self.target.device())?;
-                    bytes_written += device_char_count
-                }
-            }
-        };
-        Ok(bytes_written)
-    }
+		// Only output the address, axis or message ID if it is necessary.
+		match self.id {
+			Some(id) => {
+				write!(
+					writer,
+					"{} {} {}",
+					self.target.device(),
+					self.target.axis(),
+					id
+				)?;
+				bytes_written += device_char_count + axis_char_count + ascii_char_count(id) + 2;
+				// 2 spaces
+			}
+			None => {
+				if self.target.axis() != 0 {
+					write!(writer, "{} {}", self.target.device(), self.target.axis())?;
+					bytes_written += device_char_count + axis_char_count + 1; // 1 space
+				} else if self.target.device() != 0 {
+					write!(writer, "{}", self.target.device())?;
+					bytes_written += device_char_count
+				}
+			}
+		};
+		Ok(bytes_written)
+	}
 
-    /// Write a packet for this command to `writer`. Returns `true` if more packets
-    /// need to be written, otherwise returns `false`.
-    pub fn write_packet<W: io::Write + ?Sized>(
-        &mut self,
-        writer: &mut W,
-    ) -> Result<bool, AsciiError> {
-        use std::io::Write as _;
+	/// Write a packet for this command to `writer`. Returns `true` if more packets
+	/// need to be written, otherwise returns `false`.
+	pub fn write_packet<W: io::Write + ?Sized>(
+		&mut self,
+		writer: &mut W,
+	) -> Result<bool, AsciiError> {
+		use std::io::Write as _;
 
-        if self.is_complete() {
-            return Ok(false);
-        }
+		if self.is_complete() {
+			return Ok(false);
+		}
 
-        let writer = &mut LrcWriter::new(writer);
-        let mut bytes_written = self.write_packet_header(writer)?;
+		let writer = &mut LrcWriter::new(writer);
+		let mut bytes_written = self.write_packet_header(writer)?;
 
-        let data = &self.data[self.offset..];
-        let mut words = data
-            .split(u8::is_ascii_whitespace)
-            .filter(|word| !word.is_empty()) // Remove multiple adjacent whitespace
-            .enumerate()
-            .peekable();
-        if words.peek().is_some() {
-            if bytes_written > 1 {
-                // We've written numbers in the header, add a delimiting whitespace
-                // before we write the data portion.
-                write!(writer, " ")?;
-                bytes_written += 1;
-            }
+		let data = &self.data[self.offset..];
+		let mut words = data
+			.split(u8::is_ascii_whitespace)
+			.filter(|word| !word.is_empty()) // Remove multiple adjacent whitespace
+			.enumerate()
+			.peekable();
+		if words.peek().is_some() {
+			if bytes_written > 1 {
+				// We've written numbers in the header, add a delimiting whitespace
+				// before we write the data portion.
+				write!(writer, " ")?;
+				bytes_written += 1;
+			}
 
-            if self.packet_index != 0 {
-                // This is a continuation packet so add the preamble
-                write!(writer, "cont {} ", self.packet_index)?;
-                bytes_written += 6 + ascii_char_count(self.packet_index as u8);
-            }
+			if self.packet_index != 0 {
+				// This is a continuation packet so add the preamble
+				write!(writer, "cont {} ", self.packet_index)?;
+				bytes_written += 6 + ascii_char_count(self.packet_index as u8);
+			}
 
-            // Only add the data that will fit in the packet
-            let mut remaining = self.max_packet_size.as_usize()
+			// Only add the data that will fit in the packet
+			let mut remaining = self.max_packet_size.as_usize()
                 - bytes_written // The header we've already written
                 - if self.checksum { 3 } else { 0 } // save space for the checksum
                 - 1; // save space for the '\n' terminator
-            let mut wrote_word = false;
-            while let Some((index, word)) = words.next() {
-                let mut needed_bytes = word.len();
-                if index != 0 {
-                    needed_bytes += 1; // Leading delimiting space
-                }
-                if needed_bytes <= remaining {
-                    // This word fits
-                    if words.peek().is_some() && needed_bytes == remaining {
-                        // We cannot add the necessary trailing space (if the
-                        // next word fits in the packet) or the `\` (if the next
-                        // word does not). So we must split the packet before
-                        // this word.
-                        self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
-                        break;
-                    }
+			let mut wrote_word = false;
+			while let Some((index, word)) = words.next() {
+				let mut needed_bytes = word.len();
+				if index != 0 {
+					needed_bytes += 1; // Leading delimiting space
+				}
+				if needed_bytes <= remaining {
+					// This word fits
+					if words.peek().is_some() && needed_bytes == remaining {
+						// We cannot add the necessary trailing space (if the
+						// next word fits in the packet) or the `\` (if the next
+						// word does not). So we must split the packet before
+						// this word.
+						self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
+						break;
+					}
 
-                    if index != 0 {
-                        writer.write_all(b" ")?;
-                    }
-                    writer.write_all(word)?;
-                    wrote_word = true;
-                    remaining -= needed_bytes;
+					if index != 0 {
+						writer.write_all(b" ")?;
+					}
+					writer.write_all(word)?;
+					wrote_word = true;
+					remaining -= needed_bytes;
 
-                    // Move the offset past this word
-                    self.offset = words
-                        .peek()
-                        .map(|(_, word)| word.as_ptr() as usize - self.data.as_ptr() as usize)
-                        .unwrap_or_else(|| self.data.len())
-                } else {
-                    // The word doesn't fit, split here
-                    self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
-                    break;
-                }
-            }
-            if !wrote_word {
-                // Could not find a whitespace to split the command at
-                return Err(AsciiCommandSplitError::new((self.target, self.data.to_vec())).into());
-            }
-            if self.offset != self.data.len() {
-                writer.write_all(b"\\")?;
-            }
-        }
+					// Move the offset past this word
+					self.offset = words
+						.peek()
+						.map(|(_, word)| word.as_ptr() as usize - self.data.as_ptr() as usize)
+						.unwrap_or_else(|| self.data.len())
+				} else {
+					// The word doesn't fit, split here
+					self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
+					break;
+				}
+			}
+			if !wrote_word {
+				// Could not find a whitespace to split the command at
+				return Err(AsciiCommandSplitError::new((self.target, self.data.to_vec())).into());
+			}
+			if self.offset != self.data.len() {
+				writer.write_all(b"\\")?;
+			}
+		}
 
-        if self.checksum {
-            let checksum = writer.finish_hash();
-            write!(writer, ":{:02X}", checksum)?;
-        }
-        writer.write_all(b"\n")?;
-        self.packet_index += 1;
-        Ok(!self.is_complete())
-    }
+		if self.checksum {
+			let checksum = writer.finish_hash();
+			write!(writer, ":{:02X}", checksum)?;
+		}
+		writer.write_all(b"\n")?;
+		self.packet_index += 1;
+		Ok(!self.is_complete())
+	}
 }
 
 /// Calculates the number of ASCII digits that are required to print `num`.
 fn ascii_char_count(num: u8) -> usize {
-    if num < 10 {
-        1
-    } else if num < 100 {
-        2
-    } else {
-        3
-    }
+	if num < 10 {
+		1
+	} else if num < 100 {
+		2
+	} else {
+		3
+	}
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+	use super::*;
 
-    struct ConstId {}
-    impl id::Generator for ConstId {
-        fn next_id(&mut self) -> u8 {
-            5
-        }
-    }
+	struct ConstId {}
+	impl id::Generator for ConstId {
+		fn next_id(&mut self) -> u8 {
+			5
+		}
+	}
 
-    #[test]
-    fn test_target() {
-        assert_eq!(Target::default(), Target::for_all());
-        assert_eq!(Target::for_device(1), Target(1, 0));
-        assert_eq!(Target::for_device(1).with_axis(1), Target(1, 1));
-        assert_eq!(Target::new(5, 9).with_all_axes(), Target(5, 0));
-    }
+	#[test]
+	fn test_target() {
+		assert_eq!(Target::default(), Target::for_all());
+		assert_eq!(Target::for_device(1), Target(1, 0));
+		assert_eq!(Target::for_device(1).with_axis(1), Target(1, 1));
+		assert_eq!(Target::new(5, 9).with_all_axes(), Target(5, 0));
+	}
 
-    #[test]
-    fn test_command_writer() {
-        let mut buf = Vec::with_capacity(500);
-        struct Case {
-            command: &'static (u8, u8, &'static str),
-            generate_id: bool,
-            generate_checksum: bool,
-            expected: &'static [u8],
-        }
-        let cases = [
+	#[test]
+	fn test_command_writer() {
+		let mut buf = Vec::with_capacity(500);
+		struct Case {
+			command: &'static (u8, u8, &'static str),
+			generate_id: bool,
+			generate_checksum: bool,
+			expected: &'static [u8],
+		}
+		let cases = [
             Case {
                 command: &(0, 0, ""),
                 generate_id: false,
@@ -627,85 +627,85 @@ mod test {
             },
         ];
 
-        for (case_index, case) in cases.into_iter().enumerate() {
-            eprintln!("cases[{}] = {:?}", case_index, case.command);
+		for (case_index, case) in cases.into_iter().enumerate() {
+			eprintln!("cases[{}] = {:?}", case_index, case.command);
 
-            buf.clear();
-            let mut writer = CommandWriter::new(
-                &case.command,
-                ConstId {},
-                case.generate_id,
-                case.generate_checksum,
-                MaxPacketSize::default(),
-            )
-            .unwrap();
-            let num_expected_packets = case.expected.iter().filter(|byte| **byte == b'\n').count();
-            for index in 0..num_expected_packets {
-                let more = writer.write_packet(&mut buf).unwrap();
-                assert_eq!(
-                    more,
-                    index + 1 != num_expected_packets,
-                    "packet {index}: unexpected write_packet result ({more}): {}",
-                    std::str::from_utf8(&buf).unwrap()
-                );
-            }
+			buf.clear();
+			let mut writer = CommandWriter::new(
+				&case.command,
+				ConstId {},
+				case.generate_id,
+				case.generate_checksum,
+				MaxPacketSize::default(),
+			)
+			.unwrap();
+			let num_expected_packets = case.expected.iter().filter(|byte| **byte == b'\n').count();
+			for index in 0..num_expected_packets {
+				let more = writer.write_packet(&mut buf).unwrap();
+				assert_eq!(
+					more,
+					index + 1 != num_expected_packets,
+					"packet {index}: unexpected write_packet result ({more}): {}",
+					std::str::from_utf8(&buf).unwrap()
+				);
+			}
 
-            assert_eq!(
-                buf,
-                case.expected,
-                "unexpected output: {}",
-                String::from_utf8_lossy(&buf)
-            );
-        }
-    }
+			assert_eq!(
+				buf,
+				case.expected,
+				"unexpected output: {}",
+				String::from_utf8_lossy(&buf)
+			);
+		}
+	}
 
-    #[test]
-    fn test_command_writer_custom_packet_size() {
-        let mut buf = vec![];
-        let _79_bytes =
-            "1234567891123456789212345678931234567894123456789512345678961234567897123456789";
-        {
-            // Should be not be able to fit data plus the leading `/` and trailing `\n`
-            let mut writer = CommandWriter::new(
-                &_79_bytes,
-                ConstId {},
-                false,
-                false,
-                MaxPacketSize::default(),
-            )
-            .unwrap();
-            writer.write_packet(&mut buf).unwrap_err();
-        }
-        {
-            // Should have just enough room for leading `/` and trailing `\n`
-            let mut writer = CommandWriter::new(
-                &_79_bytes,
-                ConstId {},
-                false,
-                false,
-                MaxPacketSize::new(81).unwrap(),
-            )
-            .unwrap();
-            assert_eq!(writer.write_packet(&mut buf).unwrap(), false);
-        }
-    }
+	#[test]
+	fn test_command_writer_custom_packet_size() {
+		let mut buf = vec![];
+		let _79_bytes =
+			"1234567891123456789212345678931234567894123456789512345678961234567897123456789";
+		{
+			// Should be not be able to fit data plus the leading `/` and trailing `\n`
+			let mut writer = CommandWriter::new(
+				&_79_bytes,
+				ConstId {},
+				false,
+				false,
+				MaxPacketSize::default(),
+			)
+			.unwrap();
+			writer.write_packet(&mut buf).unwrap_err();
+		}
+		{
+			// Should have just enough room for leading `/` and trailing `\n`
+			let mut writer = CommandWriter::new(
+				&_79_bytes,
+				ConstId {},
+				false,
+				false,
+				MaxPacketSize::new(81).unwrap(),
+			)
+			.unwrap();
+			assert_eq!(writer.write_packet(&mut buf).unwrap(), false);
+		}
+	}
 
-    #[test]
-    fn test_command_writer_cannot_split() {
-        let mut buf = vec![];
-        let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true, MaxPacketSize::default()).unwrap();
-        assert_eq!(writer.write_packet(&mut buf).unwrap(), true);
-        let _: AsciiCommandSplitError = writer
-            .write_packet(&mut buf)
-            .unwrap_err()
-            .try_into()
-            .unwrap();
-    }
+	#[test]
+	fn test_command_writer_cannot_split() {
+		let mut buf = vec![];
+		let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true, MaxPacketSize::default()).unwrap();
+		assert_eq!(writer.write_packet(&mut buf).unwrap(), true);
+		let _: AsciiCommandSplitError = writer
+			.write_packet(&mut buf)
+			.unwrap_err()
+			.try_into()
+			.unwrap();
+	}
 
-    #[test]
-    fn test_max_packet_size() {
-        assert_eq!(MaxPacketSize::default().as_usize(), 80);
-        assert!(MaxPacketSize::new(79).is_none());
-        assert!(MaxPacketSize::new(80).is_some());
-    }
+	#[test]
+	fn test_max_packet_size() {
+		assert_eq!(MaxPacketSize::default().as_usize(), 80);
+		assert!(MaxPacketSize::new(79).is_none());
+		assert!(MaxPacketSize::new(80).is_some());
+	}
 }
