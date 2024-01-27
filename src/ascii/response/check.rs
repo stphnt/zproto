@@ -71,6 +71,12 @@ impl<R: Response, F: Fn(R) -> Result<R, AsciiCheckError<R>>> Check<R> for F {
 	}
 }
 
+impl<R: Response> Check<R> for &dyn Check<R> {
+	fn check(&self, response: R) -> Result<R, AsciiCheckError<R>> {
+		(*self).check(response)
+	}
+}
+
 /// A helper type for converting any type that implements `Check<R: Response>`
 /// to a new type that implements `Check<AnyResponse>`.
 ///
@@ -120,6 +126,7 @@ mod private {
 	use super::*;
 	pub trait Sealed<R: Response> {}
 
+	impl<R: Response> Sealed<R> for &dyn Check<R> {}
 	impl<R: Response, F: Fn(R) -> Result<R, AsciiCheckError<R>>> Sealed<R> for F {}
 	impl<K: Check<R>, R: Response> Sealed<AnyResponse> for AnyResponseCheck<K, R> {}
 }

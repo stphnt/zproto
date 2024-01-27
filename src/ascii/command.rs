@@ -61,16 +61,6 @@ mod private {
 /// is defined by the [`Port`](crate::ascii::Port). By default they are both
 /// enabled.
 pub trait Command: private::Sealed {
-	/// The type returned when calling `as_ref`, below.
-	type Ref: Command + ?Sized;
-
-	/// Get a reference to the command.
-	///
-	/// This is roughly equivalent to `AsRef` except that it is not generic over
-	/// the return type, which allows this trait to also not be generic.
-	/// Including it as part of the trait directly rather than a supertrait
-	/// avoids requiring call sites to add a somewhat complicated `AsRef` bound.
-	fn as_ref(&self) -> &Self::Ref;
 	/// Get the command's target.
 	fn target(&self) -> Target;
 	/// Get the command's data.
@@ -78,11 +68,6 @@ pub trait Command: private::Sealed {
 }
 
 impl Command for str {
-	type Ref = str;
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
@@ -92,11 +77,6 @@ impl Command for str {
 }
 
 impl Command for [u8] {
-	type Ref = [u8];
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
@@ -106,11 +86,6 @@ impl Command for [u8] {
 }
 
 impl<const N: usize> Command for [u8; N] {
-	type Ref = [u8; N];
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
@@ -120,11 +95,6 @@ impl<const N: usize> Command for [u8; N] {
 }
 
 impl Command for String {
-	type Ref = [u8];
-
-	fn as_ref(&self) -> &Self::Ref {
-		self.as_bytes()
-	}
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
@@ -134,11 +104,6 @@ impl Command for String {
 }
 
 impl Command for Vec<u8> {
-	type Ref = [u8];
-
-	fn as_ref(&self) -> &Self::Ref {
-		self.as_slice()
-	}
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
@@ -152,11 +117,6 @@ where
 	T: Into<Target> + Copy,
 	D: AsRef<[u8]>,
 {
-	type Ref = (T, D);
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		self.0.into()
 	}
@@ -169,11 +129,6 @@ impl<D> Command for (u8, u8, D)
 where
 	D: AsRef<[u8]>,
 {
-	type Ref = (u8, u8, D);
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		Target::for_device(self.0).with_axis(self.1)
 	}
@@ -186,11 +141,6 @@ impl<T> Command for &T
 where
 	T: Command + ?Sized,
 {
-	type Ref = T;
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		(**self).target()
 	}
@@ -203,11 +153,6 @@ impl<T> Command for &mut T
 where
 	T: Command + ?Sized,
 {
-	type Ref = T;
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		(**self).target()
 	}
@@ -220,11 +165,6 @@ impl<T> Command for Box<T>
 where
 	T: Command + ?Sized,
 {
-	type Ref = T;
-
-	fn as_ref(&self) -> &Self::Ref {
-		self
-	}
 	fn target(&self) -> Target {
 		(**self).target()
 	}

@@ -58,20 +58,6 @@ impl<'a> std::fmt::Debug for UnexpectedAlertDebugWrapper<'a> {
 	}
 }
 
-type DefaultCheck<R> = Option<fn(R) -> Result<R, AsciiCheckError<R>>>;
-
-/// Returns the value expected by any function that takes an optional `checker`
-/// that indicates the default check should be used (i.e. `None`).
-///
-/// Using this method has a few benefits over manually passing `None`:
-/// * the meaning of the value is made clear by the name of the function
-/// * it provides the type information necessary to satisfy Rust's type checking.
-///   Otherwise, something like `None::<fn(R) -> Result<R, AsciiCheckError<R>>>`
-///   would need to be passed.
-const fn use_default_check<R>() -> DefaultCheck<R> {
-	None
-}
-
 /// The direction a packet was sent.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Direction {
@@ -259,7 +245,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # }
 	/// ```
 	pub fn command_reply<C: Command>(&mut self, cmd: C) -> Result<Reply, AsciiError> {
-		self.internal_command_reply_with_check(cmd, use_default_check())
+		self.internal_command_reply_with_check(&cmd, &check::strict())
 	}
 
 	/// Same as [`Port::command_reply`] except that the reply is validated with the custom [`Check`](check::Check).
@@ -284,7 +270,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		C: Command,
 		K: check::Check<Reply>,
 	{
-		self.internal_command_reply_with_check(cmd, Some(checker))
+		self.internal_command_reply_with_check(&cmd, &checker)
 	}
 
 	/// Transmit a command and receive a reply.
@@ -297,16 +283,11 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()' is used.
-	fn internal_command_reply_with_check<C, K>(
+	fn internal_command_reply_with_check(
 		&mut self,
-		cmd: C,
-		checker: Option<K>,
-	) -> Result<Reply, AsciiError>
-	where
-		C: Command,
-		K: check::Check<Reply>,
-	{
-		let cmd = cmd.as_ref();
+		cmd: &dyn Command,
+		checker: &dyn check::Check<Reply>,
+	) -> Result<Reply, AsciiError> {
 		let id = self.command(cmd)?;
 		self.pre_receive_response();
 		let response = self.receive_response(
@@ -355,7 +336,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		cmd: C,
 	) -> Result<(Reply, Vec<Info>), AsciiError> {
-		self.internal_command_reply_infos_with_check(cmd, use_default_check())
+		self.internal_command_reply_infos_with_check(&cmd, &check::strict())
 	}
 
 	/// Same as [`Port::command_reply_infos`] except that the messages are validated with the custom [`Check`](check::Check).
@@ -388,7 +369,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		C: Command,
 		K: check::Check<AnyResponse>,
 	{
-		self.internal_command_reply_infos_with_check(cmd, Some(checker))
+		self.internal_command_reply_infos_with_check(&cmd, &checker)
 	}
 
 	/// Transmit a command and then receive a reply and all subsequent info messages.
@@ -401,29 +382,23 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
-	fn internal_command_reply_infos_with_check<C, K>(
+	fn internal_command_reply_infos_with_check(
 		&mut self,
-		cmd: C,
-		checker: Option<K>,
-	) -> Result<(Reply, Vec<Info>), AsciiError>
-	where
-		C: Command,
-		K: check::Check<AnyResponse>,
-	{
-		let target = cmd.as_ref().target();
-		let reply_checker = checker.as_ref().map(|checker| {
-			// It should be reasonably safe to unwrap here. All checks implemented by this crate return the same response
-			// they received. It is possible for a user to create their own check that doesn't do that but it would
-			// be hard to do since only this crate can create responses (users can create packets from bytes, but
-			// they can't create `Reply`s, `Info`s, or `Alert`s directly).
-			|reply: Reply| {
-				checker
-					.check(AnyResponse::from(reply))
-					.map(|response| Reply::try_from(response).unwrap())
-					.map_err(|err| AsciiCheckError::<Reply>::try_from(err).unwrap())
-			}
-		});
-		let reply = self.internal_command_reply_with_check(cmd, reply_checker)?;
+		cmd: &dyn Command,
+		checker: &dyn check::Check<AnyResponse>,
+	) -> Result<(Reply, Vec<Info>), AsciiError> {
+		let target = cmd.target();
+		// It should be reasonably safe to unwrap here. All checks implemented by this crate return the same response
+		// they received. It is possible for a user to create their own check that doesn't do that but it would
+		// be hard to do since only this crate can create responses (users can create packets from bytes, but
+		// they can't create `Reply`s, `Info`s, or `Alert`s directly).
+		let reply_checker = |reply: Reply| {
+			checker
+				.check(AnyResponse::from(reply))
+				.map(|response| Reply::try_from(response).unwrap())
+				.map_err(|err| AsciiCheckError::<Reply>::try_from(err).unwrap())
+		};
+		let reply = self.internal_command_reply_with_check(cmd, &reply_checker)?;
 		let old_generate_id = self.set_message_ids(true);
 		let sentinel_id = self.command((target, ""));
 		self.set_message_ids(old_generate_id);
@@ -442,7 +417,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		};
 		self.pre_receive_response();
 		loop {
-			match self.receive_response(&header_check, gen_new_checker(&checker))? {
+			match self.receive_response(&header_check, checker)? {
 				AnyResponse::Info(info) => infos.push(info),
 				AnyResponse::Reply(_) => {
 					// This is the reply we've been waiting for. Stop.
@@ -476,7 +451,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		cmd: C,
 		n: usize,
 	) -> Result<Vec<Reply>, AsciiError> {
-		self.internal_command_reply_n_with_check(cmd, n, use_default_check())
+		self.internal_command_reply_n_with_check(&cmd, n, &check::strict())
 	}
 
 	/// Same as [`Port::command_reply_n`] except that the replies are validated with the custom [`Check`](check::Check).
@@ -502,7 +477,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		C: Command,
 		K: check::Check<Reply>,
 	{
-		self.internal_command_reply_n_with_check(cmd, n, Some(checker))
+		self.internal_command_reply_n_with_check(&cmd, n, &checker)
 	}
 
 	/// Transmit a command and then receive n replies.
@@ -515,17 +490,12 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
-	fn internal_command_reply_n_with_check<C, K>(
+	fn internal_command_reply_n_with_check(
 		&mut self,
-		cmd: C,
+		cmd: &dyn Command,
 		n: usize,
-		checker: Option<K>,
-	) -> Result<Vec<Reply>, AsciiError>
-	where
-		C: Command,
-		K: check::Check<Reply>,
-	{
-		let cmd = cmd.as_ref();
+		checker: &dyn check::Check<Reply>,
+	) -> Result<Vec<Reply>, AsciiError> {
 		let id = self.command(cmd)?;
 		self.internal_response_n_with_check(
 			n,
@@ -557,7 +527,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		cmd: C,
 	) -> Result<Vec<Reply>, AsciiError> {
-		self.internal_command_replies_until_timeout_with_check(cmd, use_default_check())
+		self.internal_command_replies_until_timeout_with_check(&cmd, &check::strict())
 	}
 
 	/// Same as [`Port::command_replies_until_timeout`] except that the replies are validated with the custom [`Check`](check::Check).
@@ -585,7 +555,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		C: Command,
 		K: check::Check<Reply>,
 	{
-		self.internal_command_replies_until_timeout_with_check(cmd, Some(checker))
+		self.internal_command_replies_until_timeout_with_check(&cmd, &checker)
 	}
 
 	/// Transmit a command and then receive replies until the port times out.
@@ -598,16 +568,11 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// The contents of the responses are validated with `checker`. If `checker` is `None`, then the port's default
 	/// check is used.
-	fn internal_command_replies_until_timeout_with_check<C, K>(
+	fn internal_command_replies_until_timeout_with_check(
 		&mut self,
-		cmd: C,
-		checker: Option<K>,
-	) -> Result<Vec<Reply>, AsciiError>
-	where
-		C: Command,
-		K: check::Check<Reply>,
-	{
-		let cmd = cmd.as_ref();
+		cmd: &dyn Command,
+		checker: &dyn check::Check<Reply>,
+	) -> Result<Vec<Reply>, AsciiError> {
 		let id = self.command(cmd)?;
 		self.internal_responses_until_timeout_with_check(
 			|_| HeaderCheckAction::Check {
@@ -813,17 +778,16 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then `check::strict()` will be used
 	/// to check the response's contents.
-	fn receive_response<R, F, K>(
+	fn receive_response<R, F>(
 		&mut self,
 		mut header_check: F,
-		checker: Option<K>,
+		checker: &dyn check::Check<R>,
 	) -> Result<R, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 		F: FnMut(&AnyResponse) -> HeaderCheckAction,
-		K: check::Check<R>,
 	{
 		self.check_poisoned()?;
 		loop {
@@ -831,15 +795,7 @@ impl<'a, B: Backend> Port<'a, B> {
 				let mut response = self.build_response()?;
 				response = header_check(&response).check(response)?;
 				let response = R::try_from(response).map_err(AsciiUnexpectedResponseError::new)?;
-				if let Some(checker) = &checker {
-					checker.check(response).map_err(Into::into)
-				} else {
-					use crate::ascii::check::Check as _;
-					check::strict()
-						.check(response)
-						.map(From::from)
-						.map_err(From::from)
-				}
+				checker.check(response).map_err(Into::into)
 			}();
 			if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
 				// There is an handler for alerts, check if we need to call it.
@@ -876,23 +832,22 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
-	fn internal_response_n_with_check<R, F, K>(
+	fn internal_response_n_with_check<R, F>(
 		&mut self,
 		n: usize,
 		mut header_check: F,
-		checker: Option<K>,
+		checker: &dyn check::Check<R>,
 	) -> Result<Vec<R>, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 		F: FnMut(&AnyResponse) -> HeaderCheckAction,
-		K: check::Check<R>,
 	{
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		for _ in 0..n {
-			responses.push(self.receive_response(|r| header_check(r), gen_new_checker(&checker))?);
+			responses.push(self.receive_response(|r| header_check(r), checker)?);
 		}
 		self.post_receive_response()?;
 		Ok(responses)
@@ -905,24 +860,21 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
-	fn internal_responses_until_timeout_with_check<R, F, K>(
+	fn internal_responses_until_timeout_with_check<R, F>(
 		&mut self,
 		mut header_check: F,
-		checker: Option<K>,
+		checker: &dyn check::Check<R>,
 	) -> Result<Vec<R>, AsciiError>
 	where
 		R: Response,
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 		F: FnMut(&AnyResponse) -> HeaderCheckAction,
-		K: check::Check<R>,
 	{
 		self.pre_receive_response();
 		let mut responses = Vec::new();
 		loop {
-			match self
-				.receive_response(|response| header_check(response), gen_new_checker(&checker))
-			{
+			match self.receive_response(|response| header_check(response), checker) {
 				Ok(r) => responses.push(r),
 				Err(e) if e.is_timeout() => break,
 				Err(e) => return Err(e),
@@ -956,7 +908,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		self.pre_receive_response();
 		let response =
-			self.receive_response(|_| HeaderCheckAction::DoNotCheck, use_default_check())?;
+			self.receive_response(|_| HeaderCheckAction::DoNotCheck, &check::strict())?;
 		self.post_receive_response()?;
 		Ok(response)
 	}
@@ -981,7 +933,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		AsciiError: From<AsciiCheckError<R>>,
 	{
 		self.pre_receive_response();
-		let response = self.receive_response(|_| HeaderCheckAction::DoNotCheck, Some(checker))?;
+		let response = self.receive_response(|_| HeaderCheckAction::DoNotCheck, &checker)?;
 		self.post_receive_response()?;
 		Ok(response)
 	}
@@ -1007,11 +959,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 	{
-		self.internal_response_n_with_check(
-			n,
-			|_| HeaderCheckAction::DoNotCheck,
-			use_default_check(),
-		)
+		self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, &check::strict())
 	}
 
 	/// Same as [`Port::response_n`] except that the responses are validated with the custom [`Check`](check::Check).
@@ -1038,7 +986,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 		AsciiError: From<AsciiCheckError<R>>,
 	{
-		self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, Some(checker))
+		self.internal_response_n_with_check(n, |_| HeaderCheckAction::DoNotCheck, &checker)
 	}
 
 	/// Receive responses until the port times out and check each one with the [`strict`](check::strict) check.
@@ -1065,7 +1013,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		self.internal_responses_until_timeout_with_check(
 			|_| HeaderCheckAction::DoNotCheck,
-			use_default_check(),
+			&check::strict(),
 		)
 	}
 
@@ -1094,7 +1042,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	{
 		self.internal_responses_until_timeout_with_check(
 			|_| HeaderCheckAction::DoNotCheck,
-			Some(checker),
+			&checker,
 		)
 	}
 
@@ -1128,7 +1076,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		C: Command,
 		F: FnMut(&Reply) -> bool,
 	{
-		self.internal_poll_until_with_check(cmd, predicate, use_default_check())
+		self.internal_poll_until_with_check(&cmd, predicate, &check::strict())
 	}
 
 	/// Same as [`Port::poll_until`] except that the replies are validated with
@@ -1158,7 +1106,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		F: FnMut(&Reply) -> bool,
 		K: check::Check<Reply>,
 	{
-		self.internal_poll_until_with_check(cmd, predicate, Some(checker))
+		self.internal_poll_until_with_check(&cmd, predicate, &checker)
 	}
 
 	/// Send the specified command repeatedly until the predicate returns true
@@ -1172,21 +1120,18 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// If the `header_check` passes, the message will be converted to the desired message type `R` and then passed to
 	/// `checker` to validate the contents of the message. If `checker` is `None`, then the port's default check is used.
-	fn internal_poll_until_with_check<C, F, K>(
+	fn internal_poll_until_with_check<F>(
 		&mut self,
-		cmd: C,
+		cmd: &dyn Command,
 		mut predicate: F,
-		checker: Option<K>,
+		checker: &dyn check::Check<Reply>,
 	) -> Result<Reply, AsciiError>
 	where
-		C: Command,
 		F: FnMut(&Reply) -> bool,
-		K: check::Check<Reply>,
 	{
 		let mut reply;
 		loop {
-			reply =
-				self.internal_command_reply_with_check(cmd.as_ref(), gen_new_checker(&checker))?;
+			reply = self.internal_command_reply_with_check(cmd, checker)?;
 			if predicate(&reply) {
 				break;
 			}
@@ -1530,20 +1475,6 @@ impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
 	fn poison(&mut self, e: io::Error) {
 		self.poison = Some(e)
 	}
-}
-
-/// Given an optional checker, generate a new one with appropriate lifetime
-/// constraints and types.
-//
-// Inlining helps ensure that the extra function call boundaries will be
-// optimized away.
-#[inline(always)]
-fn gen_new_checker<'a, 'b: 'a, R: Response>(
-	checker: &'b Option<impl check::Check<R>>,
-) -> Option<impl check::Check<R> + 'a> {
-	checker
-		.as_ref()
-		.map(|checker| move |response| checker.check(response))
 }
 
 #[derive(Debug, Clone)]
