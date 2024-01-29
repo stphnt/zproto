@@ -1,0 +1,15 @@
+---
+$schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+version: '0.2'
+import: 
+  - '@cspell/dict-rust/cspell-ext.json'
+dictionaryDefinitions:
+  - name: project-words
+    path: './.cspell/project-words.txt'
+dictionaries:
+  - en-gb
+  - project-words
+ignorePaths:
+  - 'target'
+  - '.cspell'
+  - '.github'
