@@ -218,7 +218,7 @@ define_error_codes! {
 	80: Cycle Distance Invalid,
 	81: Filter Holder Id Invalid,
 	87: Absolute Force Invalid,
-	101: Auto Reply Disabled Moded Invalid,
+	101: Auto Reply Disabled Mode Invalid,
 	102: Message Id Mode Invalid,
 	103: Home Status Invalid,
 	105: Auto Home Disabled Mode Invalid,
