@@ -112,8 +112,17 @@ impl std::fmt::Display for Status {
 /// A device or axis warning flag.
 ///
 /// To check what the the warning flag is simply do a comparison (e.g. `warning == "WR"`).
-#[derive(Debug, Copy, Clone, Eq, Hash)]
+#[derive(Copy, Clone, Eq, Hash)]
 pub struct Warning([u8; 2]);
+
+impl std::fmt::Debug for Warning {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_tuple("Warning")
+			// The warning flag must be ASCII encoded and therefore also UTF-8 encoded.
+			.field(&std::str::from_utf8(&self.0).unwrap())
+			.finish()
+	}
+}
 
 impl Warning {
 	/// The warning value indicating there are no warnings on a device/axis, i.e. `--`.
