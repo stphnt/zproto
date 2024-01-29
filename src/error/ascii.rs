@@ -682,7 +682,7 @@ mod test {
 	// This will minimize the size of Result<R, Error>.
 	const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
 	const_assert_eq!(
-		std::mem::size_of::<AsciiCheckError<AnyResponse>>(), // AnyResponse is the largests response type
+		std::mem::size_of::<AsciiCheckError<AnyResponse>>(), // AnyResponse is the largest response type
 		2 * _WORD_SIZE
 	);
 	const_assert_eq!(std::mem::size_of::<AsciiProtocolError>(), 3 * _WORD_SIZE);

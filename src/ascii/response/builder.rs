@@ -143,7 +143,7 @@ impl ResponseBuilder {
 		}
 	}
 
-	// Get first packet in the incompleted response, if it is in fact incomplete.
+	// Get the first packet in the incomplete response, if it is in fact incomplete.
 	pub fn get_incomplete_response_packet(&mut self) -> Option<Packet> {
 		let has_packet = self
 			.items

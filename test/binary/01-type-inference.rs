@@ -1,7 +1,7 @@
 use zproto::binary::{Message, Port, command::*};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut port = Port::open_serial("/dev/nonexistant")?;
+    let mut port = Port::open_serial("/dev/nonexistent")?;
     // Confirm the expected return types by explicitly marking them an INCORRECT type
     let _: Message<types::Reset> = port.tx_recv((0, HOME))?;
     let _: Message<types::Home> = port.tx_recv((0, untyped::HOME, 0i32))?;
