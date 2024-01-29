@@ -161,7 +161,7 @@ where
 
 /// Return a check that verifies the response's [`Warning`] is in the specified list.
 ///
-/// The list can be a slice, array, or tuple of types that are comparible to a [`Warning`].
+/// The list can be a slice, array, or tuple of types that are comparable to a [`Warning`].
 ///
 /// ## Example
 /// ```rust

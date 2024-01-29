@@ -30,7 +30,7 @@ impl Lrc {
 		sum
 	}
 
-	/// Verif if the hash matches the input.
+	/// Verify if the hash matches the input.
 	pub fn verify(input: &[u8], hash: u32) -> bool {
 		let sum: u32 = input.iter().fold(0u32, |sum, b| *b as u32 + sum);
 		0 == ((sum + hash) & 0xFF)
