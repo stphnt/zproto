@@ -2,6 +2,57 @@
 
 use crate::error::ConversionError;
 
+/// A MAC address.
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct MacAddress {
+	/// The octets in transmission order.
+	octets: [u8; 6],
+}
+
+impl std::fmt::Display for MacAddress {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		for (i, octet) in self.octets.iter().enumerate() {
+			if i != 0 {
+				write!(f, "-")?;
+			}
+			write!(f, "{octet:02X}")?;
+		}
+		Ok(())
+	}
+}
+
+impl std::str::FromStr for MacAddress {
+	type Err = InvalidMacAddress;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut octets = [0u8; 6];
+		let mut max_octet_index = 0;
+		for (i, part) in s.split('-').enumerate() {
+			dbg!(part);
+			max_octet_index = i;
+			if i < 6 {
+				octets[i] = u8::from_str_radix(part, 16).map_err(|_| InvalidMacAddress)?;
+			} else {
+				return Err(InvalidMacAddress);
+			}
+		}
+		if max_octet_index != 5 {
+			return Err(InvalidMacAddress);
+		}
+		Ok(MacAddress { octets })
+	}
+}
+
+/// Error indicating parsing string into a [`MacAddress`] failed.
+#[derive(Debug, Copy, Clone)]
+pub struct InvalidMacAddress;
+impl std::fmt::Display for InvalidMacAddress {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "invalid MAC address")
+	}
+}
+impl std::error::Error for InvalidMacAddress {}
+
 /// Any type that can parse a value of type `T` from a word in an ASCII message.
 pub trait AsciiParser {
 	/// The type produced when parsing.
@@ -45,7 +96,7 @@ macro_rules! impl_parse_and_ascii_display_via_builtins {
         )+
     }
 }
-impl_parse_and_ascii_display_via_builtins! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr }
+impl_parse_and_ascii_display_via_builtins! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
 
 impl AsciiParser for String {
 	type Output = String;
@@ -137,7 +188,7 @@ macro_rules! impl_data_type_via_builtin {
     }
 }
 
-impl_data_type_via_builtin! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr }
+impl_data_type_via_builtin! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
 
 impl DataType for bool {
 	type Borrowed = bool;
@@ -219,6 +270,14 @@ mod test {
 			"anything" => Ok(_),
 			"" => Err(_),
 			" " => Err(_),
+		}
+		MacAddress {
+			"FF-FF-FF-FF-FF-FF" => Ok(_),
+			"01-23-45-67-89-AB" => Ok(_),
+			"00-00-00-00-00-00" => Ok(_),
+			"00-00-00-00-00" => Err(_),
+			"00-00-00-00-00-00-00" => Err(_),
+			"00-00-00-00-00-FG" => Err(_),
 		}
 	}
 }
