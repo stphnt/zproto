@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# Check if the last accessed database is the most up to date.
+# If it is not, this script exits with a non-zero exit code.
+#
+# This script takes two arguments:
+# $1 either "check" or "update", indicating the action to perform
+# $2 the path of a file that should contain the Last Modified header
+#    for the device database.
+#
+# If $1 is "check" the Last Modified data of the device database on
+# Zaber's servers will be compared to the contents of $2. If the do
+# not match the script will return a non-zero exit code.
+#
+# If $1 is "update" the Last Modified date of the device database on
+# Zaber's servers will be written to $2.
+
+# cspell: ignore errexit pipefail nounset lzma
+set -o errexit
+set -o pipefail
+set -o nounset
+
+arg_count="$#"
+
+if [[ arg_count -ne 2 || ("$1" != "check" && "$1" != "update") ]]; then
+	echo "USAGE:"
+	echo "$0" 'check|update <last-modified-stamp-file>'
+	exit 1
+fi
+
+action="$1"
+last_modified_file="$2"
+database_url="https://www.zaber.com/software/device-database/devices-public.sqlite.lzma"
+
+zaber_last_modified="$(curl --head --silent $database_url | grep 'Last-Modified')"
+
+if [[ "$action" == "check" ]]; then
+	stored_last_modified="$(cat $last_modified_file)"
+	if [[ "$zaber_last_modified" != "$stored_last_modified" ]]; then
+		echo A newer database version is available
+		echo "$zaber_last_modified"
+		exit 1
+	fi
+elif [[ "$action" == "update" ]]; then
+	echo "$zaber_last_modified" > "$last_modified_file"
+fi
