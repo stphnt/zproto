@@ -1,0 +1,13 @@
+name: New Database Check
+
+on:
+  schedule:
+    # 08:00 on the first of every month
+    - cron: '0 8 1 * *'
+
+jobs:
+  check_database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/database_modified_stamp check last_used_database.txt
