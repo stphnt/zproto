@@ -6,9 +6,15 @@ import:
 dictionaryDefinitions:
   - name: project-words
     path: './.cspell/project-words.txt'
+  - name: zaber-words
+    path: './.cspell/zaber-words.txt'
+  - name: rust-libs
+    path: './.cspell/rust-libs.txt'
 dictionaries:
   - en-gb
   - project-words
+  - zaber-words
+  - rust-libs
 ignorePaths:
   - 'target'
   - '.cspell'

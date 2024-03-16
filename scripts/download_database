@@ -1,0 +1,13 @@
+#! /usr/bin/env bash
+
+# Download the most recent version of the device database
+
+# cspell: ignore errexit pipefail nounset lzma
+set -o errexit
+set -o pipefail
+set -o nounset
+
+wget https://www.zaber.com/software/device-database/devices-public.sqlite.lzma -O devices-public.sqlite.lzma
+echo "decompressing..."
+xz -d --format=lzma -vv < devices-public.sqlite.lzma > devices-public.sqlite
+

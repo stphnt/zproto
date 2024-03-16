@@ -1,12 +1,10 @@
 Addrs
-BADCOMMAND
 builtins
 Displayer
 hexdigit
 idents
 inferencing
 libudev
-maxspeed
 microstep
 monomorphized
 peekable
@@ -20,6 +18,5 @@ subslices
 system.axiscount
 trybuild
 unhomed
-Zaber
-Zaber's
+vlatest
 zproto
