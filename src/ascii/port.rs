@@ -118,7 +118,7 @@ impl<'a> Port<'a, Serial> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::ascii::{OpenSerialOptions, Port};
+	/// # use zproto::ascii::Port;
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_serial("/dev/ttyUSB0")?;
 	/// // Or equivalently
@@ -144,7 +144,7 @@ impl<'a> Port<'a, TcpStream> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::ascii::{OpenTcpOptions, Port};
+	/// # use zproto::ascii::Port;
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_tcp("198.168.0.1:55550")?;
 	/// // Or equivalently

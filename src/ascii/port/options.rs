@@ -18,7 +18,7 @@ use std::{
 /// ## Example
 ///
 /// ```rust
-/// # use zproto::ascii::OpenSerialOptions;
+/// # use zproto::ascii::port::OpenSerialOptions;
 /// # use std::time::Duration;
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenSerialOptions::new()
@@ -158,7 +158,7 @@ impl Default for OpenSerialOptions {
 /// ## Example
 ///
 /// ```rust
-/// # use zproto::ascii::OpenTcpOptions;
+/// # use zproto::ascii::port::OpenTcpOptions;
 /// # use std::time::Duration;
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenTcpOptions::new()

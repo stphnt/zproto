@@ -161,12 +161,12 @@ pub mod data_type;
 mod id;
 mod marker;
 pub mod parse;
-mod port;
+pub mod port;
 mod response;
 pub mod scope;
 
 pub use command::*;
-pub use port::*;
+pub use port::Port;
 pub use response::*;
 
 /// The device address and axis number a command/response was sent to/from.
