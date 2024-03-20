@@ -29,7 +29,7 @@ error[E0277]: the trait bound `Home: TakesData<i32>` is not satisfied
   --> test/binary/02-port-parameters.rs:10:30
    |
 10 |     let _ = port.tx_recv((0, HOME, 0i32))?;  // Shouldn't take parameters
-   |                  -------     ^^^^ the trait `TakesData<i32>` is not implemented for `Home`
+   |                  -------     ^^^^ the trait `TakesData<i32>` is not implemented for `Home`, which is required by `(u8, Home, i32): TxMessage`
    |                  |
    |                  required by a bound introduced by this call
    |
@@ -57,7 +57,7 @@ error[E0277]: the trait bound `MoveAbsolute: TakesNoData` is not satisfied
   --> test/binary/02-port-parameters.rs:11:30
    |
 11 |     let _ = port.tx_recv((0, MOVE_ABSOLUTE))?;  // Should take parameters
-   |                  -------     ^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `MoveAbsolute`
+   |                  -------     ^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `MoveAbsolute`, which is required by `(u8, MoveAbsolute): TxMessage`
    |                  |
    |                  required by a bound introduced by this call
    |
@@ -85,7 +85,7 @@ error[E0277]: the trait bound `MoveAbsolute: TakesData<bool>` is not satisfied
   --> test/binary/02-port-parameters.rs:12:30
    |
 12 |     let _ = port.tx_recv((0, MOVE_ABSOLUTE, false))?;  // Wrong parameter type
-   |                  -------     ^^^^^^^^^^^^^ the trait `TakesData<bool>` is not implemented for `MoveAbsolute`
+   |                  -------     ^^^^^^^^^^^^^ the trait `TakesData<bool>` is not implemented for `MoveAbsolute`, which is required by `(u8, MoveAbsolute, bool): TxMessage`
    |                  |
    |                  required by a bound introduced by this call
    |
@@ -105,7 +105,7 @@ error[E0277]: the trait bound `u8: TakesNoData` is not satisfied
   --> test/binary/02-port-parameters.rs:14:30
    |
 14 |     let _ = port.tx_recv((0, untyped::HOME))?;  // u8 commands require an explicit data value
-   |                  -------     ^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `u8`
+   |                  -------     ^^^^^^^^^^^^^ the trait `TakesNoData` is not implemented for `u8`, which is required by `(u8, u8): TxMessage`
    |                  |
    |                  required by a bound introduced by this call
    |
@@ -133,7 +133,7 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesNoDat
   --> test/binary/02-port-parameters.rs:16:17
    |
 16 |     port.tx((0, ERROR))?;  // Reply-only commands cannot be transmitted
-   |          --     ^^^^^ the trait `TakesNoData` is not implemented for `zproto::binary::command::types::Error`
+   |          --     ^^^^^ the trait `TakesNoData` is not implemented for `zproto::binary::command::types::Error`, which is required by `({integer}, zproto::binary::command::types::Error): TxMessage`
    |          |
    |          required by a bound introduced by this call
    |
@@ -158,7 +158,7 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesData<
   --> test/binary/02-port-parameters.rs:17:17
    |
 17 |     port.tx((0, ERROR, 0i32))?;  // Reply-only commands cannot be transmitted
-   |          --     ^^^^^ the trait `TakesData<i32>` is not implemented for `zproto::binary::command::types::Error`
+   |          --     ^^^^^ the trait `TakesData<i32>` is not implemented for `zproto::binary::command::types::Error`, which is required by `({integer}, zproto::binary::command::types::Error, i32): TxMessage`
    |          |
    |          required by a bound introduced by this call
    |
