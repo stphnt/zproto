@@ -113,7 +113,7 @@ pub struct Port<'a, B> {
 impl<'a> Port<'a, Serial> {
 	/// Open the serial port at the specified path using the default options.
 	///
-	/// Alternatively, use [`OpenSerialOptions`] to customize how the port is opened.
+	/// Alternatively, use [`Port::open_serial_options`] to customize how the port is opened.
 	///
 	/// ## Example
 	///
@@ -122,19 +122,24 @@ impl<'a> Port<'a, Serial> {
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_serial("/dev/ttyUSB0")?;
 	/// // Or equivalently
-	/// let mut port = OpenSerialOptions::new().open("/dev/ttyUSB0")?;
+	/// let mut port = Port::open_serial_options().open("/dev/ttyUSB0")?;
 	/// # Ok(())
 	/// # }
 	/// ```
 	pub fn open_serial(path: &str) -> Result<Port<'a, Serial>, AsciiError> {
 		OpenSerialOptions::new().open(path)
 	}
+
+	/// Get an [`OpenSerialOptions`] to customize how a serial port is opened.
+	pub fn open_serial_options() -> OpenSerialOptions {
+		OpenSerialOptions::default()
+	}
 }
 
 impl<'a> Port<'a, TcpStream> {
 	/// Open the TCP port at the specified address using the default options.
 	///
-	/// Alternatively, use [`OpenTcpOptions`] to customize how the port is opened.
+	/// Alternatively, use [`Port::open_tcp_options`] to customize how the port is opened.
 	///
 	/// ## Example
 	///
@@ -143,12 +148,17 @@ impl<'a> Port<'a, TcpStream> {
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_tcp("198.168.0.1:55550")?;
 	/// // Or equivalently
-	/// let mut port = OpenTcpOptions::new().open("198.168.0.1:55550")?;
+	/// let mut port = Port::open_tcp_options().open("198.168.0.1:55550")?;
 	/// # Ok(())
 	/// # }
 	/// ```
 	pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream>, io::Error> {
-		OpenTcpOptions::new().open(address)
+		OpenTcpOptions::default().open(address)
+	}
+
+	/// Get an [`OpenTcpOptions`] to customize how a TCP port is opened.
+	pub fn open_tcp_options() -> OpenTcpOptions {
+		OpenTcpOptions::default()
 	}
 }
 
