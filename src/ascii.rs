@@ -78,7 +78,7 @@
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend, error::Error};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! let reply = port.command_reply("get device.id")?;
+//! let reply = port.command_reply("get device.id")?.flag_ok()?;
 //! let device_id: u32 = reply.data().parse()?;
 //! # Ok(())
 //! # }
@@ -86,27 +86,25 @@
 //!
 //! ## Checking Responses
 //!
-//! The library always checks the contents of responses and returns an error for
-//! rejected commands or replies with any warnings. However, that may not always
-//! be desirable, in which case you can explicitly define how the response should
-//! be checked. The [`check`] module defines many common validation functions,
-//! or you can write your own:
+//! The library requires users to be explicit about checking the contents of responses.
+//! To do this, many methods either take a validation function or return a
+//! [`NotChecked<R>`](check::NotChecked) (where `R` is the response type,
+//! like a [`Reply`]). To access the inner response, users must validate it's contents using
+//! the methods on `NotChecked` and/or the validation functions in the [`check`] module.
+//! If you want you can also write your own validation functions.
 //!
 //! ```rust
-//! # use zproto::{ascii::Port, backend::Backend, error::Error};
-//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::{flag_ok_and, warning_is};
+//! # use zproto::{ascii::{Port, Reply}, backend::Backend, error::Error};
+//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<Reply, Box<dyn std::error::Error>> {
+//! use zproto::ascii::check::warning_is;
 //!
-//! let reply = port.command_reply_with_check(
-//!    (1, "get device.id"),
-//!    flag_ok_and(warning_is("WR"))
-//! )?;
-//! # Ok(())
+//! let reply = port.command_reply((1, "get device.id"))?
+//!     .flag_ok_and(warning_is("WR"))?; // check that the reply's flag is "OK"
+//!                                      // and the warning flag is "WR".
+//! # Ok(reply)
 //! # }
 //! ```
 //!
-//! Most [`Port`] methods have a `_with_check` version so you can override the
-//! default validation of a response.
 //!
 //! ## Other `Port` Methods
 //!
@@ -117,7 +115,7 @@
 //! ```rust
 //! # use zproto::{ascii::{Alert, Port}, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! let alert: Alert = port.response()?;
+//! let alert: Alert = port.response()?.check_minimal()?;
 //! # Ok(())
 //! # }
 //! ```
@@ -128,7 +126,8 @@
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! let (reply, infos) = port.command_reply_infos("stream buffer 1 print")?;
+//! use zproto::ascii::check::minimal;
+//! let (reply, infos) = port.command_reply_infos("stream buffer 1 print", minimal())?;
 //! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
 //! for info in infos {
 //!     println!("{}", info); // `#01 0 setup store 1 1` (for example)
@@ -146,9 +145,10 @@
 //! #     backend::Backend
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+//! use zproto::ascii::check::flag_ok;
 //! let target = (1, 2);
-//! port.command_reply((target, "move max"))?;
-//! port.poll_until_idle(target)?;
+//! port.command_reply((target, "move max"))?.flag_ok()?;
+//! port.poll_until_idle(target, flag_ok())?;
 //! // Axis 2 on device 1 is now idle
 //! # Ok(())
 //! # }

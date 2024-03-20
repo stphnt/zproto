@@ -75,7 +75,7 @@ macro_rules! check_cases {
 fn command_reply_ok() {
 	let mut port = Port::open_mock();
 	port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.target(), (1, 0).into());
 
 	// Multi-packet Reply
@@ -85,7 +85,7 @@ fn command_reply_ok() {
 		backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
 		backend.append_data(b"#01 0 cont part3\r\n");
 	}
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.data(), "part1 part2a part2b part3");
 }
 
@@ -136,7 +136,7 @@ fn command_reply_unexpected_alert() {
 
 	port.backend.append_data(b"!01 0 IDLE --\r\n");
 	port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.target(), (1, 0).into());
 	assert_eq!(alert_count.get(), 1);
 
@@ -149,7 +149,7 @@ fn command_reply_unexpected_alert() {
 		backend.append_data(b"!02 1 IDLE --\r\n");
 		backend.append_data(b"#01 0 cont part3\r\n");
 	}
-	let reply = port.command_reply("").unwrap();
+	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.data(), "part1 part2a part2b part3");
 	assert_eq!(alert_count.get(), 3);
 }
@@ -162,7 +162,7 @@ fn command_reply_n_ok() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let _ = port.command_reply_n("", 2).unwrap();
+	let _ = port.command_reply_n("", 2, check::strict()).unwrap();
 
 	// Interleaved multi-packet replies
 	{
@@ -172,7 +172,7 @@ fn command_reply_n_ok() {
 		buf.append_data(b"#02 0 cont 2part2\r\n");
 		buf.append_data(b"#01 0 cont 1part2\r\n");
 	}
-	let replies = port.command_reply_n("", 2).unwrap();
+	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
 }
@@ -187,7 +187,7 @@ fn command_reply_n_fail() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let err = port.command_reply_n("", 3).unwrap_err();
+	let err = port.command_reply_n("", 3, check::strict()).unwrap_err();
 	assert!(err.is_timeout());
 
 	// Timeout waiting for non-existent packet.
@@ -196,7 +196,7 @@ fn command_reply_n_fail() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\\\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let err = port.command_reply_n("", 2).unwrap_err();
+	let err = port.command_reply_n("", 2, check::strict()).unwrap_err();
 	assert!(err.is_timeout());
 }
 
@@ -216,7 +216,7 @@ fn command_reply_n_unexpected_alert() {
 		buf.append_data(b"!03 0 IDLE --\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let _ = port.command_reply_n("", 2).unwrap();
+	let _ = port.command_reply_n("", 2, check::strict()).unwrap();
 	assert_eq!(alert_count.get(), 1);
 
 	// Interleaved multi-packet replies
@@ -230,7 +230,7 @@ fn command_reply_n_unexpected_alert() {
 		buf.append_data(b"#01 0 cont 1part2\r\n");
 		buf.append_data(b"!05 0 IDLE --\r\n"); // Shouldn't be read
 	}
-	let replies = port.command_reply_n("", 2).unwrap();
+	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
 	assert_eq!(alert_count.get(), 3);
@@ -244,7 +244,9 @@ fn command_replies_until_timeout_ok() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	assert_eq!(replies.len(), 2);
 }
 
@@ -260,7 +262,9 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, expected);
 
@@ -271,7 +275,9 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	// When the continuations come shouldn't change the response order.
 	assert_eq!(reply_data, expected);
@@ -283,7 +289,9 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	// The initial packet order should change the response order.
 	assert_eq!(
@@ -302,7 +310,7 @@ fn command_replies_until_timeout_fail() {
 		buf.append_data(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
 	}
 	let err = port
-		.command_replies_until_timeout(((0, 1), "get pos")) // To all first axes
+		.command_replies_until_timeout(((0, 1), "get pos"), check::strict()) // To all first axes
 		.unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 }
@@ -324,7 +332,9 @@ fn command_replies_until_timeout_unexpected_alert() {
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"!04 0 IDLE --\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	assert_eq!(replies.len(), 2);
 	assert_eq!(alert_count.get(), 2);
 }
@@ -351,10 +361,36 @@ fn command_replies_mixed_cont_until_timeout_unexpected_alert() {
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 		buf.append_data(b"!05 0 IDLE --\r\n");
 	}
-	let replies = port.command_replies_until_timeout("").unwrap();
+	let replies = port
+		.command_replies_until_timeout("", check::strict())
+		.unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, expected);
 	assert_eq!(alert_count.get(), 3);
+}
+
+#[test]
+fn command_reply_infos_unexpected_alert() {
+	let alert_count = Cell::new(0);
+
+	let mut port = Port::open_mock();
+	port.set_unexpected_alert_handler(|_alert| {
+		alert_count.set(alert_count.get() + 1);
+		Ok(()) // Consume any alert
+	});
+
+	{
+		let buf = &mut port.backend;
+		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
+		buf.append_data(b"#01 0 foo\r\n");
+		buf.append_data(b"#01 0 bar\r\n");
+		buf.append_data(b"!03 0 IDLE --\r\n");
+		buf.append_data(b"#01 1 baz\r\n");
+		buf.append_data(b"@01 0 1 OK IDLE -- 0\r\n");
+	}
+	let (_reply, infos) = port.command_reply_infos("", check::strict()).unwrap();
+	assert_eq!(infos.len(), 3);
+	assert_eq!(alert_count.get(), 1);
 }
 
 #[test]
@@ -366,7 +402,7 @@ fn response_until_timeout_ok() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
+	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["0", "0"]);
 
@@ -378,7 +414,7 @@ fn response_until_timeout_ok() {
 		buf.append_data(b"#01 0 cont part 1b\r\n");
 		buf.append_data(b"#02 0 cont part 2b\r\n");
 	}
-	let replies: Vec<AnyResponse> = port.responses_until_timeout().unwrap();
+	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
 	assert_eq!(reply_data, &["part 1a part 1b", "part 2a part 2b"]);
 }
@@ -394,7 +430,9 @@ fn response_until_timeout_fail() {
 		buf.append_data(b"!02 1 IDLE -- \r\n");
 		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
 	}
-	let err = port.responses_until_timeout::<Reply>().unwrap_err();
+	let err = port
+		.responses_until_timeout::<Reply, _>(check::strict())
+		.unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 	// Can read the final reply
 	let _ = port.response::<Reply>().unwrap();
@@ -405,7 +443,9 @@ fn response_until_timeout_fail() {
 		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
 		buf.append_data(b"#01 0 cont something\r\n");
 	}
-	let err = port.responses_until_timeout::<Reply>().unwrap_err();
+	let err = port
+		.responses_until_timeout::<Reply, _>(check::strict())
+		.unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
 }
 
@@ -431,18 +471,18 @@ fn explicit_alert_response_does_not_trigger_unexpected_alert_callback() {
 	assert_eq!(alert_count.get(), 0);
 }
 
-/// Ensure that setting explicit types is possible for all `*_with_check`
-/// methods. This inferencing was previously forbidden because `arg: impl Bound`
+/// Ensure that setting explicit types is possible for all. This
+/// inferencing was previously forbidden because `arg: impl Bound`
 /// syntax was used. Replacing that syntax with standard `where` bounds
-/// allows for the explicit type
+/// allows for the explicit type.
 #[test]
 fn type_inference_regression_test() {
 	use super::check::strict;
 
 	let mut port = Port::open_mock();
-	let _ = port.response_with_check::<AnyResponse, _>(strict());
-	let _ = port.response_n_with_check::<AnyResponse, _>(2, strict());
-	let _ = port.responses_until_timeout_with_check::<AnyResponse, _>(strict());
+	let _ = port.response::<AnyResponse>();
+	let _ = port.response_n::<AnyResponse, _>(2, strict());
+	let _ = port.responses_until_timeout::<AnyResponse, _>(strict());
 }
 
 #[test]
@@ -594,7 +634,9 @@ fn set_packet_handler() {
 	});
 
 	port.command((1, 3, "get pos")).unwrap();
-	let _ = port.response_n::<AnyResponse>(3).unwrap();
+	let _ = port
+		.response_n::<AnyResponse, _>(3, check::strict())
+		.unwrap();
 
 	let mut expected = Vec::with_capacity(4);
 	expected.push((b"/1 3 get pos\n".to_vec(), super::Direction::Tx));
@@ -620,30 +662,14 @@ mod response_check {
 			ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<Reply>(),
 			ok case b"@01 1 OK IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
 
-			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply("") => AsciiCheckWarningError,
-			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<Reply>() => AsciiCheckWarningError,
-			err case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckWarningError,
-
-			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("") => AsciiCheckFlagError,
-			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<Reply>() => AsciiCheckFlagError,
-			err case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckFlagError,
-
 			ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<Alert>(),
 			ok case b"!01 1 IDLE -- 0\r\n" via |p| p.response::<AnyResponse>(),
-			err case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<Alert>() => AsciiCheckWarningError,
-			err case b"!01 1 IDLE WR 0\r\n" via |p| p.response::<AnyResponse>() => AsciiCheckWarningError,
 
 			ok case b"#01 1 some info\r\n" via |p| p.response::<Info>(),
 			ok case b"#01 1 some info\r\n" via |p| p.response::<AnyResponse>(),
 
-			ok case  b"@01 1 OK IDLE -- 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos(""),
-			err case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("") => AsciiCheckWarningError,
-
-			err case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckFlagError,
-			err case b"@01 1 OK IDLE WR 0 \r\n" via |p| p.poll_until("", |_| false) => AsciiCheckWarningError,
-
-			err case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle(1) => AsciiCheckFlagError,
-			err case b"@01 1 OK IDLE WR 0 \r\n" via |p| p.poll_until_idle(1) => AsciiCheckWarningError,
+			ok case  b"@01 1 OK IDLE -- 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("", check::strict()),
+			err case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("", check::strict()) => AsciiCheckWarningError,
 		}
 	}
 
@@ -653,24 +679,14 @@ mod response_check {
 		let mut port = Port::open_mock();
 
 		check_cases! { port,
-			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply_with_check("", check::flag_ok()),
-			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<Reply, _>(check::flag_ok()),
-			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::flag_ok().into()),
+			ok case b"@01 1 OK IDLE WR 0\r\n" via |p| p.command_reply("").unwrap().flag_ok(),
 
-			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply_with_check("", check::warning_is_none()),
-			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<Reply, _>(check::warning_is_none()),
-			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::warning_is_none::<Reply>().into()),
+			ok case b"@01 1 RJ IDLE -- 0\r\n" via |p| p.command_reply("").unwrap().check(check::warning_is_none()),
 
-			ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_with_check::<Alert, _>(check::status_idle()),
-			ok case b"!01 1 IDLE WR 0\r\n" via |p| p.response_with_check::<AnyResponse, check::AnyResponseCheck<_, _>>(check::status_idle::<Alert>().into()),
+			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until("", check::predicate(|_| true), |_| true),
+			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle(1, check::predicate(|_| true)),
 
-			err case b"#01 1 some info\r\n" via |p| p.response_with_check::<Info, _>(check::predicate(|info: &Info| info.data().contains("bob"))) => AsciiCheckCustomError,
-			err case b"#01 1 some info\r\n" via |p| p.response_with_check::<AnyResponse, _>(check::predicate(|_: &AnyResponse| false)) => AsciiCheckCustomError,
-
-			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_with_check("", |_| true, check::predicate(|_| true)),
-			ok case b"@01 1 RJ IDLE -- 0 \r\n" via |p| p.poll_until_idle_with_check(1, check::predicate(|_| true)),
-
-			ok case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos_with_check("", check::unchecked()),
+			ok case b"@01 1 OK IDLE WR 0\r\n#01 1 foo\r\n#01 1 bar\r\n@01 1 01 OK IDLE -- 0\r\n" via |p| p.command_reply_infos("", check::unchecked()),
 		}
 	}
 }
@@ -752,22 +768,11 @@ macro_rules! make_poison_test {
 
 make_poison_test!(command, "");
 make_poison_test!(command_reply, "");
-make_poison_test!(command_reply_infos, "");
-make_poison_test!(command_reply_infos_with_check, "", unchecked());
-make_poison_test!(command_reply_n, "", 1);
-make_poison_test!(command_reply_n_with_check, "", 1, unchecked());
-make_poison_test!(command_reply_with_check, "", unchecked());
-make_poison_test!(poll_until, "", |_| true);
-make_poison_test!(poll_until_with_check, "", |_| true, check::flag_ok());
-make_poison_test!(poll_until_idle, 1);
-make_poison_test!(poll_until_idle_with_check, 1, check::flag_ok());
+make_poison_test!(command_reply_infos, "", unchecked());
+make_poison_test!(command_reply_n, "", 1, unchecked());
+make_poison_test!(poll_until, "", check::flag_ok(), |_| true);
+make_poison_test!(poll_until_idle, 1, check::flag_ok());
 make_poison_test!(response::<AnyResponse>);
-make_poison_test!(response_n::<AnyResponse>, 1);
-make_poison_test!(response_n_with_check, 1, unchecked::<AnyResponse>());
-make_poison_test!(response_with_check, unchecked::<AnyResponse>());
-make_poison_test!(responses_until_timeout::<AnyResponse>);
-make_poison_test!(
-	responses_until_timeout_with_check,
-	unchecked::<AnyResponse>()
-);
+make_poison_test!(response_n::<AnyResponse, _>, 1, unchecked::<AnyResponse>());
+make_poison_test!(responses_until_timeout, unchecked::<AnyResponse>());
 make_poison_test!(timeout_guard, None);

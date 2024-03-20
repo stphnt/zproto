@@ -1,5 +1,4 @@
-//! Types for checking the contents of an ASCII response via a `Port`'s
-//! `*_with_check` methods.
+//! Types for checking the contents of an ASCII response.
 //!
 //! The [`strict`] and [`minimal`] functions define two common sets of response
 //! checks. [`strict`] ensures all reply flags are OK and there are never any
@@ -49,8 +48,8 @@
 //! a closure that simply returns a `bool`.
 
 use crate::ascii::response::{
-	AnyResponse, Flag, Reply, Response, ResponseWithStatus, ResponseWithWarning, SpecificResponse,
-	Status, Warning,
+	AnyResponse, Flag, Kind, Reply, Response, ResponseWithStatus, ResponseWithWarning,
+	SpecificResponse, Status, Target, Warning,
 };
 use crate::error::*;
 
@@ -129,6 +128,66 @@ mod private {
 	impl<R: Response> Sealed<R> for &dyn Check<R> {}
 	impl<R: Response, F: Fn(R) -> Result<R, AsciiCheckError<R>>> Sealed<R> for F {}
 	impl<K: Check<R>, R: Response> Sealed<AnyResponse> for AnyResponseCheck<K, R> {}
+}
+
+/// A response whose contents has not been checked.
+#[derive(Debug)]
+#[repr(transparent)]
+#[must_use]
+pub struct NotChecked<R>(R);
+
+impl<R: Response> NotChecked<R> {
+	pub(crate) fn new(response: R) -> Self {
+		NotChecked(response)
+	}
+
+	pub(crate) fn into_inner(self) -> R {
+		self.0
+	}
+
+	/// Return the inner response if the `checker` passes, otherwise an error is returned.
+	pub fn check(self, checker: impl Check<R>) -> Result<R, AsciiCheckError<R>> {
+		checker.check(self.0)
+	}
+
+	/// Return the inner response if the [`minimal`] check passes, otherwise an error is returned.
+	pub fn check_minimal(self) -> Result<R, AsciiCheckError<R>> {
+		minimal().check(self.0)
+	}
+
+	/// Return the inner response if the [`strict`] check passes, otherwise an error is returned.
+	pub fn check_strict(self) -> Result<R, AsciiCheckError<R>> {
+		strict().check(self.0)
+	}
+
+	/// Return the target of the response.
+	pub fn target(&self) -> Target {
+		self.0.target()
+	}
+
+	/// Return the message ID of the response, if any.
+	pub fn id(&self) -> Option<u8> {
+		self.0.id()
+	}
+}
+
+impl NotChecked<Reply> {
+	/// Return the inner [`Reply`] if the flag is `OK`. Otherwise an error is returned.
+	pub fn flag_ok(self) -> Result<Reply, AsciiCheckError<Reply>> {
+		flag_ok().check(self.0)
+	}
+
+	/// Return the inner [`Reply`] if the flag is `OK` and the `checker` passes. Otherwise an error is returned.
+	pub fn flag_ok_and(self, checker: impl Check<Reply>) -> Result<Reply, AsciiCheckError<Reply>> {
+		flag_ok_and(checker).check(self.0)
+	}
+}
+
+impl NotChecked<AnyResponse> {
+	/// Return the kind of response.
+	pub fn kind(&self) -> Kind {
+		self.0.kind()
+	}
 }
 
 /// Return a check that verifies the response's [`Warning`] matches the specified warning.

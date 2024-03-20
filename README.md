@@ -21,28 +21,27 @@ ASCII protocol looks something like this:
 
 ```rust,no_run
 use zproto::{
-    ascii::{Port, check, Warning},
+    ascii::{Port, check},
     error::Error,
 };
 
 fn main() -> Result<(), Error> {
     // Open the port, home device 1, and wait for it to finish.
     let mut port = Port::open_serial("/dev/ttyUSB0")?;
-    port.command_reply_with_check(
-        (1, "home"),
+    port.command_reply((1, "home"))?.flag_ok_and(
         // Ignore warnings about it being unhomed.
-        check::warning_in(("WR", "WH", Warning::NONE)),
+        check::warning_in(("WR", "WH", "--"))
     )?;
-    port.poll_until_idle(1)?;
+    port.poll_until_idle(1, check::flag_ok())?;
 
     // Move towards the end of travel and monitor position as it goes.
     // Once the position exceeds 100000, interrupt the motion.
-    port.command_reply((1, "move max"))?;
-    port.poll_until((1, "get pos"), |reply| {
+    port.command_reply((1, "move max"))?.flag_ok()?;
+    port.poll_until((1, "get pos"), check::flag_ok(), |reply| {
         let pos: i32 = reply.data().parse().unwrap();
         pos >= 100_000
     })?;
-    port.command_reply_with_check((1, "stop"), check::warning_is("NI"))?;
+    port.command_reply((1, "stop"))?.flag_ok_and(check::warning_is("NI"))?;
     Ok(())
 }
 ```

@@ -227,10 +227,9 @@ where
 		T: Setting + SameScopeAsMarker<S>,
 	{
 		let mut port = self.port.lock_mut().unwrap();
-		let reply = port.command_reply_with_check(
-			(self.target, format!("get {}", setting.name())),
-			check::flag_ok(),
-		)?;
+		let reply = port
+			.command_reply((self.target, format!("get {}", setting.name())))?
+			.flag_ok()?;
 		Ok(T::Type::parse_ascii(reply.data())?)
 	}
 
@@ -245,7 +244,8 @@ where
 	{
 		let mut port = self.port.lock_mut().unwrap();
 		let reply = port
-			.command_reply_with_check((self.target, format!("get {}", setting.name())), checker)?;
+			.command_reply((self.target, format!("get {}", setting.name())))?
+			.check(checker)?;
 		Ok(T::Type::parse_ascii(reply.data())?)
 	}
 
@@ -258,17 +258,16 @@ where
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
 	{
 		let mut port = self.port.lock_mut().unwrap();
-		let _ = port.command_reply_with_check(
-			(
+		let _ = port
+			.command_reply((
 				self.target,
 				format!(
 					"set {} {}",
 					setting.name(),
 					T::Type::display(value.borrow())
 				),
-			),
-			check::flag_ok(),
-		)?;
+			))?
+			.flag_ok()?;
 		Ok(())
 	}
 
@@ -284,17 +283,16 @@ where
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
 	{
 		let mut port = self.port.lock_mut().unwrap();
-		let _ = port.command_reply_with_check(
-			(
+		let _ = port
+			.command_reply((
 				self.target,
 				format!(
 					"set {} {}",
 					setting.name(),
 					T::Type::display(value.borrow())
 				),
-			),
-			checker,
-		)?;
+			))?
+			.check(checker)?;
 		Ok(())
 	}
 
