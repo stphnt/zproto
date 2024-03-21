@@ -2,11 +2,12 @@ use std::cell::Cell;
 
 use crate::{
 	ascii::{
+		command::MaxPacketSize,
 		response::{
 			check::{self, unchecked},
 			Alert, AnyResponse, Info, Reply,
 		},
-		MaxPacketSize, Port,
+		Port,
 	},
 	backend::Mock,
 	error::*,

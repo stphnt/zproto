@@ -2,7 +2,7 @@
 
 use super::Port;
 use crate::{
-	ascii::MaxPacketSize,
+	ascii::command::MaxPacketSize,
 	backend::{Backend, Serial},
 	error::AsciiError,
 };

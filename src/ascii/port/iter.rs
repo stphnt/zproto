@@ -2,8 +2,9 @@
 use super::HeaderCheck;
 use crate::{
 	ascii::{
+		command::Command,
 		response::{check::NotChecked, AnyResponse, Info, Reply, Response},
-		Command, Port, Target,
+		Port, Target,
 	},
 	backend::Backend,
 	error::{AsciiCheckError, AsciiError},

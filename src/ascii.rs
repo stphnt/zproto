@@ -163,7 +163,7 @@
 
 pub mod chain;
 pub(crate) mod checksum;
-mod command;
+pub mod command;
 pub mod data_type;
 mod id;
 mod marker;
@@ -172,7 +172,6 @@ pub mod port;
 pub mod response;
 pub mod scope;
 
-pub use command::*;
 pub use port::Port;
 
 /// The device address and axis number a command/response was sent to/from.

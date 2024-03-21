@@ -10,13 +10,14 @@ use crate::{
 	ascii::{
 		chain::{Chain, SyncChain},
 		checksum::Lrc,
+		command::{Command, CommandWriter, MaxPacketSize},
 		id,
 		parse::{Packet, PacketKind},
 		response::{
 			check::{self, NotChecked},
 			Alert, AnyResponse, Info, Reply, Response, ResponseBuilder, Status,
 		},
-		Command, CommandWriter, MaxPacketSize, Target,
+		Target,
 	},
 	error::*,
 	timeout_guard::TimeoutGuard,
