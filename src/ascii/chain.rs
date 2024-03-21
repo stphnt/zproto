@@ -31,7 +31,7 @@ use std::{
 /// # fn wrapper<'a, B: Backend>(port: Port<'a, B>) -> Result<(), AsciiError> {
 /// let chain = ChainOptions::default()
 ///     .renumber(true)
-///     .build_chain(port)?;
+///     .build(port)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -52,8 +52,8 @@ impl ChainOptions {
 
 	/// Create a [`Chain`] from the given [`Port`].
 	///
-	/// To create a `Chain` that can be shared across threads, use [`build_sync_chain`](ChainOptions::build_sync_chain).
-	pub fn build_chain<'a, B: Backend>(
+	/// To create a `Chain` that can be shared across threads, use [`build_sync`](ChainOptions::build_sync).
+	pub fn build<'a, B: Backend>(
 		&self,
 		mut port: Port<'a, B>,
 	) -> Result<Chain<'a, B>, AsciiError> {
@@ -71,9 +71,9 @@ impl ChainOptions {
 	/// Create a [`SyncChain`], a `Chain` that can be shared across threads,
 	/// from the given [`Port`].
 	///
-	/// To create a `Chain` that cannot be shared across threads, which has a
-	/// reduced overhead, use [`build_chain`](ChainOptions::build_chain).
-	pub fn build_sync_chain<'a, B: Backend>(
+	/// To create a `Chain` that cannot be shared across threads, but has a
+	/// reduced overhead, use [`build`](ChainOptions::build).
+	pub fn build_sync<'a, B: Backend>(
 		&self,
 		mut port: Port<'a, B>,
 	) -> Result<SyncChain<'a, B>, AsciiError> {
@@ -166,22 +166,23 @@ impl Chain<'static, Port<'static, Serial>> {
 }
 
 impl<'a, B: Backend> Chain<'a, B> {
-	/// Create a new [`Chain`].
+	/// Create a new [`Chain`] using the default options.
 	///
+	/// To customize how the chain is built use [`options`](Chain::options).
 	/// This is equivalent to:
 	///
 	/// ```
-	/// # use zproto::ascii::{Port, chain::{Chain, ChainOptions}};
+	/// # use zproto::ascii::{Port, chain::Chain};
 	/// # use zproto::backend::Backend;
 	/// # use zproto::error::AsciiError;
 	/// # fn wrapper<'a, B: Backend>(port: Port<'a, B>) -> Result<Chain<'a, B>, AsciiError> {
-	/// ChainOptions::default().build_chain(port)
+	/// Chain::options().build(port)
 	/// # }
 	/// ```
 	///
 	/// To create a `Chain` that can be shared across threads, use [`new_sync`](Chain::new_sync).
 	pub fn new(port: Port<'a, B>) -> Result<Self, AsciiError> {
-		ChainOptions::default().build_chain(port)
+		ChainOptions::default().build(port)
 	}
 }
 
@@ -189,23 +190,24 @@ impl<'a, B: Backend> Chain<'a, B> {
 pub type SyncChain<'a, B> = Chain<'a, B, Arc<Mutex<Port<'a, B>>>>;
 
 impl<'a, B: Backend> SyncChain<'a, B> {
-	/// Create a new [`Chain`] that can be shared across threads.
+	/// Create a new [`Chain`] that can be shared across threads using the default options.
 	///
+	/// To customize how the chain is built use [`options`](Chain::options).
 	/// This is equivalent to:
 	///
 	/// ```
-	/// # use zproto::ascii::{Port, chain::{ChainOptions, SyncChain}};
+	/// # use zproto::ascii::{Port, chain::{Chain, SyncChain}};
 	/// # use zproto::backend::Backend;
 	/// # use zproto::error::AsciiError;
 	/// # fn wrapper<'a, B: Backend>(port: Port<'a, B>) -> Result<SyncChain<'a, B>, AsciiError> {
-	/// ChainOptions::default().build_sync_chain(port)
+	/// Chain::options().build_sync(port)
 	/// # }
 	/// ```
 	///
-	/// To create a `Chain` that cannot be shared across threads, which has a
+	/// To create a `Chain` that cannot be shared across threads, but has
 	/// reduced overhead, use [`new`](Chain::new).
 	pub fn new_sync(port: Port<'a, B>) -> Result<Self, AsciiError> {
-		ChainOptions::default().build_sync_chain(port)
+		ChainOptions::default().build_sync(port)
 	}
 }
 
