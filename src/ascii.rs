@@ -171,6 +171,7 @@ pub mod parse;
 pub mod port;
 pub mod response;
 pub mod scope;
+pub mod setting;
 
 pub use port::Port;
 

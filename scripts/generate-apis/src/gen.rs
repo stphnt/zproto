@@ -29,7 +29,7 @@ pub fn generate_ascii_setting_sources(
 
 {GENERATED_CONTENT_WARNING}
 
-use crate::ascii::chain::setting::Setting;
+use crate::ascii::setting::Setting;
 use crate::ascii::scope::{{AxisScope, DeviceScope}};
 
 define_settings! {{

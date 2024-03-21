@@ -29,7 +29,6 @@ fn main() -> anyhow::Result<()> {
 		let mut dir = app.dir.clone();
 		dir.push("src");
 		dir.push("ascii");
-		dir.push("chain");
 		dir.push("setting");
 		dir
 	};
