@@ -280,7 +280,7 @@ pub struct Port<'a, B> {
 impl<'a> Port<'a, Serial> {
 	/// Open the serial port at the specified path using the default options.
 	///
-	/// Alternatively, use [`OpenSerialOptions`] to customize how the port is opened.
+	/// Alternatively, use [`Port::open_serial_options`] to customize how the port is opened.
 	///
 	/// ## Example
 	///
@@ -294,12 +294,17 @@ impl<'a> Port<'a, Serial> {
 	pub fn open_serial(path: &str) -> Result<Port<'a, Serial>, BinaryError> {
 		OpenSerialOptions::new().open(path)
 	}
+
+	/// Get an [`OpenSerialOptions`] to customize how a serial port is opened.
+	pub fn open_serial_options() -> OpenSerialOptions {
+		OpenSerialOptions::default()
+	}
 }
 
 impl<'a> Port<'a, TcpStream> {
 	/// Open the TCP port at the specified address using the default options.
 	///
-	/// Alternatively, use [`OpenTcpOptions`] to customize how the port is opened.
+	/// Alternatively, use [`Port::open_tcp_options`] to customize how the port is opened.
 	///
 	/// ## Example
 	///
@@ -312,6 +317,11 @@ impl<'a> Port<'a, TcpStream> {
 	/// ```
 	pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream>, io::Error> {
 		OpenTcpOptions::new().open(address)
+	}
+
+	/// Get an [`OpenTcpOptions`] to customize how a TCP port is opened.
+	pub fn open_tcp_options() -> OpenTcpOptions {
+		OpenTcpOptions::default()
 	}
 }
 
