@@ -1,4 +1,4 @@
-//! Types and traits for parsing ASCII response messages.
+//! Types and traits related to ASCII response messages.
 
 mod alert;
 mod builder;
