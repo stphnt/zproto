@@ -1,15 +1,16 @@
 //! Types for parsing ASCII packets from bytes.
 //!
 //! There are two main types for parsing packets: [`Packet`] and [`Tokens`].
-//! A `Packet` parses the bytes into usable types, such as [`Target`](crate::ascii::Target)
+//! A `Packet` parses the bytes into usable types, such as [`Target`]
 //! or [`Status`], while [`Tokens`] parse the packet into a
-//! stream of [`Token`]s. `Tokens` does not parse the bytes into other data
+//! stream of [`Token`]s. [`Tokens`] does not parse the bytes into other data
 //! types, but merely associates subslices of the packet's bytes with a
-//! particular meaning, such as `Token::Kind` or `Token::DataWord`.
+//! particular meaning, such as [`Token::Kind`] or [`Token::DataWord`].
 //!
 //! See each type's documentation for more information.
 //!
 //! [`Status`]: crate::ascii::response::Status
+//! [`Target`]: crate::ascii::Target
 
 mod packet;
 #[cfg(test)]
