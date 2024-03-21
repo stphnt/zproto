@@ -6,7 +6,7 @@
 //! The [`Client`] and [`Visitor`] traits are not intended for the public
 //! interface, but used by dedicated parsing functions for each type.
 use super::*;
-use crate::ascii::{Flag, Kind, Status, Warning};
+use crate::ascii::response::{Flag, Kind, Status, Warning};
 
 /// The `cont` keyword.
 const CONT: &[u8] = b"cont";

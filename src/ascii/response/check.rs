@@ -8,7 +8,7 @@
 //!
 //! It is also easy to define your own custom response checks. The [`Check`]
 //! trait defines the interface all "checkers" must implement. It is
-//! implemented for all closures that take a [`Response`](crate::ascii::Response)
+//! implemented for all closures that take a [`Response`]
 //! and return a `Result<Response, AsciiCheckError>`. However, you are
 //! encouraged to use the [functions](#functions) provided in this module to
 //! generate checking functions. They cover many of the common cases, can be
@@ -20,7 +20,7 @@
 //! could use:
 //!
 //! ```rust
-//! # use zproto::ascii::{
+//! # use zproto::ascii::response::{
 //! #     Flag,
 //! #     Reply,
 //! #     check::{all, Check, flag_is, warning_is_none},
@@ -194,7 +194,7 @@ impl NotChecked<AnyResponse> {
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{check::{Check, warning_is}, Warning, Reply};
+/// # use zproto::ascii::response::{check::{Check, warning_is}, Warning, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// warning_is("WR")
 /// # }
@@ -224,7 +224,7 @@ where
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{check::{Check, warning_in}, Warning, Reply};
+/// # use zproto::ascii::response::{check::{Check, warning_in}, Warning, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// warning_in(["WR", "WH"])
 /// # }
@@ -290,7 +290,7 @@ pub fn warning_is_none<R: ResponseWithWarning>() -> impl Check<R> {
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{check::{Check, status_is}, Status, Reply};
+/// # use zproto::ascii::response::{check::{Check, status_is}, Status, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// status_is(Status::Idle)
 /// # }
@@ -319,7 +319,7 @@ pub fn status_busy<R: ResponseWithStatus>() -> impl Check<R> {
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{check::{Check, flag_is}, Flag, Reply};
+/// # use zproto::ascii::response::{check::{Check, flag_is}, Flag, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// flag_is(Flag::Ok)
 /// # }
@@ -349,7 +349,7 @@ pub fn flag_rj() -> impl Check<Reply> {
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{check::{Check, flag_ok_and, warning_is}, Flag, Reply};
+/// # use zproto::ascii::response::{check::{Check, flag_ok_and, warning_is}, Flag, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// flag_ok_and(warning_is("WR"))
 /// # }
@@ -365,7 +365,7 @@ pub fn flag_ok_and(check: impl Check<Reply>) -> impl Check<Reply> {
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{check::{Check, parsed_data_is}, Reply};
+/// # use zproto::ascii::response::{check::{Check, parsed_data_is}, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// parsed_data_is(256)
 /// # }
@@ -396,7 +396,7 @@ pub fn parsed_data_is<
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{*, check::*};
+/// # use zproto::ascii::response::{check::*, Flag, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// all((
 ///     flag_is(Flag::Ok),
@@ -410,26 +410,29 @@ pub fn all<R: Response, C: CheckAll<R>>(checks: C) -> impl Check<R> {
 
 /// Return a strict check for the specified message type.
 ///
-/// For [`Reply`](crate::ascii::Reply) this is equivalent to
+/// For [`Reply`] this is equivalent to
 /// ```rust
-/// # use zproto::ascii::{check::*, *};
+/// # use zproto::ascii::response::{check::*, *};
 /// # fn wrapper() -> impl Check<Reply> {
 /// flag_ok_and(warning_is_none())
 /// # }
 /// ```
 ///
-/// For [`Alert`](crate::ascii::Alert) this is equivalent to
+/// For [`Alert`] this is equivalent to
 /// ```rust
-/// # use zproto::ascii::{check::*, *};
+/// # use zproto::ascii::response::{check::*, *};
 /// # fn wrapper() -> impl Check<Alert> {
 /// warning_is_none()
 /// # }
 /// ```
 ///
-/// For [`Info`](crate::ascii::Info) no validation is done.
+/// For [`Info`] no validation is done.
 ///
-/// For [`AnyResponse`](crate::ascii::AnyResponse), one of the above checks is
+/// For [`AnyResponse`], one of the above checks is
 /// chosen at runtime based on the kind of response.
+///
+/// [`Alert`]: crate::ascii::response::Alert
+/// [`Info`]: crate::ascii::response::Info
 pub fn strict<R: Response>() -> impl Check<R> {
 	R::strict()
 }
@@ -438,25 +441,28 @@ pub fn strict<R: Response>() -> impl Check<R> {
 /// while still checking for major problems with devices. In most cases, more
 /// rigorous checks are probably warranted.
 ///
-/// For [`Reply`](crate::ascii::Reply) this is equivalent to
+/// For [`Reply`] this is equivalent to
 /// ```rust
-/// # use zproto::ascii::{check::*, *};
+/// # use zproto::ascii::response::{check::*, *};
 /// # fn wrapper() -> impl Check<Reply> {
 /// flag_ok_and(warning_below_fault())
 /// # }
 /// ```
 ///
-/// For [`Alert`](crate::ascii::Alert) this is equivalent to
+/// For [`Alert`] this is equivalent to
 /// ```rust
-/// # use zproto::ascii::{check::*, *};
+/// # use zproto::ascii::response::{check::*, *};
 /// # fn wrapper() -> impl Check<Alert> {
 /// warning_below_fault()
 /// # }
 /// ```
 ///
-/// For [`Info`](crate::ascii::Info) no validation is done.
+/// For [`Info`] no validation is done.
 ///
-/// For [`AnyResponse`](crate::ascii::AnyResponse), one of the above checks is
+/// For [`AnyResponse`], one of the above checks is
+///
+/// [`Alert`]: crate::ascii::response::Alert
+/// [`Info`]: crate::ascii::response::Info
 /// chosen at runtime based on the kind of response.
 pub fn minimal<R: Response>() -> impl Check<R> {
 	R::minimal()
@@ -473,7 +479,7 @@ pub fn unchecked<R: Response>() -> impl Check<R> {
 ///
 /// ## Example
 /// ```rust
-/// # use zproto::ascii::{check::{Check, predicate}, Reply};
+/// # use zproto::ascii::response::{check::{Check, predicate}, Reply};
 /// # fn wrapper() -> impl Check<Reply> {
 /// let expected_value = "256";
 /// let check = predicate(move |reply: &Reply| {
@@ -738,7 +744,7 @@ impl<T: WarningList> WarningList for &T {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::ascii::{parse::Packet, Reply};
+	use crate::ascii::{parse::Packet, response::Reply};
 
 	#[test]
 	fn check_reply() {

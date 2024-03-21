@@ -2,8 +2,9 @@
 
 use super::SerialDeviceInUseOrDisconnectedError;
 use crate::ascii::{
-	parse::Packet, Alert, AnyResponse, Command, Flag, Info, Reply, Response, SpecificResponse,
-	Status, Target,
+	parse::Packet,
+	response::{Alert, AnyResponse, Flag, Info, Reply, Response, SpecificResponse, Status},
+	Command, Target,
 };
 use crate::error::{
 	ConversionError, DuplicateAddressError, LockError, LockPoisonedError, LockUnavailableError,
@@ -425,7 +426,7 @@ impl_from_specific_to_any_response! { AsciiCheckCustomError }
 impl_traits_to_access_inner_response! { for<R: Response> (AsciiCheckCustomError) -> R { 0.1 } }
 
 error_enum! {
-/// The contents of a response failed a [`check`](crate::ascii::check).
+/// The contents of a response failed a [`check`](crate::ascii::response::check).
 ///
 /// This indicates a response did not contain what the caller expected, though
 /// the response is well formed.

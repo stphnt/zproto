@@ -1,6 +1,6 @@
 use crate::ascii::{
 	parse::visitor::{Client, PacketKind, Visitor},
-	Flag, Status, Warning,
+	response::{Flag, Status, Warning},
 };
 use crate::error::AsciiPacketMalformedError;
 

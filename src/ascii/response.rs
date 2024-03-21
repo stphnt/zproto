@@ -437,13 +437,13 @@ mod private {
 		///
 		/// This needs to be defined here so we can get the default check based on
 		/// the response type, but users shouldn't access it here. Instead users
-		/// should use [`crate::ascii::check::strict`]
+		/// should use [`crate::ascii::response::check::strict`]
 		fn strict() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
 		/// Return the minimally recommended check for this response.
 		///
 		/// This needs to be defined here so we can get the default check based on
 		/// the response type, but users shouldn't access it here. Instead users
-		/// should use [`crate::ascii::check::minimal`]
+		/// should use [`crate::ascii::response::check::minimal`]
 		fn minimal() -> fn(Self) -> Result<Self, AsciiCheckError<Self>>;
 	}
 

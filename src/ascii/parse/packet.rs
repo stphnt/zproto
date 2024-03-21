@@ -1,6 +1,7 @@
 use crate::ascii::{
 	parse::visitor::{Client, PacketKind, Visitor},
-	Flag, Status, Target, Warning,
+	response::{Flag, Status, Warning},
+	Target,
 };
 use crate::error::AsciiPacketMalformedError;
 
@@ -56,7 +57,7 @@ pub(super) struct InnerPacket<T> {
 ///
 /// ```
 /// # use zproto::ascii::parse::{PacketKind, Packet};
-/// # use zproto::ascii::{Flag, Status, Warning};
+/// # use zproto::ascii::response::{Flag, Status, Warning};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let packet = b"@01 2 OK IDLE -- 0\r\n";
 /// let packet = Packet::new_ref(packet)?;

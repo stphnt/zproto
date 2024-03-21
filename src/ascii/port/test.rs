@@ -2,8 +2,11 @@ use std::cell::Cell;
 
 use crate::{
 	ascii::{
-		check::{self, unchecked},
-		Alert, AnyResponse, Info, MaxPacketSize, Port, Reply,
+		response::{
+			check::{self, unchecked},
+			Alert, AnyResponse, Info, Reply,
+		},
+		MaxPacketSize, Port,
 	},
 	backend::Mock,
 	error::*,
@@ -453,7 +456,7 @@ fn response_until_timeout_fail() {
 /// callback is configured, does not trigger the callback.
 #[test]
 fn explicit_alert_response_does_not_trigger_unexpected_alert_callback() {
-	use crate::ascii::Alert;
+	use crate::ascii::response::Alert;
 
 	let alert_count = Cell::new(0);
 

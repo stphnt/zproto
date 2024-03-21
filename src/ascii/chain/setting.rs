@@ -3,11 +3,11 @@
 use crate::{
 	ascii::{
 		chain::{info::ChainInfo, Axis, Device},
-		check,
 		data_type::DataType,
 		marker::Markers,
+		response::{check, Reply},
 		scope::{AxisScope, AxisScopeMarker, DeviceScope, DeviceScopeMarker, SameScopeAsMarker},
-		Port, Reply, Target,
+		Port, Target,
 	},
 	backend::Backend,
 	error::AsciiError,

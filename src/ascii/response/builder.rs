@@ -1,5 +1,8 @@
 /// Types for build responses from packets.
-use crate::ascii::{parse::Packet, AnyResponse, Response as _};
+use crate::ascii::{
+	parse::Packet,
+	response::{AnyResponse, Response as _},
+};
 use crate::error::AsciiUnexpectedPacketError;
 
 /// Information about a response that is either complete or in the process of

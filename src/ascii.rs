@@ -71,7 +71,7 @@
 //!
 //! ## Reading Data
 //!
-//! Reading data from a response is as simple as calling [`data()`](Reply::data)
+//! Reading data from a response is as simple as calling [`data()`]
 //! on the response and then using Rust's standard [`parse()`](https://doc.rust-lang.org/std/primitive.str.html#method.parse)
 //! method to convert the string to your desired data type.
 //!
@@ -88,15 +88,15 @@
 //!
 //! The library requires users to be explicit about checking the contents of responses.
 //! To do this, many methods either take a validation function or return a
-//! [`NotChecked<R>`](check::NotChecked) (where `R` is the response type,
-//! like a [`Reply`]). To access the inner response, users must validate it's contents using
-//! the methods on `NotChecked` and/or the validation functions in the [`check`] module.
+//! [`NotChecked<R>`] (where `R` is the response type, like a [`Reply`]). To
+//! access the inner response, users must validate it's contents using the
+//! methods on `NotChecked` and/or the validation functions in the [`check`] module.
 //! If you want you can also write your own validation functions.
 //!
 //! ```rust
-//! # use zproto::{ascii::{Port, Reply}, backend::Backend, error::Error};
+//! # use zproto::{ascii::{Port, response::Reply}, backend::Backend, error::Error};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<Reply, Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::warning_is;
+//! use zproto::ascii::response::check::warning_is;
 //!
 //! let reply = port.command_reply((1, "get device.id"))?
 //!     .flag_ok_and(warning_is("WR"))?; // check that the reply's flag is "OK"
@@ -113,7 +113,7 @@
 //! read an [`Alert`] use the [`response`](Port::response) method:
 //!
 //! ```rust
-//! # use zproto::{ascii::{Alert, Port}, backend::Backend};
+//! # use zproto::{ascii::{response::Alert, Port}, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! let alert: Alert = port.response()?.check_minimal()?;
 //! # Ok(())
@@ -126,7 +126,7 @@
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::minimal;
+//! use zproto::ascii::response::check::minimal;
 //! let (reply, infos) = port.command_reply_infos("stream buffer 1 print", minimal())?;
 //! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
 //! for info in infos {
@@ -145,7 +145,7 @@
 //! #     backend::Backend
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::flag_ok;
+//! use zproto::ascii::response::check::flag_ok;
 //! let target = (1, 2);
 //! port.command_reply((target, "move max"))?.flag_ok()?;
 //! port.poll_until_idle(target, flag_ok())?;
@@ -153,6 +153,13 @@
 //! # Ok(())
 //! # }
 //! ```
+//! [`Alert`]: crate::ascii::response::Alert
+//! [`Reply`]: crate::ascii::response::Reply
+//! [`data()`]: crate::ascii::response::Reply::data
+//! [`Info`]: crate::ascii::response::Info
+//! [`NotChecked`]: crate::ascii::response::check::NotChecked
+//! [`NotChecked<R>`]: crate::ascii::response::check::NotChecked
+//! [`check`]: crate::ascii::response::check
 
 pub mod chain;
 pub(crate) mod checksum;
@@ -162,12 +169,11 @@ mod id;
 mod marker;
 pub mod parse;
 pub mod port;
-mod response;
+pub mod response;
 pub mod scope;
 
 pub use command::*;
 pub use port::Port;
-pub use response::*;
 
 /// The device address and axis number a command/response was sent to/from.
 ///

@@ -5,7 +5,7 @@ use super::{
 	token::{RefTokens, Token, Tokens},
 	visitor::{Client, PacketKind, Visitor},
 };
-use crate::ascii::{Flag, Status, Warning};
+use crate::ascii::response::{Flag, Status, Warning};
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
