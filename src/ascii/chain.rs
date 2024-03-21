@@ -6,7 +6,7 @@ pub mod setting;
 
 use crate::{
 	ascii::{marker::Markers, Port, Target},
-	backend::Backend,
+	backend::{Backend, Serial},
 	error::AsciiError,
 	shared::{Shared, SharedMut},
 };
@@ -155,6 +155,13 @@ where
 
 	fn into_iter(self) -> Self::IntoIter {
 		ChainIter::new(self.port.clone(), self.info.clone())
+	}
+}
+
+impl Chain<'static, Port<'static, Serial>> {
+	/// Get a [`ChainOptions`] to customize the creation of a new [`Chain`].
+	pub fn options() -> ChainOptions {
+		ChainOptions::default()
 	}
 }
 
