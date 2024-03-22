@@ -6,7 +6,7 @@
 // #############################################################################
 
 use crate::ascii::setting::Setting;
-use crate::ascii::scope::{AxisScope, DeviceScope};
+use crate::ascii::chain::scope::{AxisScope, DeviceScope};
 
 define_settings! {
 

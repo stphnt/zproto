@@ -2,11 +2,14 @@
 
 use crate::{
 	ascii::{
-		chain::{info::ChainInfo, Axis, Device},
+		chain::{
+			info::ChainInfo,
+			scope::{AxisScopeMarker, DeviceScopeMarker, SameScopeAsMarker},
+			Axis, Device,
+		},
 		data_type::DataType,
 		marker::Markers,
 		response::{check, Reply},
-		scope::{AxisScopeMarker, DeviceScopeMarker, SameScopeAsMarker},
 		setting::Setting,
 		Port, Target,
 	},
@@ -162,7 +165,7 @@ mod test {
 	use super::*;
 	use crate::{
 		ascii::{
-			scope::{AxisScope, DeviceScope},
+			chain::scope::{AxisScope, DeviceScope},
 			Port,
 		},
 		backend::Mock,

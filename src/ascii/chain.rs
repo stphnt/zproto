@@ -2,6 +2,7 @@
 
 pub(crate) mod info;
 pub mod iter;
+pub mod scope;
 pub mod setting;
 
 use crate::{

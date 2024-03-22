@@ -1,8 +1,8 @@
 //! Types representing ASCII settings.
 
 use crate::ascii::{
+	chain::scope::{AxisScope, DeviceScope},
 	data_type::DataType,
-	scope::{AxisScope, DeviceScope},
 };
 
 /// Define a type representing an ASCII setting.
@@ -84,8 +84,8 @@ macro_rules! define_any_setting {
                 }
             }
         }
-        impl crate::ascii::scope::AxisScope for $any_setting {}
-        impl crate::ascii::scope::DeviceScope for $any_setting {}
+        impl crate::ascii::chain::scope::AxisScope for $any_setting {}
+        impl crate::ascii::chain::scope::DeviceScope for $any_setting {}
         impl std::convert::AsRef<str> for $any_setting {
             fn as_ref(&self) -> &str {
                 self.name()
