@@ -12,7 +12,7 @@ pub use reply::*;
 
 use crate::error::*;
 
-use crate::ascii::{packet, Target};
+use crate::ascii::{command::Target, packet};
 
 /// A trait that is implemented by ASCII response messages.
 pub trait Response:

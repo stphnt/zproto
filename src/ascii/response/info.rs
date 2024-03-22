@@ -1,8 +1,8 @@
 //! The ASCII info message type.
 
 use crate::ascii::{
+	command::Target,
 	response::{packet, AnyResponse, Header, Response, SpecificResponse},
-	Target,
 };
 
 /// The contents of an [`Info`] message.

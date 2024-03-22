@@ -1,8 +1,8 @@
 //! The ASCII reply message type.
 
 use crate::ascii::{
+	command::Target,
 	response::{packet, AnyResponse, Header, Response, SpecificResponse, Status, Warning},
-	Target,
 };
 
 /// A reply flag.

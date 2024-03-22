@@ -2,10 +2,9 @@
 
 use super::SerialDeviceInUseOrDisconnectedError;
 use crate::ascii::{
-	command::Command,
+	command::{Command, Target},
 	packet::Packet,
 	response::{Alert, AnyResponse, Flag, Info, Reply, Response, SpecificResponse, Status},
-	Target,
 };
 use crate::error::{
 	ConversionError, DuplicateAddressError, LockError, LockPoisonedError, LockUnavailableError,

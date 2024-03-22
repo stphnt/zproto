@@ -10,7 +10,7 @@
 //! See each type's documentation for more information.
 //!
 //! [`Status`]: crate::ascii::response::Status
-//! [`Target`]: crate::ascii::Target
+//! [`Target`]: crate::ascii::command::Target
 
 #[allow(clippy::module_inception)]
 mod packet;

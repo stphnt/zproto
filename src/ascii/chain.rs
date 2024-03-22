@@ -7,7 +7,7 @@ pub mod scope;
 pub mod setting;
 
 use crate::{
-	ascii::{marker::Markers, Port, Target},
+	ascii::{command::Target, marker::Markers, Port},
 	backend::{Backend, Serial},
 	error::AsciiError,
 	shared::{Shared, SharedMut},

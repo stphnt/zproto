@@ -1,8 +1,8 @@
 //! The ASCII Alert message type.
 
 use crate::ascii::{
+	command::Target,
 	response::{packet, AnyResponse, Header, Response, SpecificResponse, Status, Warning},
-	Target,
 };
 
 /// The contents of an [`Alert`] message

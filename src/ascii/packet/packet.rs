@@ -1,7 +1,7 @@
 use crate::ascii::{
+	command::Target,
 	packet::visitor::{Client, PacketKind, Visitor},
 	response::{Flag, Status, Warning},
-	Target,
 };
 use crate::error::AsciiPacketMalformedError;
 
