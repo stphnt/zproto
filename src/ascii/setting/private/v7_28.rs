@@ -53,7 +53,7 @@ define_settings! {
     /// The type of the [`comm.en.ipv4.netmask`](https://www.zaber.com/protocol-manual#topic_setting_comm_en_ipv4_netmask) setting.
     pub struct CommEnIpv4Netmask: Setting<Type = ::std::net::Ipv4Addr, Name = "comm.en.ipv4.netmask">, DeviceScope;
     /// The type of the [`comm.en.mac`](https://www.zaber.com/protocol-manual#topic_setting_comm_en_mac) setting.
-    pub struct CommEnMac: Setting<Type = crate::ascii::data_type::MacAddress, Name = "comm.en.mac">, DeviceScope;
+    pub struct CommEnMac: Setting<Type = crate::ascii::setting::data_types::MacAddress, Name = "comm.en.mac">, DeviceScope;
     /// The type of the [`comm.en.mdns.enable`](https://www.zaber.com/protocol-manual#topic_setting_comm_en_mdns_enable) setting.
     pub struct CommEnMdnsEnable: Setting<Type = bool, Name = "comm.en.mdns.enable">, DeviceScope;
     /// The type of the [`comm.next.owner`](https://www.zaber.com/protocol-manual#topic_setting_comm_next_owner) setting.

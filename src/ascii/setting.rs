@@ -4,6 +4,7 @@ use crate::ascii::{
 	chain::scope::{AxisScope, DeviceScope},
 	data_type::DataType,
 };
+pub mod data_types;
 
 /// Define a type representing an ASCII setting.
 macro_rules! define_settings {
