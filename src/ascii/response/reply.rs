@@ -1,7 +1,7 @@
 //! The ASCII reply message type.
 
 use crate::ascii::{
-	response::{parse, AnyResponse, Header, Response, SpecificResponse, Status, Warning},
+	response::{packet, AnyResponse, Header, Response, SpecificResponse, Status, Warning},
 	Target,
 };
 
@@ -48,11 +48,11 @@ impl Reply {
 	/// The conversion will fail if the packet is the wrong kind or if the packet
 	/// is not the start of a message. The packet does not need to complete the
 	/// message.
-	pub(crate) fn try_from_packet<T>(packet: &parse::Packet<T>) -> Result<Self, &parse::Packet<T>>
+	pub(crate) fn try_from_packet<T>(packet: &packet::Packet<T>) -> Result<Self, &packet::Packet<T>>
 	where
 		T: AsRef<[u8]>,
 	{
-		if packet.kind() != parse::PacketKind::Reply || packet.cont() {
+		if packet.kind() != packet::PacketKind::Reply || packet.cont() {
 			return Err(packet);
 		}
 		Ok(ReplyInner {
@@ -110,7 +110,7 @@ impl std::convert::TryFrom<AnyResponse> for Reply {
 
 impl std::fmt::Display for Reply {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", char::from(parse::REPLY_MARKER))?;
+		write!(f, "{}", char::from(packet::REPLY_MARKER))?;
 		Header {
 			address: self.target().device(),
 			axis: self.target().axis(),

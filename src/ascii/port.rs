@@ -12,7 +12,7 @@ use crate::{
 		checksum::Lrc,
 		command::{Command, CommandWriter, MaxPacketSize},
 		id,
-		parse::{Packet, PacketKind},
+		packet::{Packet, PacketKind},
 		response::{
 			check::{self, NotChecked},
 			Alert, AnyResponse, Info, Reply, Response, ResponseBuilder, Status,
@@ -596,7 +596,7 @@ impl<'a, B: Backend> Port<'a, B> {
 
 	/// Read the bytes for a packet.
 	fn read_packet_bytes(&mut self) -> Result<Vec<u8>, AsciiError> {
-		use crate::ascii::parse::AsciiExt as _;
+		use crate::ascii::packet::AsciiExt as _;
 
 		let mut buf = Vec::with_capacity(100);
 		let mut found_start = false;
@@ -632,7 +632,7 @@ impl<'a, B: Backend> Port<'a, B> {
 				if found_start {
 					buf.push(byte);
 				}
-				if byte == crate::ascii::parse::LINE_FEED {
+				if byte == crate::ascii::packet::LINE_FEED {
 					break;
 				}
 			}
@@ -645,7 +645,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		if !found_start {
 			return Err(AsciiPacketMissingStartError::new(buf).into());
 		}
-		if buf.is_empty() || *buf.last().unwrap() != crate::ascii::parse::LINE_FEED {
+		if buf.is_empty() || *buf.last().unwrap() != crate::ascii::packet::LINE_FEED {
 			return Err(AsciiPacketMissingEndError::new(buf).into());
 		}
 		result.map(move |_| buf)
@@ -1262,7 +1262,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// The callback will be passed the raw bytes of a possible packet and the
 	/// direction of the packet. The bytes are not guaranteed to be a valid
-	/// ASCII packet. Parse the bytes with [`Packet`] or [`Tokens`](crate::ascii::parse::Tokens)
+	/// ASCII packet. Parse the bytes with [`Packet`] or [`Tokens`](crate::ascii::packet::Tokens)
 	/// to inspect the contents of the packet.
 	///
 	/// Note, the Port already logs packets (along with other metadata) via the

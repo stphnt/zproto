@@ -12,7 +12,7 @@ pub use reply::*;
 
 use crate::error::*;
 
-use crate::ascii::{parse, Target};
+use crate::ascii::{packet, Target};
 
 /// A trait that is implemented by ASCII response messages.
 pub trait Response:
@@ -252,7 +252,7 @@ impl AnyResponse {
 	/// The conversion will fail if the packet is the wrong kind or if the packet
 	/// is not the start of a message. The packet does not need to complete the
 	/// message.
-	pub(crate) fn try_from_packet<T>(packet: &parse::Packet<T>) -> Result<Self, &parse::Packet<T>>
+	pub(crate) fn try_from_packet<T>(packet: &packet::Packet<T>) -> Result<Self, &packet::Packet<T>>
 	where
 		T: AsRef<[u8]>,
 	{
@@ -374,11 +374,11 @@ impl std::fmt::Display for Kind {
 	}
 }
 
-impl TryFrom<parse::PacketKind> for Kind {
-	type Error = parse::PacketKind;
+impl TryFrom<packet::PacketKind> for Kind {
+	type Error = packet::PacketKind;
 
-	fn try_from(other: parse::PacketKind) -> Result<Self, Self::Error> {
-		use parse::PacketKind as PK;
+	fn try_from(other: packet::PacketKind) -> Result<Self, Self::Error> {
+		use packet::PacketKind as PK;
 		match other {
 			PK::Command => Err(other),
 			PK::Reply => Ok(Kind::Reply),

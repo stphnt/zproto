@@ -12,6 +12,7 @@
 //! [`Status`]: crate::ascii::response::Status
 //! [`Target`]: crate::ascii::Target
 
+#[allow(clippy::module_inception)]
 mod packet;
 #[cfg(test)]
 mod test;

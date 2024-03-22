@@ -744,7 +744,7 @@ impl<T: WarningList> WarningList for &T {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::ascii::{parse::Packet, response::Reply};
+	use crate::ascii::{packet::Packet, response::Reply};
 
 	#[test]
 	fn check_reply() {

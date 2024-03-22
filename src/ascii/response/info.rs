@@ -1,7 +1,7 @@
 //! The ASCII info message type.
 
 use crate::ascii::{
-	response::{parse, AnyResponse, Header, Response, SpecificResponse},
+	response::{packet, AnyResponse, Header, Response, SpecificResponse},
 	Target,
 };
 
@@ -23,11 +23,11 @@ impl Info {
 	/// The conversion will fail if the packet is the wrong kind or if the packet
 	/// is not the start of a message. The packet does not need to complete the
 	/// message.
-	pub(crate) fn try_from_packet<T>(packet: &parse::Packet<T>) -> Result<Self, &parse::Packet<T>>
+	pub(crate) fn try_from_packet<T>(packet: &packet::Packet<T>) -> Result<Self, &packet::Packet<T>>
 	where
 		T: AsRef<[u8]>,
 	{
-		if packet.kind() != parse::PacketKind::Info || packet.cont() {
+		if packet.kind() != packet::PacketKind::Info || packet.cont() {
 			return Err(packet);
 		}
 		Ok(InfoInner {
@@ -71,7 +71,7 @@ impl std::convert::TryFrom<AnyResponse> for Info {
 
 impl std::fmt::Display for Info {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", char::from(parse::INFO_MARKER))?;
+		write!(f, "{}", char::from(packet::INFO_MARKER))?;
 		Header {
 			address: self.target().device(),
 			axis: self.target().axis(),

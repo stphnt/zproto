@@ -3,7 +3,7 @@
 use super::SerialDeviceInUseOrDisconnectedError;
 use crate::ascii::{
 	command::Command,
-	parse::Packet,
+	packet::Packet,
 	response::{Alert, AnyResponse, Flag, Info, Reply, Response, SpecificResponse, Status},
 	Target,
 };
@@ -712,7 +712,7 @@ mod test {
     }
 
 	assert_accessor_traits_to_response!(AsciiUnexpectedResponseError => AnyResponse);
-	assert_accessor_traits_to_response!(AsciiUnexpectedPacketError => parse::Packet);
+	assert_accessor_traits_to_response!(AsciiUnexpectedPacketError => packet::Packet);
 
 	// Because the `AsciiCheckError::<R>::Flag` variant always holds a `Reply`,
 	// `AsciiCheckError<R>` can only implement `AsRef` when R == Reply. Similarly,

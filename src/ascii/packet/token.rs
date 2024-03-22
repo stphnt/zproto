@@ -1,5 +1,5 @@
 use crate::ascii::{
-	parse::visitor::{Client, PacketKind, Visitor},
+	packet::visitor::{Client, PacketKind, Visitor},
 	response::{Flag, Status, Warning},
 };
 use crate::error::AsciiPacketMalformedError;
@@ -54,7 +54,7 @@ pub enum Token {
 /// ## Examples
 ///
 /// ```
-/// # use zproto::ascii::parse::{Token, Tokens};
+/// # use zproto::ascii::packet::{Token, Tokens};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let packet = b"@01 2 OK IDLE -- 0\r\n";
 /// let tokens = Tokens::new_ref(packet)?;

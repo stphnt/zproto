@@ -1,5 +1,5 @@
 use crate::ascii::{
-	parse::visitor::{Client, PacketKind, Visitor},
+	packet::visitor::{Client, PacketKind, Visitor},
 	response::{Flag, Status, Warning},
 	Target,
 };
@@ -56,7 +56,7 @@ pub(super) struct InnerPacket<T> {
 /// ## Examples
 ///
 /// ```
-/// # use zproto::ascii::parse::{PacketKind, Packet};
+/// # use zproto::ascii::packet::{PacketKind, Packet};
 /// # use zproto::ascii::response::{Flag, Status, Warning};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let packet = b"@01 2 OK IDLE -- 0\r\n";

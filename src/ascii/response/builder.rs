@@ -1,6 +1,6 @@
 /// Types for build responses from packets.
 use crate::ascii::{
-	parse::Packet,
+	packet::Packet,
 	response::{AnyResponse, Response as _},
 };
 use crate::error::AsciiUnexpectedPacketError;

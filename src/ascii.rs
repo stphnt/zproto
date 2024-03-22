@@ -166,7 +166,7 @@ pub(crate) mod checksum;
 pub mod command;
 mod id;
 mod marker;
-pub mod parse;
+pub mod packet;
 pub mod port;
 pub mod response;
 pub mod setting;
