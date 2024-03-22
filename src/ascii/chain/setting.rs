@@ -3,11 +3,11 @@
 use crate::{
 	ascii::{
 		chain::{
+			data_type::DataType,
 			info::ChainInfo,
 			scope::{AxisScopeMarker, DeviceScopeMarker, SameScopeAsMarker},
 			Axis, Device,
 		},
-		data_type::DataType,
 		marker::Markers,
 		response::{check, Reply},
 		setting::Setting,

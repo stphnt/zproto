@@ -1,5 +1,6 @@
 //! Types for accessing individual devices/axes on a chain of devices.
 
+pub mod data_type;
 pub(crate) mod info;
 pub mod iter;
 pub mod scope;

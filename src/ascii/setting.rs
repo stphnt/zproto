@@ -1,8 +1,8 @@
 //! Types representing ASCII settings.
 
-use crate::ascii::{
-	chain::scope::{AxisScope, DeviceScope},
+use crate::ascii::chain::{
 	data_type::DataType,
+	scope::{AxisScope, DeviceScope},
 };
 pub mod data_types;
 

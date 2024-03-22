@@ -164,7 +164,6 @@
 pub mod chain;
 pub(crate) mod checksum;
 pub mod command;
-pub mod data_type;
 mod id;
 mod marker;
 pub mod parse;
