@@ -53,10 +53,7 @@ impl ChainOptions {
 	/// Create a [`Chain`] from the given [`Port`].
 	///
 	/// To create a `Chain` that can be shared across threads, use [`build_sync`](ChainOptions::build_sync).
-	pub fn build<'a, B: Backend>(
-		&self,
-		mut port: Port<'a, B>,
-	) -> Result<Chain<'a, B>, AsciiError> {
+	pub fn build<'a, B: Backend>(&self, mut port: Port<'a, B>) -> Result<Chain<'a, B>, AsciiError> {
 		if self.renumber {
 			for result in port.command_replies_until_timeout_iter("renumber")? {
 				result?.flag_ok()?;
