@@ -178,7 +178,7 @@ impl ParamType {
 			| "Utenths" | "UTenths" | "Uhalves32" => Some("f32"),
 			"Uint64DP1" | "Uint64DP9" | "Int64DP9" | "Int64DP1" => Some("f64"),
 			"Token" => Some("::std::string::String"),
-			"MACAddress" => Some("crate::ascii::data_type::MacAddress"),
+			"MACAddress" => Some("crate::ascii::setting::data_types::MacAddress"),
 			"IPv4Address" | "IPv4Mask" => Some("::std::net::Ipv4Addr"),
 			name => panic!("unsupported param type '{name}'"),
 		}

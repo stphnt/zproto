@@ -1,7 +1,7 @@
 //! Error types for both ASCII and Binary protocol.
 
 use super::*;
-use crate::ascii::{AnyResponse, SpecificResponse};
+use crate::ascii::response::{AnyResponse, SpecificResponse};
 
 error_enum! {
 	/// Any error returned by this library.
@@ -156,7 +156,7 @@ impl DuplicateAddressError {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::ascii::{Alert, Info, Reply};
+	use crate::ascii::response::{Alert, Info, Reply};
 	use static_assertions::{assert_impl_all, const_assert_eq};
 
 	// Make sure the error enums are at most 3 words large (the same size as a String).

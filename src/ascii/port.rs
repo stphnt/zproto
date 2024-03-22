@@ -9,12 +9,14 @@ use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
 	ascii::{
 		chain::{Chain, SyncChain},
-		check::{self, NotChecked},
 		checksum::Lrc,
+		command::{Command, CommandWriter, MaxPacketSize, Target},
 		id,
-		parse::{Packet, PacketKind},
-		Alert, AnyResponse, Command, CommandWriter, Info, MaxPacketSize, Reply, Response,
-		ResponseBuilder, Status, Target,
+		packet::{Packet, PacketKind},
+		response::{
+			check::{self, NotChecked},
+			Alert, AnyResponse, Info, Reply, Response, ResponseBuilder, Status,
+		},
 	},
 	error::*,
 	timeout_guard::TimeoutGuard,
@@ -118,7 +120,7 @@ impl<'a> Port<'a, Serial> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::ascii::{OpenSerialOptions, Port};
+	/// # use zproto::ascii::Port;
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_serial("/dev/ttyUSB0")?;
 	/// // Or equivalently
@@ -144,7 +146,7 @@ impl<'a> Port<'a, TcpStream> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::ascii::{OpenTcpOptions, Port};
+	/// # use zproto::ascii::Port;
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_tcp("198.168.0.1:55550")?;
 	/// // Or equivalently
@@ -251,7 +253,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::{ascii::{Port, Reply}, backend::Backend};
+	/// # use zproto::{ascii::{Port, response::Reply}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<Reply, Box<dyn std::error::Error>> {
 	/// let reply = port.command_reply("get maxspeed")?.check_minimal()?;
 	/// # Ok(reply)
@@ -298,7 +300,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// ```
 	/// # use zproto::{
-	/// #     ascii::{check, Port, AnyResponse},
+	/// #     ascii::{response::{check, AnyResponse}, Port},
 	/// #     backend::Backend,
 	/// #     error::{AsciiCheckError, AsciiError}
 	/// # };
@@ -372,7 +374,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// ```
 	/// # use zproto::{
-	/// #     ascii::{check, Port, AnyResponse},
+	/// #     ascii::{response::{check, AnyResponse}, Port},
 	/// #     backend::Backend,
 	/// #     error::{AsciiCheckError, AsciiError}
 	/// # };
@@ -424,7 +426,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ```rust
 	/// # use zproto::{ascii::Port, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::flag_ok;
+	/// use zproto::ascii::response::check::flag_ok;
 	///
 	/// let replies = port.command_reply_n("get system.serial", 5, flag_ok())?;
 	/// # Ok(())
@@ -459,7 +461,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```
-	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::Info, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// for result in port.command_reply_n_iter("get device.id", 3)? {
 	///     /// Handle any communication errors and check the contents of the reply.
@@ -515,7 +517,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ```
 	/// # use zproto::{ascii::Port, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::flag_ok;
+	/// use zproto::ascii::response::check::flag_ok;
 	///
 	/// let replies = port.command_replies_until_timeout(
 	///     "get system.serial",
@@ -552,7 +554,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```
-	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::Info, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// for result in port.command_replies_until_timeout_iter("get device.id")? {
 	///     /// Handle any communication errors and check the contents of the reply.
@@ -593,7 +595,7 @@ impl<'a, B: Backend> Port<'a, B> {
 
 	/// Read the bytes for a packet.
 	fn read_packet_bytes(&mut self) -> Result<Vec<u8>, AsciiError> {
-		use crate::ascii::parse::AsciiExt as _;
+		use crate::ascii::packet::AsciiExt as _;
 
 		let mut buf = Vec::with_capacity(100);
 		let mut found_start = false;
@@ -629,7 +631,7 @@ impl<'a, B: Backend> Port<'a, B> {
 				if found_start {
 					buf.push(byte);
 				}
-				if byte == crate::ascii::parse::LINE_FEED {
+				if byte == crate::ascii::packet::LINE_FEED {
 					break;
 				}
 			}
@@ -642,7 +644,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		if !found_start {
 			return Err(AsciiPacketMissingStartError::new(buf).into());
 		}
-		if buf.is_empty() || *buf.last().unwrap() != crate::ascii::parse::LINE_FEED {
+		if buf.is_empty() || *buf.last().unwrap() != crate::ascii::packet::LINE_FEED {
 			return Err(AsciiPacketMissingEndError::new(buf).into());
 		}
 		result.map(move |_| buf)
@@ -851,7 +853,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::{ascii::{Reply, Info, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::{Reply, Info}, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// let reply: Reply = port.response()?.check_minimal()?;
 	/// let info: Info = port.response()?.check_minimal()?;
@@ -883,7 +885,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```
-	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::Info, Port}, backend::Backend};
 	/// # fn do_something_with(_info: Info) {}
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// for result in port.response_n_iter(3) {
@@ -912,9 +914,9 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::Info, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::unchecked;
+	/// use zproto::ascii::response::check::unchecked;
 	/// let reply: Vec<Info> = port.response_n(3, unchecked())?;
 	/// # Ok(())
 	/// # }
@@ -943,10 +945,10 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::ascii::{AnyResponse, Port};
+	/// # use zproto::ascii::{response::AnyResponse, Port};
 	/// # use zproto::backend::Backend;
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::check::minimal;
+	/// use zproto::ascii::response::check::minimal;
 	/// let reply: Vec<AnyResponse> = port.responses_until_timeout(minimal())?;
 	/// # Ok(())
 	/// # }
@@ -979,7 +981,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```
-	/// # use zproto::{ascii::{Info, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::Info, Port}, backend::Backend};
 	/// # fn do_something_with(_info: Info) {}
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// for result in port.responses_until_timeout_iter() {
@@ -1012,7 +1014,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```
-	/// # use zproto::ascii::{Port, Reply};
+	/// # use zproto::ascii::{Port, response::Reply};
 	/// # use zproto::backend::Backend;
 	/// # use zproto::error::AsciiError;
 	/// # fn wrapper<B: Backend>(port: &mut Port<'_, B>) -> Result<(), AsciiError> {
@@ -1052,7 +1054,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```rust
-	/// # use zproto::{ascii::{check, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::check, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// port.poll_until(
 	///     (1, 1, ""),
@@ -1110,7 +1112,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// ## Example
 	///
 	/// ```
-	/// # use zproto::{ascii::{check, Port}, backend::Backend};
+	/// # use zproto::{ascii::{response::check, Port}, backend::Backend};
 	/// # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 	/// port.poll_until_idle((1,1), check::flag_ok())?;
 	/// # Ok(())
@@ -1135,7 +1137,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// ## Example
 	/// ```rust
-	/// # use zproto::{error::AsciiError, ascii::{Port, Reply}, backend::Backend};
+	/// # use zproto::{error::AsciiError, ascii::{Port, response::Reply}, backend::Backend};
 	/// # use std::time::Duration;
 	/// # fn helper<B: Backend>(mut port: Port<B>) -> Result<Reply, AsciiError> {
 	/// {
@@ -1259,7 +1261,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	///
 	/// The callback will be passed the raw bytes of a possible packet and the
 	/// direction of the packet. The bytes are not guaranteed to be a valid
-	/// ASCII packet. Parse the bytes with [`Packet`] or [`Tokens`](crate::ascii::parse::Tokens)
+	/// ASCII packet. Parse the bytes with [`Packet`] or [`Tokens`](crate::ascii::packet::Tokens)
 	/// to inspect the contents of the packet.
 	///
 	/// Note, the Port already logs packets (along with other metadata) via the
@@ -1355,7 +1357,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # use std::cell::Cell;
 	/// #
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-	/// use zproto::ascii::{Port, check::minimal};
+	/// use zproto::ascii::{Port, response::check::minimal};
 	///
 	/// let mut port = Port::open_serial("...")?;
 	///

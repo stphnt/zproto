@@ -1,7 +1,7 @@
 //! Types and traits for generating ASCII commands.
 
 use crate::{
-	ascii::{checksum::LrcWriter, id, Target},
+	ascii::{checksum::LrcWriter, id},
 	error::{AsciiCommandSplitError, AsciiError, AsciiReservedCharacterError},
 };
 use std::borrow::Cow;
@@ -422,6 +422,120 @@ fn ascii_char_count(num: u8) -> usize {
 	}
 }
 
+/// The device address and axis number a command/response was sent to/from.
+///
+/// `Target` has multiple builder methods that can be chained to construct the
+/// desired target.
+///
+/// ```rust
+/// # use zproto::ascii::command::Target;
+/// let target = Target::for_device(1).with_axis(2);
+/// ```
+///
+/// Or you can create a target from a `u8` or `tuple` of `u8`s:
+///
+/// ```rust
+/// # use zproto::ascii::command::Target;
+/// assert_eq!(Target::for_device(1), Target::from(1));
+/// assert_eq!(Target::for_device(1).with_axis(2), Target::from((1, 2)));
+/// ```
+///
+/// The [`Default`](Target::default) target is all devices and axes.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct Target(u8, u8);
+
+impl Target {
+	/// Create a new target with the specified `device` address and `axis` number.
+	pub const fn new(device: u8, axis: u8) -> Target {
+		Target(device, axis)
+	}
+	/// Create a target for all devices and axes (i.e. device address 0 and axis number 0)
+	///
+	/// ```
+	/// # use zproto::ascii::command::Target;
+	/// assert_eq!(Target::for_all(), Target::new(0, 0));
+	/// ```
+	pub const fn for_all() -> Target {
+		Target(0, 0)
+	}
+	/// Create a target for a specific device.
+	pub const fn for_device(address: u8) -> Target {
+		Target(address, 0)
+	}
+	/// Create a target for the all axes on this device.
+	///
+	/// The device address of the current target is copied to the new target.
+	///
+	/// ```
+	/// # use zproto::ascii::command::Target;
+	/// assert_eq!(Target::new(2, 1).with_all_axes(), Target::new(2, 0));
+	/// ```
+	pub const fn with_all_axes(self) -> Target {
+		Target(self.0, 0)
+	}
+	/// Create a target for the specified axis on the device.
+	///
+	/// The device address of the current target is copied to the new target.
+	///
+	/// ```
+	/// # use zproto::ascii::command::Target;
+	/// assert_eq!(Target::new(2, 1).with_axis(3), Target::new(2, 3));
+	/// ```
+	pub const fn with_axis(self, axis: u8) -> Target {
+		Target(self.0, axis)
+	}
+	/// Get the address of the targeted device.
+	///
+	/// ```
+	/// # use zproto::ascii::command::Target;
+	/// assert_eq!(Target::new(2, 1).device(), 2);
+	/// ```
+	pub const fn device(self) -> u8 {
+		self.0
+	}
+	/// Get the number of the targeted axis.
+	///
+	/// ```
+	/// # use zproto::ascii::command::Target;
+	/// assert_eq!(Target::new(2, 1).axis(), 1);
+	/// ```
+	pub const fn axis(self) -> u8 {
+		self.1
+	}
+	/// Assuming this target is that of a response, determine if the response
+	/// could have been elicited by a command to the specified target.
+	///
+	/// This is true if
+	///  * the command's device address was 0 or matches this target's address, and
+	///  * the command's axis number was 0 or matches this target's axis number
+	pub(crate) const fn elicited_by_command_to(self, target: Target) -> bool {
+		if target.0 == 0 || self.0 == target.0 {
+			target.1 == 0 || self.1 == target.1
+		} else {
+			false
+		}
+	}
+}
+
+impl Default for Target {
+	/// Get the default target, which is all devices and axes in the chain.
+	fn default() -> Target {
+		Target::for_all()
+	}
+}
+
+impl From<u8> for Target {
+	fn from(other: u8) -> Target {
+		Target(other, 0)
+	}
+}
+
+impl From<(u8, u8)> for Target {
+	fn from(other: (u8, u8)) -> Target {
+		Target(other.0, other.1)
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -431,6 +545,11 @@ mod test {
 		fn next_id(&mut self) -> u8 {
 			5
 		}
+	}
+
+	#[test]
+	fn target_default_is_all() {
+		assert_eq!(Target::default(), Target::for_all());
 	}
 
 	#[test]

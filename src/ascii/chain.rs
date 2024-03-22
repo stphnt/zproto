@@ -1,11 +1,13 @@
 //! Types for accessing individual devices/axes on a chain of devices.
 
+pub mod data_type;
 pub(crate) mod info;
 pub mod iter;
+pub mod scope;
 pub mod setting;
 
 use crate::{
-	ascii::{marker::Markers, Port, Target},
+	ascii::{command::Target, marker::Markers, Port},
 	backend::{Backend, Serial},
 	error::AsciiError,
 	shared::{Shared, SharedMut},
@@ -53,10 +55,7 @@ impl ChainOptions {
 	/// Create a [`Chain`] from the given [`Port`].
 	///
 	/// To create a `Chain` that can be shared across threads, use [`build_sync`](ChainOptions::build_sync).
-	pub fn build<'a, B: Backend>(
-		&self,
-		mut port: Port<'a, B>,
-	) -> Result<Chain<'a, B>, AsciiError> {
+	pub fn build<'a, B: Backend>(&self, mut port: Port<'a, B>) -> Result<Chain<'a, B>, AsciiError> {
 		if self.renumber {
 			for result in port.command_replies_until_timeout_iter("renumber")? {
 				result?.flag_ok()?;

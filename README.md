@@ -21,7 +21,7 @@ ASCII protocol looks something like this:
 
 ```rust,no_run
 use zproto::{
-    ascii::{Port, check},
+    ascii::{response::check, Port},
     error::Error,
 };
 

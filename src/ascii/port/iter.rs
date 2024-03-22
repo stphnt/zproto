@@ -1,7 +1,11 @@
 //! Types for iterating over responses.
 use super::HeaderCheck;
 use crate::{
-	ascii::{check::NotChecked, AnyResponse, Command, Info, Port, Reply, Response, Target},
+	ascii::{
+		command::{Command, Target},
+		response::{check::NotChecked, AnyResponse, Info, Reply, Response},
+		Port,
+	},
 	backend::Backend,
 	error::{AsciiCheckError, AsciiError},
 };

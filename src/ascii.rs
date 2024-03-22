@@ -71,7 +71,7 @@
 //!
 //! ## Reading Data
 //!
-//! Reading data from a response is as simple as calling [`data()`](Reply::data)
+//! Reading data from a response is as simple as calling [`data()`]
 //! on the response and then using Rust's standard [`parse()`](https://doc.rust-lang.org/std/primitive.str.html#method.parse)
 //! method to convert the string to your desired data type.
 //!
@@ -88,15 +88,15 @@
 //!
 //! The library requires users to be explicit about checking the contents of responses.
 //! To do this, many methods either take a validation function or return a
-//! [`NotChecked<R>`](check::NotChecked) (where `R` is the response type,
-//! like a [`Reply`]). To access the inner response, users must validate it's contents using
-//! the methods on `NotChecked` and/or the validation functions in the [`check`] module.
+//! [`NotChecked<R>`] (where `R` is the response type, like a [`Reply`]). To
+//! access the inner response, users must validate it's contents using the
+//! methods on `NotChecked` and/or the validation functions in the [`check`] module.
 //! If you want you can also write your own validation functions.
 //!
 //! ```rust
-//! # use zproto::{ascii::{Port, Reply}, backend::Backend, error::Error};
+//! # use zproto::{ascii::{Port, response::Reply}, backend::Backend, error::Error};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<Reply, Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::warning_is;
+//! use zproto::ascii::response::check::warning_is;
 //!
 //! let reply = port.command_reply((1, "get device.id"))?
 //!     .flag_ok_and(warning_is("WR"))?; // check that the reply's flag is "OK"
@@ -113,7 +113,7 @@
 //! read an [`Alert`] use the [`response`](Port::response) method:
 //!
 //! ```rust
-//! # use zproto::{ascii::{Alert, Port}, backend::Backend};
+//! # use zproto::{ascii::{response::Alert, Port}, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! let alert: Alert = port.response()?.check_minimal()?;
 //! # Ok(())
@@ -126,7 +126,7 @@
 //! ```rust
 //! # use zproto::{ascii::Port, backend::Backend};
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::minimal;
+//! use zproto::ascii::response::check::minimal;
 //! let (reply, infos) = port.command_reply_infos("stream buffer 1 print", minimal())?;
 //! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
 //! for info in infos {
@@ -145,7 +145,7 @@
 //! #     backend::Backend
 //! # };
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! use zproto::ascii::check::flag_ok;
+//! use zproto::ascii::response::check::flag_ok;
 //! let target = (1, 2);
 //! port.command_reply((target, "move max"))?.flag_ok()?;
 //! port.poll_until_idle(target, flag_ok())?;
@@ -153,143 +153,23 @@
 //! # Ok(())
 //! # }
 //! ```
+//! [`Alert`]: crate::ascii::response::Alert
+//! [`Reply`]: crate::ascii::response::Reply
+//! [`data()`]: crate::ascii::response::Reply::data
+//! [`Info`]: crate::ascii::response::Info
+//! [`NotChecked`]: crate::ascii::response::check::NotChecked
+//! [`NotChecked<R>`]: crate::ascii::response::check::NotChecked
+//! [`check`]: crate::ascii::response::check
+//! [`Target`]: crate::ascii::command::Target
 
 pub mod chain;
 pub(crate) mod checksum;
-mod command;
-pub mod data_type;
+pub mod command;
 mod id;
 mod marker;
-pub mod parse;
-mod port;
-mod response;
-pub mod scope;
+pub mod packet;
+pub mod port;
+pub mod response;
+pub mod setting;
 
-pub use command::*;
-pub use port::*;
-pub use response::*;
-
-/// The device address and axis number a command/response was sent to/from.
-///
-/// `Target` has multiple builder methods that can be chained to construct the
-/// desired target.
-///
-/// ```rust
-/// # use zproto::ascii::Target;
-/// let target = Target::for_device(1).with_axis(2);
-/// ```
-///
-/// Or you can create a target from a `u8` or `tuple` of `u8`s:
-///
-/// ```rust
-/// # use zproto::ascii::Target;
-/// assert_eq!(Target::for_device(1), Target::from(1));
-/// assert_eq!(Target::for_device(1).with_axis(2), Target::from((1, 2)));
-/// ```
-///
-/// The [`Default`](Target::default) target is all devices and axes.
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Target(u8, u8);
-
-impl Target {
-	/// Create a new target with the specified `device` address and `axis` number.
-	pub const fn new(device: u8, axis: u8) -> Target {
-		Target(device, axis)
-	}
-	/// Create a target for all devices and axes (i.e. device address 0 and axis number 0)
-	///
-	/// ```
-	/// # use zproto::ascii::Target;
-	/// assert_eq!(Target::for_all(), Target::new(0, 0));
-	/// ```
-	pub const fn for_all() -> Target {
-		Target(0, 0)
-	}
-	/// Create a target for a specific device.
-	pub const fn for_device(address: u8) -> Target {
-		Target(address, 0)
-	}
-	/// Create a target for the all axes on this device.
-	///
-	/// The device address of the current target is copied to the new target.
-	///
-	/// ```
-	/// # use zproto::ascii::Target;
-	/// assert_eq!(Target::new(2, 1).with_all_axes(), Target::new(2, 0));
-	/// ```
-	pub const fn with_all_axes(self) -> Target {
-		Target(self.0, 0)
-	}
-	/// Create a target for the specified axis on the device.
-	///
-	/// The device address of the current target is copied to the new target.
-	///
-	/// ```
-	/// # use zproto::ascii::Target;
-	/// assert_eq!(Target::new(2, 1).with_axis(3), Target::new(2, 3));
-	/// ```
-	pub const fn with_axis(self, axis: u8) -> Target {
-		Target(self.0, axis)
-	}
-	/// Get the address of the targeted device.
-	///
-	/// ```
-	/// # use zproto::ascii::Target;
-	/// assert_eq!(Target::new(2, 1).device(), 2);
-	/// ```
-	pub const fn device(self) -> u8 {
-		self.0
-	}
-	/// Get the number of the targeted axis.
-	///
-	/// ```
-	/// # use zproto::ascii::Target;
-	/// assert_eq!(Target::new(2, 1).axis(), 1);
-	/// ```
-	pub const fn axis(self) -> u8 {
-		self.1
-	}
-	/// Assuming this target is that of a response, determine if the response
-	/// could have been elicited by a command to the specified target.
-	///
-	/// This is true if
-	///  * the command's device address was 0 or matches this target's address, and
-	///  * the command's axis number was 0 or matches this target's axis number
-	pub(crate) const fn elicited_by_command_to(self, target: Target) -> bool {
-		if target.0 == 0 || self.0 == target.0 {
-			target.1 == 0 || self.1 == target.1
-		} else {
-			false
-		}
-	}
-}
-
-impl Default for Target {
-	/// Get the default target, which is all devices and axes in the chain.
-	fn default() -> Target {
-		Target::for_all()
-	}
-}
-
-impl From<u8> for Target {
-	fn from(other: u8) -> Target {
-		Target(other, 0)
-	}
-}
-
-impl From<(u8, u8)> for Target {
-	fn from(other: (u8, u8)) -> Target {
-		Target(other.0, other.1)
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::Target;
-
-	#[test]
-	fn target_default_is_all() {
-		assert_eq!(Target::default(), Target::for_all());
-	}
-}
+pub use port::Port;

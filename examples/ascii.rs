@@ -1,5 +1,8 @@
 use simple_logger::SimpleLogger;
-use zproto::ascii::{check, Port, Warning};
+use zproto::ascii::{
+	response::{check, Warning},
+	Port,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Enable logging
