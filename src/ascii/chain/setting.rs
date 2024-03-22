@@ -5,7 +5,7 @@ use crate::{
 		chain::{
 			data_type::DataType,
 			info::ChainInfo,
-			scope::{AxisScopeMarker, DeviceScopeMarker, SameScopeAsMarker},
+			scope::{RequiresAxisScope, RequiresDeviceScope, SatisfiesRequiredScope},
 			Axis, Device,
 		},
 		command::Target,
@@ -35,7 +35,7 @@ pub struct Settings<'a, B, P: SharedMut<Port<'a, B>>, S> {
 /// A type of [`Settings`] that gives access to axis-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type AxisSettings<'a, B, P> = Settings<'a, B, P, AxisScopeMarker>;
+pub type AxisSettings<'a, B, P> = Settings<'a, B, P, RequiresAxisScope>;
 
 impl<'a, B, P> AxisSettings<'a, B, P>
 where
@@ -55,7 +55,7 @@ where
 /// A type of [`Settings`] that gives access to device-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type DeviceSettings<'a, B, P> = Settings<'a, B, P, DeviceScopeMarker>;
+pub type DeviceSettings<'a, B, P> = Settings<'a, B, P, RequiresDeviceScope>;
 
 impl<'a, B, P> DeviceSettings<'a, B, P>
 where
@@ -82,7 +82,7 @@ where
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
 	pub fn get<T>(&self, setting: T) -> Result<<T::Type as DataType>::Owned, AsciiError>
 	where
-		T: Setting + SameScopeAsMarker<S>,
+		T: Setting + SatisfiesRequiredScope<S>,
 	{
 		let mut port = self.port.lock_mut().unwrap();
 		let reply = port
@@ -98,7 +98,7 @@ where
 		checker: impl check::Check<Reply>,
 	) -> Result<<T::Type as DataType>::Owned, AsciiError>
 	where
-		T: Setting + SameScopeAsMarker<S>,
+		T: Setting + SatisfiesRequiredScope<S>,
 	{
 		let mut port = self.port.lock_mut().unwrap();
 		let reply = port
@@ -112,7 +112,7 @@ where
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
 	pub fn set<T, V>(&self, setting: T, value: V) -> Result<(), AsciiError>
 	where
-		T: Setting + SameScopeAsMarker<S>,
+		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
 	{
 		let mut port = self.port.lock_mut().unwrap();
@@ -137,7 +137,7 @@ where
 		checker: impl check::Check<Reply>,
 	) -> Result<(), AsciiError>
 	where
-		T: Setting + SameScopeAsMarker<S>,
+		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
 	{
 		let mut port = self.port.lock_mut().unwrap();
