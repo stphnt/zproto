@@ -13,7 +13,7 @@ use crate::{
 	shared::{Shared, SharedMut},
 };
 use info::ChainInfo;
-use iter::{ChainIntoIter, ChainIter, DeviceIntoIter, DeviceIter};
+use iter::{IntoIterAxes, IntoIterDevices, IterAxes, IterDevices};
 use setting::{AxisSettings, DeviceSettings};
 use std::{
 	cell::RefCell,
@@ -110,8 +110,8 @@ where
 	}
 
 	/// Get an iterator over the devices in the chain.
-	pub fn iter(&self) -> ChainIter<'a, B, P> {
-		ChainIter::new(self.port.clone(), self.info.clone())
+	pub fn iter(&self) -> IterDevices<'a, B, P> {
+		IterDevices::new(self.port.clone(), self.info.clone())
 	}
 
 	/// Get the [`Device`] at the specified address.
@@ -138,10 +138,10 @@ where
 	P: SharedMut<Port<'a, B>>,
 {
 	type Item = Device<'a, B, P>;
-	type IntoIter = ChainIntoIter<'a, B, P>;
+	type IntoIter = IntoIterDevices<'a, B, P>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		ChainIntoIter::new(self.port, self.info)
+		IntoIterDevices::new(self.port, self.info)
 	}
 }
 
@@ -150,10 +150,10 @@ where
 	P: SharedMut<Port<'a, B>>,
 {
 	type Item = Device<'a, B, P>;
-	type IntoIter = ChainIter<'a, B, P>;
+	type IntoIter = IterDevices<'a, B, P>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		ChainIter::new(self.port.clone(), self.info.clone())
+		IterDevices::new(self.port.clone(), self.info.clone())
 	}
 }
 
@@ -231,8 +231,8 @@ where
 	}
 
 	/// Get an iterator over the axes of the device.
-	pub fn iter(&self) -> DeviceIter<'a, B, P> {
-		DeviceIter::new(self.port.clone(), self.info.clone(), self.address)
+	pub fn iter(&self) -> IterAxes<'a, B, P> {
+		IterAxes::new(self.port.clone(), self.info.clone(), self.address)
 	}
 
 	/// Get access to this device's settings.
@@ -285,10 +285,10 @@ where
 	P: SharedMut<Port<'a, B>>,
 {
 	type Item = Axis<'a, B, P>;
-	type IntoIter = DeviceIntoIter<'a, B, P>;
+	type IntoIter = IntoIterAxes<'a, B, P>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		DeviceIntoIter::new(self.port, self.info, self.address)
+		IntoIterAxes::new(self.port, self.info, self.address)
 	}
 }
 
@@ -297,10 +297,10 @@ where
 	P: SharedMut<Port<'a, B>>,
 {
 	type Item = Axis<'a, B, P>;
-	type IntoIter = DeviceIter<'a, B, P>;
+	type IntoIter = IterAxes<'a, B, P>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		DeviceIter::new(self.port.clone(), self.info.clone(), self.address)
+		IterAxes::new(self.port.clone(), self.info.clone(), self.address)
 	}
 }
 
