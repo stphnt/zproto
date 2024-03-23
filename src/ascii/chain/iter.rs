@@ -8,18 +8,20 @@ use crate::{
 use std::num::NonZeroU8;
 
 /// An iterator of the devices in a [`Chain`](super::Chain).
-pub struct ChainIter<'a, B, P: SharedMut<Port<'a, B>>> {
+///
+/// Created via [`Chain::iter()`](super::Chain::iter).
+pub struct IterDevices<'a, B, P: SharedMut<Port<'a, B>>> {
 	port: P,
 	info: P::Wrapper<ChainInfo>,
 	next_index: usize,
 }
-impl<'a, B, P> ChainIter<'a, B, P>
+impl<'a, B, P> IterDevices<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
 	/// Create an new iterator over the devices in the chain.
 	pub(super) fn new(port: P, info: P::Wrapper<ChainInfo>) -> Self {
-		ChainIter {
+		IterDevices {
 			port,
 			info,
 			next_index: 0,
@@ -27,16 +29,16 @@ where
 	}
 }
 
-impl<'a, B, P> std::fmt::Debug for ChainIter<'a, B, P>
+impl<'a, B, P> std::fmt::Debug for IterDevices<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("ChainIter").finish_non_exhaustive()
+		f.debug_struct("IterDevices").finish_non_exhaustive()
 	}
 }
 
-impl<'a, B, P> std::iter::Iterator for ChainIter<'a, B, P>
+impl<'a, B, P> std::iter::Iterator for IterDevices<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
@@ -64,30 +66,32 @@ where
 }
 
 /// A by-value iterator over the devices in a [`Chain`](super::Chain).
-pub struct ChainIntoIter<'a, B, P: SharedMut<Port<'a, B>>> {
-	iter: ChainIter<'a, B, P>,
+///
+/// Created via [`Chain::into_iter()`](super::Chain::into_iter).
+pub struct IntoIterDevices<'a, B, P: SharedMut<Port<'a, B>>> {
+	iter: IterDevices<'a, B, P>,
 }
-impl<'a, B, P> ChainIntoIter<'a, B, P>
+impl<'a, B, P> IntoIterDevices<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
 	pub(super) fn new(port: P, info: P::Wrapper<ChainInfo>) -> Self {
-		ChainIntoIter {
-			iter: ChainIter::new(port, info),
+		IntoIterDevices {
+			iter: IterDevices::new(port, info),
 		}
 	}
 }
 
-impl<'a, B, P> std::fmt::Debug for ChainIntoIter<'a, B, P>
+impl<'a, B, P> std::fmt::Debug for IntoIterDevices<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("ChainIntoIter").finish_non_exhaustive()
+		f.debug_struct("IntoIterDevices").finish_non_exhaustive()
 	}
 }
 
-impl<'a, B, P> std::iter::Iterator for ChainIntoIter<'a, B, P>
+impl<'a, B, P> std::iter::Iterator for IntoIterDevices<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
@@ -98,19 +102,21 @@ where
 }
 
 /// An iterator over the axes of a [`Device`].
-pub struct DeviceIter<'a, B, P: SharedMut<Port<'a, B>>> {
+///
+/// Created via [`Device::iter()`].
+pub struct IterAxes<'a, B, P: SharedMut<Port<'a, B>>> {
 	port: P,
 	info: P::Wrapper<ChainInfo>,
 	address: NonZeroU8,
 	next_axis_index: usize,
 }
 
-impl<'a, B, P> DeviceIter<'a, B, P>
+impl<'a, B, P> IterAxes<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
 	pub(super) fn new(port: P, info: P::Wrapper<ChainInfo>, address: NonZeroU8) -> Self {
-		DeviceIter {
+		IterAxes {
 			port,
 			info,
 			address,
@@ -119,7 +125,7 @@ where
 	}
 }
 
-impl<'a, B, P> std::iter::Iterator for DeviceIter<'a, B, P>
+impl<'a, B, P> std::iter::Iterator for IterAxes<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
@@ -154,35 +160,37 @@ where
 	}
 }
 
-impl<'a, B, P> std::fmt::Debug for DeviceIter<'a, B, P>
+impl<'a, B, P> std::fmt::Debug for IterAxes<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("DeviceIter")
+		f.debug_struct("IterAxes")
 			.field("address", &self.address)
 			.finish()
 	}
 }
 
 /// A by-value iterator over the axes of a [`Device`].
+///
+/// Created via [`Device::into_iter()`].
 #[derive(Debug)]
-pub struct DeviceIntoIter<'a, B, P: SharedMut<Port<'a, B>>> {
-	iter: DeviceIter<'a, B, P>,
+pub struct IntoIterAxes<'a, B, P: SharedMut<Port<'a, B>>> {
+	iter: IterAxes<'a, B, P>,
 }
 
-impl<'a, B, P> DeviceIntoIter<'a, B, P>
+impl<'a, B, P> IntoIterAxes<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
 	pub(super) fn new(port: P, info: P::Wrapper<ChainInfo>, address: NonZeroU8) -> Self {
-		DeviceIntoIter {
-			iter: DeviceIter::new(port, info, address),
+		IntoIterAxes {
+			iter: IterAxes::new(port, info, address),
 		}
 	}
 }
 
-impl<'a, B, P> std::iter::Iterator for DeviceIntoIter<'a, B, P>
+impl<'a, B, P> std::iter::Iterator for IntoIterAxes<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
