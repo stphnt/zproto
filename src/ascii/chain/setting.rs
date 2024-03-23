@@ -88,7 +88,7 @@ where
 		let reply = port
 			.command_reply((self.target, format!("get {}", setting.name())))?
 			.flag_ok()?;
-		Ok(T::Type::parse_ascii(reply.data())?)
+		Ok(T::Type::parse(reply.data())?)
 	}
 
 	/// Same as [`Settings::get`] except that the reply is validated with the custom [`Check`](check::Check).
@@ -104,7 +104,7 @@ where
 		let reply = port
 			.command_reply((self.target, format!("get {}", setting.name())))?
 			.check(checker)?;
-		Ok(T::Type::parse_ascii(reply.data())?)
+		Ok(T::Type::parse(reply.data())?)
 	}
 
 	/// Set the value of a setting.

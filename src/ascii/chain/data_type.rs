@@ -7,7 +7,7 @@ pub trait AsciiParser {
 	/// The type produced when parsing.
 	type Output;
 	/// Parse a value of type `Output` from a word in an ASCII message.
-	fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError>;
+	fn parse(s: &str) -> Result<Self::Output, ConversionError>;
 }
 
 /// Any type that generates a type for writing a value of type `Input` into an ASCII message.
@@ -28,7 +28,7 @@ macro_rules! impl_parse_and_ascii_display_via_builtins {
         $(
             impl AsciiParser for $type {
                 type Output = $type;
-                fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError> {
+                fn parse(s: &str) -> Result<Self::Output, ConversionError> {
                     s.parse().map_err(|e| {
                         let msg = format!("could not parse `{}` as {}: {}", s, stringify!($type), e);
                         ConversionError(msg.into_boxed_str())
@@ -49,7 +49,7 @@ impl_parse_and_ascii_display_via_builtins! { u8, u16, u32, u64, u128, i8, i16, i
 
 impl AsciiParser for String {
 	type Output = String;
-	fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError> {
+	fn parse(s: &str) -> Result<Self::Output, ConversionError> {
 		let value = s.trim();
 		if value.is_empty() {
 			Err(ConversionError(
@@ -75,7 +75,7 @@ pub struct AsciiBool(pub bool);
 
 impl AsciiParser for AsciiBool {
 	type Output = bool;
-	fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError> {
+	fn parse(s: &str) -> Result<Self::Output, ConversionError> {
 		match s {
 			"0" => Ok(false),
 			"1" => Ok(true),
@@ -113,8 +113,8 @@ pub trait DataType {
 		Self: 'a;
 
 	/// Parse the owned version of this data type from a string.
-	fn parse_ascii(s: &str) -> Result<Self::Owned, ConversionError> {
-		Self::Parser::parse_ascii(s)
+	fn parse(s: &str) -> Result<Self::Owned, ConversionError> {
+		Self::Parser::parse(s)
 	}
 	/// Get an instance of a type for formatting this value in an ASCII message.
 	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as AsciiDisplayer>::Display<'_> {
@@ -172,7 +172,7 @@ mod test {
                 fn $type() {
                     $(
                         let input = $input;
-                        let result = <$type as DataType>::parse_ascii(input);
+                        let result = <$type as DataType>::parse(input);
                         match result {
                             $expected => {}
                             unexpected => panic!("expected {} but got {:?}", stringify!($expected), unexpected),
