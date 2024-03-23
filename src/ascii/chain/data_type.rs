@@ -2,6 +2,60 @@
 use crate::ascii::setting::data_types::MacAddress;
 use crate::error::ConversionError;
 
+/// Any type that is a valid data type in the ASCII protocol.
+pub trait DataType {
+	/// The borrowed type.
+	type Borrowed: ?Sized;
+	/// The owned type.
+	type Owned;
+	/// The type used to parse an owned value from an ASCII message.
+	type Parser: Parse<Output = Self::Owned>;
+	/// The type used to format a value in an ASCII message.
+	type Displayer<'a>: Display<Input = Self::Borrowed>
+	where
+		Self: 'a;
+
+	/// Parse the owned version of this data type from a string.
+	fn parse(s: &str) -> Result<Self::Owned, ConversionError> {
+		Self::Parser::parse(s)
+	}
+	/// Get an instance of a type for formatting this value in an ASCII message.
+	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as Display>::Display<'_> {
+		Self::Displayer::display(value)
+	}
+}
+
+macro_rules! impl_data_type {
+    (
+        $( $type:ty ),+ $(,)?
+    ) => {
+        $(
+            impl DataType for $type {
+                type Borrowed = $type;
+                type Owned = $type;
+                type Parser = $type;
+                type Displayer<'a> = $type where Self: 'a;
+            }
+        )+
+    }
+}
+
+impl_data_type! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
+
+impl DataType for bool {
+	type Borrowed = bool;
+	type Owned = bool;
+	type Parser = AsciiBool;
+	type Displayer<'a> = AsciiBool where Self: 'a;
+}
+
+impl DataType for String {
+	type Borrowed = str;
+	type Owned = String;
+	type Parser = String;
+	type Displayer<'a> = String where Self: 'a;
+}
+
 /// Any type that can parse value of type `Output` from a word in an ASCII message's data field.
 pub trait Parse {
 	/// The type of the produced value.
@@ -98,60 +152,6 @@ impl std::fmt::Display for AsciiBool {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", if self.0 { 1 } else { 0 })
 	}
-}
-
-/// Any type that is a valid data type in the ASCII protocol.
-pub trait DataType {
-	/// The borrowed type.
-	type Borrowed: ?Sized;
-	/// The owned type.
-	type Owned;
-	/// The type used to parse an owned value from an ASCII message.
-	type Parser: Parse<Output = Self::Owned>;
-	/// The type used to format a value in an ASCII message.
-	type Displayer<'a>: Display<Input = Self::Borrowed>
-	where
-		Self: 'a;
-
-	/// Parse the owned version of this data type from a string.
-	fn parse(s: &str) -> Result<Self::Owned, ConversionError> {
-		Self::Parser::parse(s)
-	}
-	/// Get an instance of a type for formatting this value in an ASCII message.
-	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as Display>::Display<'_> {
-		Self::Displayer::display(value)
-	}
-}
-
-macro_rules! impl_data_type {
-    (
-        $( $type:ty ),+ $(,)?
-    ) => {
-        $(
-            impl DataType for $type {
-                type Borrowed = $type;
-                type Owned = $type;
-                type Parser = $type;
-                type Displayer<'a> = $type where Self: 'a;
-            }
-        )+
-    }
-}
-
-impl_data_type! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
-
-impl DataType for bool {
-	type Borrowed = bool;
-	type Owned = bool;
-	type Parser = AsciiBool;
-	type Displayer<'a> = AsciiBool where Self: 'a;
-}
-
-impl DataType for String {
-	type Borrowed = str;
-	type Owned = String;
-	type Parser = String;
-	type Displayer<'a> = String where Self: 'a;
 }
 
 #[cfg(test)]
