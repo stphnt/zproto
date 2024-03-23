@@ -1,103 +1,13 @@
-//! Types and traits for parsing and formatting data in ASCII messages.
+//! Types and traits for custom parsing and displaying/formatting of data in ASCII
+//! messages.
+//!
+//! The [`DataType`] trait is the primary trait of interest here, and used by [`Settings`]
+//! to parse the appropriate data types when reading settings. All other types
+//! traits are there to support [`DataType`].
+//!
+//! [`Settings`]: crate::ascii::chain::setting::Settings
 use crate::ascii::setting::data_types::MacAddress;
 use crate::error::ConversionError;
-
-/// Any type that can parse a value of type `T` from a word in an ASCII message.
-pub trait AsciiParser {
-	/// The type produced when parsing.
-	type Output;
-	/// Parse a value of type `Output` from a word in an ASCII message.
-	fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError>;
-}
-
-/// Any type that generates a type for writing a value of type `Input` into an ASCII message.
-pub trait AsciiDisplayer {
-	/// The type of the value to display.
-	type Input: ?Sized;
-	/// The output type to display the input value with.
-	type Display<'a>: std::fmt::Display
-	where
-		Self::Input: 'a;
-
-	/// Generate a new display type for the value.
-	fn new(value: &Self::Input) -> Self::Display<'_>;
-}
-
-macro_rules! impl_parse_and_ascii_display_via_builtins {
-    ( $($type:ty),+ $(,)? ) => {
-        $(
-            impl AsciiParser for $type {
-                type Output = $type;
-                fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError> {
-                    s.parse().map_err(|e| {
-                        let msg = format!("could not parse `{}` as {}: {}", s, stringify!($type), e);
-                        ConversionError(msg.into_boxed_str())
-                    })
-                }
-            }
-            impl AsciiDisplayer for $type {
-                type Input = $type;
-                type Display<'a> = $type where Self::Input: 'a;
-                fn new(value: &$type) -> $type {
-                    *value
-                }
-            }
-        )+
-    }
-}
-impl_parse_and_ascii_display_via_builtins! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
-
-impl AsciiParser for String {
-	type Output = String;
-	fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError> {
-		let value = s.trim();
-		if value.is_empty() {
-			Err(ConversionError(
-				"found empty string".to_string().into_boxed_str(),
-			))
-		} else {
-			Ok(value.to_string())
-		}
-	}
-}
-
-impl AsciiDisplayer for &str {
-	type Input = str;
-	type Display<'a> = &'a str where Self::Input: 'a;
-	fn new(value: &str) -> Self::Display<'_> {
-		value
-	}
-}
-
-/// A type for parsing and formatting a bool in ASCII messages.
-#[derive(Debug)]
-pub struct AsciiBool(pub bool);
-
-impl AsciiParser for AsciiBool {
-	type Output = bool;
-	fn parse_ascii(s: &str) -> Result<Self::Output, ConversionError> {
-		match s {
-			"0" => Ok(false),
-			"1" => Ok(true),
-			other => {
-				let msg = format!("could not parse `{other}` as bool");
-				Err(ConversionError(msg.into_boxed_str()))
-			}
-		}
-	}
-}
-impl AsciiDisplayer for AsciiBool {
-	type Input = bool;
-	type Display<'a> = AsciiBool where Self::Input: 'a;
-	fn new(value: &bool) -> Self::Display<'_> {
-		AsciiBool(*value)
-	}
-}
-impl std::fmt::Display for AsciiBool {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", if self.0 { 1 } else { 0 })
-	}
-}
 
 /// Any type that is a valid data type in the ASCII protocol.
 pub trait DataType {
@@ -106,23 +16,23 @@ pub trait DataType {
 	/// The owned type.
 	type Owned;
 	/// The type used to parse an owned value from an ASCII message.
-	type Parser: AsciiParser<Output = Self::Owned>;
+	type Parser: Parse<Output = Self::Owned>;
 	/// The type used to format a value in an ASCII message.
-	type Displayer<'a>: AsciiDisplayer<Input = Self::Borrowed>
+	type Displayer<'a>: Display<Input = Self::Borrowed>
 	where
 		Self: 'a;
 
 	/// Parse the owned version of this data type from a string.
-	fn parse_ascii(s: &str) -> Result<Self::Owned, ConversionError> {
-		Self::Parser::parse_ascii(s)
+	fn parse(s: &str) -> Result<Self::Owned, ConversionError> {
+		Self::Parser::parse(s)
 	}
 	/// Get an instance of a type for formatting this value in an ASCII message.
-	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as AsciiDisplayer>::Display<'_> {
-		Self::Displayer::new(value)
+	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as Display>::Display<'_> {
+		Self::Displayer::display(value)
 	}
 }
 
-macro_rules! impl_data_type_via_builtin {
+macro_rules! impl_data_type {
     (
         $( $type:ty ),+ $(,)?
     ) => {
@@ -137,7 +47,7 @@ macro_rules! impl_data_type_via_builtin {
     }
 }
 
-impl_data_type_via_builtin! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
+impl_data_type! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
 
 impl DataType for bool {
 	type Borrowed = bool;
@@ -150,7 +60,105 @@ impl DataType for String {
 	type Borrowed = str;
 	type Owned = String;
 	type Parser = String;
-	type Displayer<'a> = &'a str where Self: 'a;
+	type Displayer<'a> = String where Self: 'a;
+}
+
+/// Any type that can parse value of type `Output` from a word in an ASCII message's data field.
+pub trait Parse {
+	/// The type of the produced value.
+	type Output;
+	/// Parse a value of type `Output` from a word in an ASCII message.
+	fn parse(s: &str) -> Result<Self::Output, ConversionError>;
+}
+
+/// Any type that generates another type, `Display`, to properly "display" (write)
+/// a value of type `Input` into an ASCII command.
+pub trait Display {
+	/// The type of the value to be displayed.
+	type Input: ?Sized;
+	/// The type generated that will display the input type.
+	type Display<'a>: std::fmt::Display
+	where
+		Self::Input: 'a;
+
+	/// Generate a new display type for the value.
+	fn display(value: &Self::Input) -> Self::Display<'_>;
+}
+
+macro_rules! impl_parse_and_display {
+    ( $($type:ty),+ $(,)? ) => {
+        $(
+            impl Parse for $type {
+                type Output = $type;
+                fn parse(s: &str) -> Result<Self::Output, ConversionError> {
+                    s.parse().map_err(|e| {
+                        let msg = format!("could not parse `{}` as {}: {}", s, stringify!($type), e);
+                        ConversionError(msg.into_boxed_str())
+                    })
+                }
+            }
+            impl Display for $type {
+                type Input = $type;
+                type Display<'a> = $type where Self::Input: 'a;
+                fn display(value: &$type) -> $type {
+                    *value
+                }
+            }
+        )+
+    }
+}
+impl_parse_and_display! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
+
+impl Parse for String {
+	type Output = String;
+	fn parse(s: &str) -> Result<Self::Output, ConversionError> {
+		let value = s.trim();
+		if value.is_empty() {
+			Err(ConversionError(
+				"found empty string".to_string().into_boxed_str(),
+			))
+		} else {
+			Ok(value.to_string())
+		}
+	}
+}
+
+impl Display for String {
+	type Input = str;
+	type Display<'a> = &'a str where Self::Input: 'a;
+	fn display(value: &str) -> Self::Display<'_> {
+		value
+	}
+}
+
+/// A type for parsing and formatting a bool in ASCII messages.
+#[derive(Debug)]
+pub struct AsciiBool(pub bool);
+
+impl Parse for AsciiBool {
+	type Output = bool;
+	fn parse(s: &str) -> Result<Self::Output, ConversionError> {
+		match s {
+			"0" => Ok(false),
+			"1" => Ok(true),
+			other => {
+				let msg = format!("could not parse `{other}` as bool");
+				Err(ConversionError(msg.into_boxed_str()))
+			}
+		}
+	}
+}
+impl Display for AsciiBool {
+	type Input = bool;
+	type Display<'a> = AsciiBool where Self::Input: 'a;
+	fn display(value: &bool) -> Self::Display<'_> {
+		AsciiBool(*value)
+	}
+}
+impl std::fmt::Display for AsciiBool {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", if self.0 { 1 } else { 0 })
+	}
 }
 
 #[cfg(test)]
@@ -172,7 +180,7 @@ mod test {
                 fn $type() {
                     $(
                         let input = $input;
-                        let result = <$type as DataType>::parse_ascii(input);
+                        let result = <$type as DataType>::parse(input);
                         match result {
                             $expected => {}
                             unexpected => panic!("expected {} but got {:?}", stringify!($expected), unexpected),
