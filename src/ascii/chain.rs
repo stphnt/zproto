@@ -157,6 +157,18 @@ where
 	}
 }
 
+impl<'a, B, P> std::iter::IntoIterator for &mut Chain<'a, B, P>
+where
+	P: SharedMut<Port<'a, B>>,
+{
+	type Item = Device<'a, B, P>;
+	type IntoIter = IterDevices<'a, B, P>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		IterDevices::new(self.port.clone(), self.info.clone())
+	}
+}
+
 impl Chain<'static, Port<'static, Serial>> {
 	/// Get a [`ChainOptions`] to customize the creation of a new [`Chain`].
 	pub fn options() -> ChainOptions {
@@ -293,6 +305,18 @@ where
 }
 
 impl<'a, B, P> std::iter::IntoIterator for &Device<'a, B, P>
+where
+	P: SharedMut<Port<'a, B>>,
+{
+	type Item = Axis<'a, B, P>;
+	type IntoIter = IterAxes<'a, B, P>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		IterAxes::new(self.port.clone(), self.info.clone(), self.address)
+	}
+}
+
+impl<'a, B, P> std::iter::IntoIterator for &mut Device<'a, B, P>
 where
 	P: SharedMut<Port<'a, B>>,
 {
