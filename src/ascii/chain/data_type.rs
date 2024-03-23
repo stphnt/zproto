@@ -62,7 +62,7 @@ impl Parse for String {
 	}
 }
 
-impl Display for &str {
+impl Display for String {
 	type Input = str;
 	type Display<'a> = &'a str where Self::Input: 'a;
 	fn display(value: &str) -> Self::Display<'_> {
@@ -151,7 +151,7 @@ impl DataType for String {
 	type Borrowed = str;
 	type Owned = String;
 	type Parser = String;
-	type Displayer<'a> = &'a str where Self: 'a;
+	type Displayer<'a> = String where Self: 'a;
 }
 
 #[cfg(test)]
