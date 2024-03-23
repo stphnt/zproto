@@ -21,7 +21,7 @@ pub trait Display {
 		Self::Input: 'a;
 
 	/// Generate a new display type for the value.
-	fn new(value: &Self::Input) -> Self::Display<'_>;
+	fn display(value: &Self::Input) -> Self::Display<'_>;
 }
 
 macro_rules! impl_parse_and_ascii_display_via_builtins {
@@ -39,7 +39,7 @@ macro_rules! impl_parse_and_ascii_display_via_builtins {
             impl Display for $type {
                 type Input = $type;
                 type Display<'a> = $type where Self::Input: 'a;
-                fn new(value: &$type) -> $type {
+                fn display(value: &$type) -> $type {
                     *value
                 }
             }
@@ -65,7 +65,7 @@ impl Parse for String {
 impl Display for &str {
 	type Input = str;
 	type Display<'a> = &'a str where Self::Input: 'a;
-	fn new(value: &str) -> Self::Display<'_> {
+	fn display(value: &str) -> Self::Display<'_> {
 		value
 	}
 }
@@ -90,7 +90,7 @@ impl Parse for AsciiBool {
 impl Display for AsciiBool {
 	type Input = bool;
 	type Display<'a> = AsciiBool where Self::Input: 'a;
-	fn new(value: &bool) -> Self::Display<'_> {
+	fn display(value: &bool) -> Self::Display<'_> {
 		AsciiBool(*value)
 	}
 }
@@ -119,7 +119,7 @@ pub trait DataType {
 	}
 	/// Get an instance of a type for formatting this value in an ASCII message.
 	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as Display>::Display<'_> {
-		Self::Displayer::new(value)
+		Self::Displayer::display(value)
 	}
 }
 
