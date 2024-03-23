@@ -2,19 +2,20 @@
 use crate::ascii::setting::data_types::MacAddress;
 use crate::error::ConversionError;
 
-/// Any type that can parse a value of type `T` from a word in an ASCII message.
-pub trait AsciiParser {
-	/// The type produced when parsing.
+/// Any type that can parse value of type `Output` from a word in an ASCII message's data field.
+pub trait Parse {
+	/// The type of the produced value.
 	type Output;
 	/// Parse a value of type `Output` from a word in an ASCII message.
 	fn parse(s: &str) -> Result<Self::Output, ConversionError>;
 }
 
-/// Any type that generates a type for writing a value of type `Input` into an ASCII message.
-pub trait AsciiDisplayer {
-	/// The type of the value to display.
+/// Any type that generates another type, `Display`, to properly "display" (write)
+/// a value of type `Input` into an ASCII command.
+pub trait Display {
+	/// The type of the value to be displayed.
 	type Input: ?Sized;
-	/// The output type to display the input value with.
+	/// The type generated that will display the input type.
 	type Display<'a>: std::fmt::Display
 	where
 		Self::Input: 'a;
@@ -26,7 +27,7 @@ pub trait AsciiDisplayer {
 macro_rules! impl_parse_and_ascii_display_via_builtins {
     ( $($type:ty),+ $(,)? ) => {
         $(
-            impl AsciiParser for $type {
+            impl Parse for $type {
                 type Output = $type;
                 fn parse(s: &str) -> Result<Self::Output, ConversionError> {
                     s.parse().map_err(|e| {
@@ -35,7 +36,7 @@ macro_rules! impl_parse_and_ascii_display_via_builtins {
                     })
                 }
             }
-            impl AsciiDisplayer for $type {
+            impl Display for $type {
                 type Input = $type;
                 type Display<'a> = $type where Self::Input: 'a;
                 fn new(value: &$type) -> $type {
@@ -47,7 +48,7 @@ macro_rules! impl_parse_and_ascii_display_via_builtins {
 }
 impl_parse_and_ascii_display_via_builtins! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
 
-impl AsciiParser for String {
+impl Parse for String {
 	type Output = String;
 	fn parse(s: &str) -> Result<Self::Output, ConversionError> {
 		let value = s.trim();
@@ -61,7 +62,7 @@ impl AsciiParser for String {
 	}
 }
 
-impl AsciiDisplayer for &str {
+impl Display for &str {
 	type Input = str;
 	type Display<'a> = &'a str where Self::Input: 'a;
 	fn new(value: &str) -> Self::Display<'_> {
@@ -73,7 +74,7 @@ impl AsciiDisplayer for &str {
 #[derive(Debug)]
 pub struct AsciiBool(pub bool);
 
-impl AsciiParser for AsciiBool {
+impl Parse for AsciiBool {
 	type Output = bool;
 	fn parse(s: &str) -> Result<Self::Output, ConversionError> {
 		match s {
@@ -86,7 +87,7 @@ impl AsciiParser for AsciiBool {
 		}
 	}
 }
-impl AsciiDisplayer for AsciiBool {
+impl Display for AsciiBool {
 	type Input = bool;
 	type Display<'a> = AsciiBool where Self::Input: 'a;
 	fn new(value: &bool) -> Self::Display<'_> {
@@ -106,9 +107,9 @@ pub trait DataType {
 	/// The owned type.
 	type Owned;
 	/// The type used to parse an owned value from an ASCII message.
-	type Parser: AsciiParser<Output = Self::Owned>;
+	type Parser: Parse<Output = Self::Owned>;
 	/// The type used to format a value in an ASCII message.
-	type Displayer<'a>: AsciiDisplayer<Input = Self::Borrowed>
+	type Displayer<'a>: Display<Input = Self::Borrowed>
 	where
 		Self: 'a;
 
@@ -117,7 +118,7 @@ pub trait DataType {
 		Self::Parser::parse(s)
 	}
 	/// Get an instance of a type for formatting this value in an ASCII message.
-	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as AsciiDisplayer>::Display<'_> {
+	fn display(value: &Self::Borrowed) -> <Self::Displayer<'_> as Display>::Display<'_> {
 		Self::Displayer::new(value)
 	}
 }
