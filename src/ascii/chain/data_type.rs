@@ -1,4 +1,11 @@
-//! Types and traits for parsing and formatting data in ASCII messages.
+//! Types and traits for custom parsing and displaying/formatting of data in ASCII
+//! messages.
+//!
+//! The [`DataType`] trait is the primary trait of interest here, and used by [`Settings`]
+//! to parse the appropriate data types when reading settings. All other types
+//! traits are there to support [`DataType`].
+//!
+//! [`Settings`]: crate::ascii::chain::setting::Settings
 use crate::ascii::setting::data_types::MacAddress;
 use crate::error::ConversionError;
 
