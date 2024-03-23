@@ -24,7 +24,7 @@ pub trait Display {
 	fn display(value: &Self::Input) -> Self::Display<'_>;
 }
 
-macro_rules! impl_parse_and_ascii_display_via_builtins {
+macro_rules! impl_parse_and_display {
     ( $($type:ty),+ $(,)? ) => {
         $(
             impl Parse for $type {
@@ -46,7 +46,7 @@ macro_rules! impl_parse_and_ascii_display_via_builtins {
         )+
     }
 }
-impl_parse_and_ascii_display_via_builtins! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
+impl_parse_and_display! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
 
 impl Parse for String {
 	type Output = String;
@@ -123,7 +123,7 @@ pub trait DataType {
 	}
 }
 
-macro_rules! impl_data_type_via_builtin {
+macro_rules! impl_data_type {
     (
         $( $type:ty ),+ $(,)?
     ) => {
@@ -138,7 +138,7 @@ macro_rules! impl_data_type_via_builtin {
     }
 }
 
-impl_data_type_via_builtin! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
+impl_data_type! { u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64, std::net::Ipv4Addr, MacAddress }
 
 impl DataType for bool {
 	type Borrowed = bool;
