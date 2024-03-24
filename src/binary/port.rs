@@ -795,7 +795,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 	/// # let mut port = Port::open_serial("...")?;
 	/// port.set_packet_handler(|bytes, message, dir| {
-	///     println!("{:?} {:?} {:?}", bytes, message, dir);
+	///     println!("{bytes:?} {message:?} {dir:?}");
 	/// });
 	/// # Ok(())
 	/// # }
@@ -825,7 +825,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// port.tx_recv((1, command::HOME));
 	///
 	/// for packet in packet_list.borrow().iter() {
-	///     println!("{:?}", packet);
+	///     println!("{packet:?}");
 	/// }
 	/// # Ok(())
 	/// # }

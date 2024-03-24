@@ -128,9 +128,9 @@
 //! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
 //! use zproto::ascii::response::check::minimal;
 //! let (reply, infos) = port.command_reply_infos("stream buffer 1 print", minimal())?;
-//! println!("{}", reply);  // `@01 0 OK IDLE -- 0` (for example)
+//! println!("{reply}");  // `@01 0 OK IDLE -- 0` (for example)
 //! for info in infos {
-//!     println!("{}", info); // `#01 0 setup store 1 1` (for example)
+//!     println!("{info}"); // `#01 0 setup store 1 1` (for example)
 //! }
 //! # Ok(())
 //! # }
