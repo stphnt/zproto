@@ -19,5 +19,4 @@ subslices
 system.axiscount
 trybuild
 unhomed
-vlatest
 zproto

@@ -121,7 +121,7 @@ pub fn generate_mod_inc(
 		if *version == latest_version {
 			writeln!(
 				file,
-				"\t#[cfg(any(feature = \"v{}\", feature = \"vlatest\"))]",
+				"\t#[cfg(any(feature = \"v{}\", feature = \"v_latest\"))]",
 				version.source_display()
 			)?;
 		} else {
@@ -144,6 +144,8 @@ pub use private::v{0} as v{0};"#,
 			version.source_display()
 		)?;
 	}
+	// Define v_latest module. Add an empty line in the documentation so that
+	// the docs for the module it aliases are concatenated as a new paragraph.
 	writeln!(
 		file,
 		r#"
@@ -151,9 +153,10 @@ pub use private::v{0} as v{0};"#,
 ///
 /// This alias is updated as new firmware versions are released and is excluded from
 /// all semver guarantees (i.e. changing it does not necessitate a major version bump).
-#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "vlatest")))]
-#[cfg(feature = "vlatest")]
-pub use private::v{} as latest;"#,
+///
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v_latest")))]
+#[cfg(feature = "v_latest")]
+pub use private::v{} as v_latest;"#,
 		latest_version.source_display()
 	)?;
 	Ok(())
@@ -188,7 +191,7 @@ pub fn update_cargo_toml(versions: &[Version], dir_path: impl AsRef<Path>) -> an
 			));
 	}
 	features
-		.entry("vlatest")
+		.entry("v_latest")
 		.or_insert(value(Array::default()))
 		.as_value_mut()
 		.unwrap()

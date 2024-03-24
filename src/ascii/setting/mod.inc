@@ -112,7 +112,7 @@ pub(crate) mod private {
 	pub mod v7_36;
 	#[cfg(feature = "v7_37")]
 	pub mod v7_37;
-	#[cfg(any(feature = "v7_38", feature = "vlatest"))]
+	#[cfg(any(feature = "v7_38", feature = "v_latest"))]
 	pub mod v7_38;
 }
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v6_14")))]
@@ -285,6 +285,7 @@ pub use private::v7_38 as v7_38;
 ///
 /// This alias is updated as new firmware versions are released and is excluded from
 /// all semver guarantees (i.e. changing it does not necessitate a major version bump).
-#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "vlatest")))]
-#[cfg(feature = "vlatest")]
-pub use private::v7_38 as latest;
+///
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v_latest")))]
+#[cfg(feature = "v_latest")]
+pub use private::v7_38 as v_latest;
