@@ -10,189 +10,189 @@ use crate::ascii::chain::scope::{AxisScope, DeviceScope};
 
 define_settings! {
 
-    /// The type of the [`accel`](https://www.zaber.com/protocol-manual#topic_setting_accel) setting.
+    /// The type representing the [`accel`](https://www.zaber.com/protocol-manual#topic_setting_accel) setting.
     pub struct Accel: Setting<Type = u32, Name = "accel">, AxisScope;
-    /// The type of the [`calibration.type`](https://www.zaber.com/protocol-manual#topic_setting_calibration_type) setting.
+    /// The type representing the [`calibration.type`](https://www.zaber.com/protocol-manual#topic_setting_calibration_type) setting.
     pub struct CalibrationType: Setting<Type = u8, Name = "calibration.type">, AxisScope;
-    /// The type of the [`cloop.continuous.enable`](https://www.zaber.com/protocol-manual#topic_setting_cloop_continuous_enable) setting.
+    /// The type representing the [`cloop.continuous.enable`](https://www.zaber.com/protocol-manual#topic_setting_cloop_continuous_enable) setting.
     pub struct CloopContinuousEnable: Setting<Type = bool, Name = "cloop.continuous.enable">, AxisScope;
-    /// The type of the [`cloop.displace.tolerance`](https://www.zaber.com/protocol-manual#topic_setting_cloop_displace_tolerance) setting.
+    /// The type representing the [`cloop.displace.tolerance`](https://www.zaber.com/protocol-manual#topic_setting_cloop_displace_tolerance) setting.
     pub struct CloopDisplaceTolerance: Setting<Type = u32, Name = "cloop.displace.tolerance">, AxisScope;
-    /// The type of the [`cloop.enable`](https://www.zaber.com/protocol-manual#topic_setting_cloop_enable) setting.
+    /// The type representing the [`cloop.enable`](https://www.zaber.com/protocol-manual#topic_setting_cloop_enable) setting.
     pub struct CloopEnable: Setting<Type = bool, Name = "cloop.enable">, AxisScope;
-    /// The type of the [`cloop.recovery.enable`](https://www.zaber.com/protocol-manual#topic_setting_cloop_recovery_enable) setting.
+    /// The type representing the [`cloop.recovery.enable`](https://www.zaber.com/protocol-manual#topic_setting_cloop_recovery_enable) setting.
     pub struct CloopRecoveryEnable: Setting<Type = bool, Name = "cloop.recovery.enable">, AxisScope;
-    /// The type of the [`cloop.settle.period`](https://www.zaber.com/protocol-manual#topic_setting_cloop_settle_period) setting.
+    /// The type representing the [`cloop.settle.period`](https://www.zaber.com/protocol-manual#topic_setting_cloop_settle_period) setting.
     pub struct CloopSettlePeriod: Setting<Type = u32, Name = "cloop.settle.period">, AxisScope;
-    /// The type of the [`cloop.settle.tolerance`](https://www.zaber.com/protocol-manual#topic_setting_cloop_settle_tolerance) setting.
+    /// The type representing the [`cloop.settle.tolerance`](https://www.zaber.com/protocol-manual#topic_setting_cloop_settle_tolerance) setting.
     pub struct CloopSettleTolerance: Setting<Type = u32, Name = "cloop.settle.tolerance">, AxisScope;
-    /// The type of the [`cloop.timeout`](https://www.zaber.com/protocol-manual#topic_setting_cloop_timeout) setting.
+    /// The type representing the [`cloop.timeout`](https://www.zaber.com/protocol-manual#topic_setting_cloop_timeout) setting.
     pub struct CloopTimeout: Setting<Type = u16, Name = "cloop.timeout">, AxisScope;
-    /// The type of the [`comm.address`](https://www.zaber.com/protocol-manual#topic_setting_comm_address) setting.
+    /// The type representing the [`comm.address`](https://www.zaber.com/protocol-manual#topic_setting_comm_address) setting.
     pub struct CommAddress: Setting<Type = u8, Name = "comm.address">, DeviceScope;
-    /// The type of the [`comm.alert`](https://www.zaber.com/protocol-manual#topic_setting_comm_alert) setting.
+    /// The type representing the [`comm.alert`](https://www.zaber.com/protocol-manual#topic_setting_comm_alert) setting.
     pub struct CommAlert: Setting<Type = bool, Name = "comm.alert">, DeviceScope;
-    /// The type of the [`comm.checksum`](https://www.zaber.com/protocol-manual#topic_setting_comm_checksum) setting.
+    /// The type representing the [`comm.checksum`](https://www.zaber.com/protocol-manual#topic_setting_comm_checksum) setting.
     pub struct CommChecksum: Setting<Type = bool, Name = "comm.checksum">, DeviceScope;
-    /// The type of the [`comm.protocol`](https://www.zaber.com/protocol-manual#topic_setting_comm_protocol) setting.
+    /// The type representing the [`comm.protocol`](https://www.zaber.com/protocol-manual#topic_setting_comm_protocol) setting.
     pub struct CommProtocol: Setting<Type = u8, Name = "comm.protocol">, DeviceScope;
-    /// The type of the [`comm.rs232.baud`](https://www.zaber.com/protocol-manual#topic_setting_comm_rs232_baud) setting.
+    /// The type representing the [`comm.rs232.baud`](https://www.zaber.com/protocol-manual#topic_setting_comm_rs232_baud) setting.
     pub struct CommRs232Baud: Setting<Type = u32, Name = "comm.rs232.baud">, DeviceScope;
-    /// The type of the [`device.id`](https://www.zaber.com/protocol-manual#topic_setting_device_id) setting.
+    /// The type representing the [`device.id`](https://www.zaber.com/protocol-manual#topic_setting_device_id) setting.
     pub struct DeviceId: Setting<Type = u32, Name = "device.id">, DeviceScope;
-    /// The type of the [`driver.current.hold`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_hold) setting.
+    /// The type representing the [`driver.current.hold`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_hold) setting.
     pub struct DriverCurrentHold: Setting<Type = u32, Name = "driver.current.hold">, AxisScope;
-    /// The type of the [`driver.current.max`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_max) setting.
+    /// The type representing the [`driver.current.max`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_max) setting.
     pub struct DriverCurrentMax: Setting<Type = u32, Name = "driver.current.max">, AxisScope;
-    /// The type of the [`driver.current.run`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_run) setting.
+    /// The type representing the [`driver.current.run`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_run) setting.
     pub struct DriverCurrentRun: Setting<Type = u32, Name = "driver.current.run">, AxisScope;
-    /// The type of the [`driver.current.servo`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_servo) setting.
+    /// The type representing the [`driver.current.servo`](https://www.zaber.com/protocol-manual#topic_setting_driver_current_servo) setting.
     pub struct DriverCurrentServo: Setting<Type = u32, Name = "driver.current.servo">, AxisScope;
-    /// The type of the [`driver.dir`](https://www.zaber.com/protocol-manual#topic_setting_driver_dir) setting.
+    /// The type representing the [`driver.dir`](https://www.zaber.com/protocol-manual#topic_setting_driver_dir) setting.
     pub struct DriverDir: Setting<Type = bool, Name = "driver.dir">, AxisScope;
-    /// The type of the [`driver.enabled`](https://www.zaber.com/protocol-manual#topic_setting_driver_enabled) setting.
+    /// The type representing the [`driver.enabled`](https://www.zaber.com/protocol-manual#topic_setting_driver_enabled) setting.
     pub struct DriverEnabled: Setting<Type = bool, Name = "driver.enabled">, AxisScope;
-    /// The type of the [`driver.temperature`](https://www.zaber.com/protocol-manual#topic_setting_driver_temperature) setting.
+    /// The type representing the [`driver.temperature`](https://www.zaber.com/protocol-manual#topic_setting_driver_temperature) setting.
     pub struct DriverTemperature: Setting<Type = f32, Name = "driver.temperature">, AxisScope;
-    /// The type of the [`encoder.count`](https://www.zaber.com/protocol-manual#topic_setting_encoder_count) setting.
+    /// The type representing the [`encoder.count`](https://www.zaber.com/protocol-manual#topic_setting_encoder_count) setting.
     pub struct EncoderCount: Setting<Type = i64, Name = "encoder.count">, AxisScope;
-    /// The type of the [`encoder.count.cal`](https://www.zaber.com/protocol-manual#topic_setting_encoder_count_cal) setting.
+    /// The type representing the [`encoder.count.cal`](https://www.zaber.com/protocol-manual#topic_setting_encoder_count_cal) setting.
     pub struct EncoderCountCal: Setting<Type = i64, Name = "encoder.count.cal">, AxisScope;
-    /// The type of the [`encoder.dir`](https://www.zaber.com/protocol-manual#topic_setting_encoder_dir) setting.
+    /// The type representing the [`encoder.dir`](https://www.zaber.com/protocol-manual#topic_setting_encoder_dir) setting.
     pub struct EncoderDir: Setting<Type = bool, Name = "encoder.dir">, AxisScope;
-    /// The type of the [`encoder.pos`](https://www.zaber.com/protocol-manual#topic_setting_encoder_pos) setting.
+    /// The type representing the [`encoder.pos`](https://www.zaber.com/protocol-manual#topic_setting_encoder_pos) setting.
     pub struct EncoderPos: Setting<Type = i32, Name = "encoder.pos">, AxisScope;
-    /// The type of the [`encoder.pos.error`](https://www.zaber.com/protocol-manual#topic_setting_encoder_pos_error) setting.
+    /// The type representing the [`encoder.pos.error`](https://www.zaber.com/protocol-manual#topic_setting_encoder_pos_error) setting.
     pub struct EncoderPosError: Setting<Type = i32, Name = "encoder.pos.error">, AxisScope;
-    /// The type of the [`knob.dir`](https://www.zaber.com/protocol-manual#topic_setting_knob_dir) setting.
+    /// The type representing the [`knob.dir`](https://www.zaber.com/protocol-manual#topic_setting_knob_dir) setting.
     pub struct KnobDir: Setting<Type = bool, Name = "knob.dir">, AxisScope;
-    /// The type of the [`knob.distance`](https://www.zaber.com/protocol-manual#topic_setting_knob_distance) setting.
+    /// The type representing the [`knob.distance`](https://www.zaber.com/protocol-manual#topic_setting_knob_distance) setting.
     pub struct KnobDistance: Setting<Type = u32, Name = "knob.distance">, AxisScope;
-    /// The type of the [`knob.enable`](https://www.zaber.com/protocol-manual#topic_setting_knob_enable) setting.
+    /// The type representing the [`knob.enable`](https://www.zaber.com/protocol-manual#topic_setting_knob_enable) setting.
     pub struct KnobEnable: Setting<Type = bool, Name = "knob.enable">, AxisScope;
-    /// The type of the [`knob.maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_knob_maxspeed) setting.
+    /// The type representing the [`knob.maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_knob_maxspeed) setting.
     pub struct KnobMaxspeed: Setting<Type = u64, Name = "knob.maxspeed">, AxisScope;
-    /// The type of the [`knob.mode`](https://www.zaber.com/protocol-manual#topic_setting_knob_mode) setting.
+    /// The type representing the [`knob.mode`](https://www.zaber.com/protocol-manual#topic_setting_knob_mode) setting.
     pub struct KnobMode: Setting<Type = u8, Name = "knob.mode">, AxisScope;
-    /// The type of the [`knob.speedprofile`](https://www.zaber.com/protocol-manual#topic_setting_knob_speedprofile) setting.
+    /// The type representing the [`knob.speedprofile`](https://www.zaber.com/protocol-manual#topic_setting_knob_speedprofile) setting.
     pub struct KnobSpeedprofile: Setting<Type = u8, Name = "knob.speedprofile">, AxisScope;
-    /// The type of the [`lamp.current`](https://www.zaber.com/protocol-manual#topic_setting_lamp_current) setting.
+    /// The type representing the [`lamp.current`](https://www.zaber.com/protocol-manual#topic_setting_lamp_current) setting.
     pub struct LampCurrent: Setting<Type = f32, Name = "lamp.current">, AxisScope;
-    /// The type of the [`lamp.current.max`](https://www.zaber.com/protocol-manual#topic_setting_lamp_current_max) setting.
+    /// The type representing the [`lamp.current.max`](https://www.zaber.com/protocol-manual#topic_setting_lamp_current_max) setting.
     pub struct LampCurrentMax: Setting<Type = f32, Name = "lamp.current.max">, AxisScope;
-    /// The type of the [`lamp.flux`](https://www.zaber.com/protocol-manual#topic_setting_lamp_flux) setting.
+    /// The type representing the [`lamp.flux`](https://www.zaber.com/protocol-manual#topic_setting_lamp_flux) setting.
     pub struct LampFlux: Setting<Type = f32, Name = "lamp.flux">, AxisScope;
-    /// The type of the [`lamp.flux.max`](https://www.zaber.com/protocol-manual#topic_setting_lamp_flux_max) setting.
+    /// The type representing the [`lamp.flux.max`](https://www.zaber.com/protocol-manual#topic_setting_lamp_flux_max) setting.
     pub struct LampFluxMax: Setting<Type = f32, Name = "lamp.flux.max">, AxisScope;
-    /// The type of the [`lamp.status`](https://www.zaber.com/protocol-manual#topic_setting_lamp_status) setting.
+    /// The type representing the [`lamp.status`](https://www.zaber.com/protocol-manual#topic_setting_lamp_status) setting.
     pub struct LampStatus: Setting<Type = u32, Name = "lamp.status">, AxisScope;
-    /// The type of the [`lamp.temperature`](https://www.zaber.com/protocol-manual#topic_setting_lamp_temperature) setting.
+    /// The type representing the [`lamp.temperature`](https://www.zaber.com/protocol-manual#topic_setting_lamp_temperature) setting.
     pub struct LampTemperature: Setting<Type = f32, Name = "lamp.temperature">, AxisScope;
-    /// The type of the [`lamp.wavelength.fwhm`](https://www.zaber.com/protocol-manual#topic_setting_lamp_wavelength_fwhm) setting.
+    /// The type representing the [`lamp.wavelength.fwhm`](https://www.zaber.com/protocol-manual#topic_setting_lamp_wavelength_fwhm) setting.
     pub struct LampWavelengthFwhm: Setting<Type = u32, Name = "lamp.wavelength.fwhm">, AxisScope;
-    /// The type of the [`lamp.wavelength.peak`](https://www.zaber.com/protocol-manual#topic_setting_lamp_wavelength_peak) setting.
+    /// The type representing the [`lamp.wavelength.peak`](https://www.zaber.com/protocol-manual#topic_setting_lamp_wavelength_peak) setting.
     pub struct LampWavelengthPeak: Setting<Type = u32, Name = "lamp.wavelength.peak">, AxisScope;
-    /// The type of the [`limit.approach.maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_limit_approach_maxspeed) setting.
+    /// The type representing the [`limit.approach.maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_limit_approach_maxspeed) setting.
     pub struct LimitApproachMaxspeed: Setting<Type = u64, Name = "limit.approach.maxspeed">, AxisScope;
-    /// The type of the [`limit.away.action`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_action) setting.
+    /// The type representing the [`limit.away.action`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_action) setting.
     pub struct LimitAwayAction: Setting<Type = u8, Name = "limit.away.action">, AxisScope;
-    /// The type of the [`limit.away.posupdate`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_posupdate) setting.
+    /// The type representing the [`limit.away.posupdate`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_posupdate) setting.
     pub struct LimitAwayPosupdate: Setting<Type = u8, Name = "limit.away.posupdate">, AxisScope;
-    /// The type of the [`limit.away.preset`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_preset) setting.
+    /// The type representing the [`limit.away.preset`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_preset) setting.
     pub struct LimitAwayPreset: Setting<Type = i32, Name = "limit.away.preset">, AxisScope;
-    /// The type of the [`limit.away.state`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_state) setting.
+    /// The type representing the [`limit.away.state`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_state) setting.
     pub struct LimitAwayState: Setting<Type = bool, Name = "limit.away.state">, AxisScope;
-    /// The type of the [`limit.away.triggered`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_triggered) setting.
+    /// The type representing the [`limit.away.triggered`](https://www.zaber.com/protocol-manual#topic_setting_limit_away_triggered) setting.
     pub struct LimitAwayTriggered: Setting<Type = bool, Name = "limit.away.triggered">, AxisScope;
-    /// The type of the [`limit.c.action`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_action) setting.
+    /// The type representing the [`limit.c.action`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_action) setting.
     pub struct LimitCAction: Setting<Type = u8, Name = "limit.c.action">, AxisScope;
-    /// The type of the [`limit.c.pos`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_pos) setting.
+    /// The type representing the [`limit.c.pos`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_pos) setting.
     pub struct LimitCPos: Setting<Type = i32, Name = "limit.c.pos">, AxisScope;
-    /// The type of the [`limit.c.posupdate`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_posupdate) setting.
+    /// The type representing the [`limit.c.posupdate`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_posupdate) setting.
     pub struct LimitCPosupdate: Setting<Type = u8, Name = "limit.c.posupdate">, AxisScope;
-    /// The type of the [`limit.c.preset`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_preset) setting.
+    /// The type representing the [`limit.c.preset`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_preset) setting.
     pub struct LimitCPreset: Setting<Type = i32, Name = "limit.c.preset">, AxisScope;
-    /// The type of the [`limit.c.state`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_state) setting.
+    /// The type representing the [`limit.c.state`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_state) setting.
     pub struct LimitCState: Setting<Type = bool, Name = "limit.c.state">, AxisScope;
-    /// The type of the [`limit.c.triggered`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_triggered) setting.
+    /// The type representing the [`limit.c.triggered`](https://www.zaber.com/protocol-manual#topic_setting_limit_c_triggered) setting.
     pub struct LimitCTriggered: Setting<Type = bool, Name = "limit.c.triggered">, AxisScope;
-    /// The type of the [`limit.cycle.dist`](https://www.zaber.com/protocol-manual#topic_setting_limit_cycle_dist) setting.
+    /// The type representing the [`limit.cycle.dist`](https://www.zaber.com/protocol-manual#topic_setting_limit_cycle_dist) setting.
     pub struct LimitCycleDist: Setting<Type = u32, Name = "limit.cycle.dist">, AxisScope;
-    /// The type of the [`limit.detect.decelonly`](https://www.zaber.com/protocol-manual#topic_setting_limit_detect_decelonly) setting.
+    /// The type representing the [`limit.detect.decelonly`](https://www.zaber.com/protocol-manual#topic_setting_limit_detect_decelonly) setting.
     pub struct LimitDetectDecelonly: Setting<Type = u32, Name = "limit.detect.decelonly">, AxisScope;
-    /// The type of the [`limit.detect.maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_limit_detect_maxspeed) setting.
+    /// The type representing the [`limit.detect.maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_limit_detect_maxspeed) setting.
     pub struct LimitDetectMaxspeed: Setting<Type = u64, Name = "limit.detect.maxspeed">, AxisScope;
-    /// The type of the [`limit.home.action`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_action) setting.
+    /// The type representing the [`limit.home.action`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_action) setting.
     pub struct LimitHomeAction: Setting<Type = u8, Name = "limit.home.action">, AxisScope;
-    /// The type of the [`limit.home.posupdate`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_posupdate) setting.
+    /// The type representing the [`limit.home.posupdate`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_posupdate) setting.
     pub struct LimitHomePosupdate: Setting<Type = u8, Name = "limit.home.posupdate">, AxisScope;
-    /// The type of the [`limit.home.preset`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_preset) setting.
+    /// The type representing the [`limit.home.preset`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_preset) setting.
     pub struct LimitHomePreset: Setting<Type = i32, Name = "limit.home.preset">, AxisScope;
-    /// The type of the [`limit.home.state`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_state) setting.
+    /// The type representing the [`limit.home.state`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_state) setting.
     pub struct LimitHomeState: Setting<Type = bool, Name = "limit.home.state">, AxisScope;
-    /// The type of the [`limit.home.triggered`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_triggered) setting.
+    /// The type representing the [`limit.home.triggered`](https://www.zaber.com/protocol-manual#topic_setting_limit_home_triggered) setting.
     pub struct LimitHomeTriggered: Setting<Type = bool, Name = "limit.home.triggered">, AxisScope;
-    /// The type of the [`limit.max`](https://www.zaber.com/protocol-manual#topic_setting_limit_max) setting.
+    /// The type representing the [`limit.max`](https://www.zaber.com/protocol-manual#topic_setting_limit_max) setting.
     pub struct LimitMax: Setting<Type = i32, Name = "limit.max">, AxisScope;
-    /// The type of the [`limit.min`](https://www.zaber.com/protocol-manual#topic_setting_limit_min) setting.
+    /// The type representing the [`limit.min`](https://www.zaber.com/protocol-manual#topic_setting_limit_min) setting.
     pub struct LimitMin: Setting<Type = i32, Name = "limit.min">, AxisScope;
-    /// The type of the [`limit.start.pos`](https://www.zaber.com/protocol-manual#topic_setting_limit_start_pos) setting.
+    /// The type representing the [`limit.start.pos`](https://www.zaber.com/protocol-manual#topic_setting_limit_start_pos) setting.
     pub struct LimitStartPos: Setting<Type = u8, Name = "limit.start.pos">, AxisScope;
-    /// The type of the [`lockstep.numgroups`](https://www.zaber.com/protocol-manual#topic_setting_lockstep_numgroups) setting.
+    /// The type representing the [`lockstep.numgroups`](https://www.zaber.com/protocol-manual#topic_setting_lockstep_numgroups) setting.
     pub struct LockstepNumgroups: Setting<Type = u8, Name = "lockstep.numgroups">, DeviceScope;
-    /// The type of the [`maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_maxspeed) setting.
+    /// The type representing the [`maxspeed`](https://www.zaber.com/protocol-manual#topic_setting_maxspeed) setting.
     pub struct Maxspeed: Setting<Type = u64, Name = "maxspeed">, AxisScope;
-    /// The type of the [`motion.accelonly`](https://www.zaber.com/protocol-manual#topic_setting_motion_accelonly) setting.
+    /// The type representing the [`motion.accelonly`](https://www.zaber.com/protocol-manual#topic_setting_motion_accelonly) setting.
     pub struct MotionAccelonly: Setting<Type = u32, Name = "motion.accelonly">, AxisScope;
-    /// The type of the [`motion.decelonly`](https://www.zaber.com/protocol-manual#topic_setting_motion_decelonly) setting.
+    /// The type representing the [`motion.decelonly`](https://www.zaber.com/protocol-manual#topic_setting_motion_decelonly) setting.
     pub struct MotionDecelonly: Setting<Type = u32, Name = "motion.decelonly">, AxisScope;
-    /// The type of the [`motion.index.dist`](https://www.zaber.com/protocol-manual#topic_setting_motion_index_dist) setting.
+    /// The type representing the [`motion.index.dist`](https://www.zaber.com/protocol-manual#topic_setting_motion_index_dist) setting.
     pub struct MotionIndexDist: Setting<Type = u32, Name = "motion.index.dist">, AxisScope;
-    /// The type of the [`motion.index.num`](https://www.zaber.com/protocol-manual#topic_setting_motion_index_num) setting.
+    /// The type representing the [`motion.index.num`](https://www.zaber.com/protocol-manual#topic_setting_motion_index_num) setting.
     pub struct MotionIndexNum: Setting<Type = u32, Name = "motion.index.num">, AxisScope;
-    /// The type of the [`motor.current.max`](https://www.zaber.com/protocol-manual#topic_setting_motor_current_max) setting.
+    /// The type representing the [`motor.current.max`](https://www.zaber.com/protocol-manual#topic_setting_motor_current_max) setting.
     pub struct MotorCurrentMax: Setting<Type = u32, Name = "motor.current.max">, AxisScope;
-    /// The type of the [`parking.state`](https://www.zaber.com/protocol-manual#topic_setting_parking_state) setting.
+    /// The type representing the [`parking.state`](https://www.zaber.com/protocol-manual#topic_setting_parking_state) setting.
     pub struct ParkingState: Setting<Type = bool, Name = "parking.state">, AxisScope;
-    /// The type of the [`peripheral.id`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_id) setting.
+    /// The type representing the [`peripheral.id`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_id) setting.
     pub struct PeripheralId: Setting<Type = u32, Name = "peripheral.id">, AxisScope;
-    /// The type of the [`peripheral.id.pending`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_id_pending) setting.
+    /// The type representing the [`peripheral.id.pending`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_id_pending) setting.
     pub struct PeripheralIdPending: Setting<Type = u32, Name = "peripheral.id.pending">, AxisScope;
-    /// The type of the [`peripheral.serial`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_serial) setting.
+    /// The type representing the [`peripheral.serial`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_serial) setting.
     pub struct PeripheralSerial: Setting<Type = u32, Name = "peripheral.serial">, AxisScope;
-    /// The type of the [`peripheral.serial.pending`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_serial_pending) setting.
+    /// The type representing the [`peripheral.serial.pending`](https://www.zaber.com/protocol-manual#topic_setting_peripheral_serial_pending) setting.
     pub struct PeripheralSerialPending: Setting<Type = u32, Name = "peripheral.serial.pending">, AxisScope;
-    /// The type of the [`pos`](https://www.zaber.com/protocol-manual#topic_setting_pos) setting.
+    /// The type representing the [`pos`](https://www.zaber.com/protocol-manual#topic_setting_pos) setting.
     pub struct Pos: Setting<Type = i32, Name = "pos">, AxisScope;
-    /// The type of the [`resolution`](https://www.zaber.com/protocol-manual#topic_setting_resolution) setting.
+    /// The type representing the [`resolution`](https://www.zaber.com/protocol-manual#topic_setting_resolution) setting.
     pub struct Resolution: Setting<Type = u16, Name = "resolution">, AxisScope;
-    /// The type of the [`scope.delay`](https://www.zaber.com/protocol-manual#topic_setting_scope_delay) setting.
+    /// The type representing the [`scope.delay`](https://www.zaber.com/protocol-manual#topic_setting_scope_delay) setting.
     pub struct ScopeDelay: Setting<Type = f32, Name = "scope.delay">, DeviceScope;
-    /// The type of the [`scope.timebase`](https://www.zaber.com/protocol-manual#topic_setting_scope_timebase) setting.
+    /// The type representing the [`scope.timebase`](https://www.zaber.com/protocol-manual#topic_setting_scope_timebase) setting.
     pub struct ScopeTimebase: Setting<Type = f32, Name = "scope.timebase">, DeviceScope;
-    /// The type of the [`stream.numbufs`](https://www.zaber.com/protocol-manual#topic_setting_stream_numbufs) setting.
+    /// The type representing the [`stream.numbufs`](https://www.zaber.com/protocol-manual#topic_setting_stream_numbufs) setting.
     pub struct StreamNumbufs: Setting<Type = u32, Name = "stream.numbufs">, DeviceScope;
-    /// The type of the [`stream.numstreams`](https://www.zaber.com/protocol-manual#topic_setting_stream_numstreams) setting.
+    /// The type representing the [`stream.numstreams`](https://www.zaber.com/protocol-manual#topic_setting_stream_numstreams) setting.
     pub struct StreamNumstreams: Setting<Type = u32, Name = "stream.numstreams">, DeviceScope;
-    /// The type of the [`system.access`](https://www.zaber.com/protocol-manual#topic_setting_system_access) setting.
+    /// The type representing the [`system.access`](https://www.zaber.com/protocol-manual#topic_setting_system_access) setting.
     pub struct SystemAccess: Setting<Type = u16, Name = "system.access">, DeviceScope;
-    /// The type of the [`system.axiscount`](https://www.zaber.com/protocol-manual#topic_setting_system_axiscount) setting.
+    /// The type representing the [`system.axiscount`](https://www.zaber.com/protocol-manual#topic_setting_system_axiscount) setting.
     pub struct SystemAxiscount: Setting<Type = u32, Name = "system.axiscount">, DeviceScope;
-    /// The type of the [`system.led.enable`](https://www.zaber.com/protocol-manual#topic_setting_system_led_enable) setting.
+    /// The type representing the [`system.led.enable`](https://www.zaber.com/protocol-manual#topic_setting_system_led_enable) setting.
     pub struct SystemLedEnable: Setting<Type = bool, Name = "system.led.enable">, DeviceScope;
-    /// The type of the [`system.serial`](https://www.zaber.com/protocol-manual#topic_setting_system_serial) setting.
+    /// The type representing the [`system.serial`](https://www.zaber.com/protocol-manual#topic_setting_system_serial) setting.
     pub struct SystemSerial: Setting<Type = u32, Name = "system.serial">, DeviceScope;
-    /// The type of the [`system.temperature`](https://www.zaber.com/protocol-manual#topic_setting_system_temperature) setting.
+    /// The type representing the [`system.temperature`](https://www.zaber.com/protocol-manual#topic_setting_system_temperature) setting.
     pub struct SystemTemperature: Setting<Type = f32, Name = "system.temperature">, DeviceScope;
-    /// The type of the [`system.voltage`](https://www.zaber.com/protocol-manual#topic_setting_system_voltage) setting.
+    /// The type representing the [`system.voltage`](https://www.zaber.com/protocol-manual#topic_setting_system_voltage) setting.
     pub struct SystemVoltage: Setting<Type = f32, Name = "system.voltage">, DeviceScope;
-    /// The type of the [`trigger.numactions`](https://www.zaber.com/protocol-manual#topic_setting_trigger_numactions) setting.
+    /// The type representing the [`trigger.numactions`](https://www.zaber.com/protocol-manual#topic_setting_trigger_numactions) setting.
     pub struct TriggerNumactions: Setting<Type = u32, Name = "trigger.numactions">, DeviceScope;
-    /// The type of the [`trigger.numtriggers`](https://www.zaber.com/protocol-manual#topic_setting_trigger_numtriggers) setting.
+    /// The type representing the [`trigger.numtriggers`](https://www.zaber.com/protocol-manual#topic_setting_trigger_numtriggers) setting.
     pub struct TriggerNumtriggers: Setting<Type = u32, Name = "trigger.numtriggers">, DeviceScope;
-    /// The type of the [`version`](https://www.zaber.com/protocol-manual#topic_setting_version) setting.
+    /// The type representing the [`version`](https://www.zaber.com/protocol-manual#topic_setting_version) setting.
     pub struct Version: Setting<Type = f32, Name = "version">, DeviceScope;
-    /// The type of the [`version.build`](https://www.zaber.com/protocol-manual#topic_setting_version_build) setting.
+    /// The type representing the [`version.build`](https://www.zaber.com/protocol-manual#topic_setting_version_build) setting.
     pub struct VersionBuild: Setting<Type = u32, Name = "version.build">, DeviceScope;
 }
 define_any_setting! {

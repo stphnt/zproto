@@ -96,7 +96,7 @@ fn write_setting_def<W: Write>(
 	let scope_trait_name = scope.trait_name();
 	writeln!(
 		f,
-		r#"    /// The type of the [`{name}`]({link}) setting.
+		r#"    /// The type representing the [`{name}`]({link}) setting.
     pub struct {type_name}: Setting<Type = {value_type}, Name = "{name}">, {scope_trait_name};"#
 	)?;
 	Ok(())
