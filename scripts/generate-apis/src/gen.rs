@@ -144,6 +144,8 @@ pub use private::v{0} as v{0};"#,
 			version.source_display()
 		)?;
 	}
+	// Define v_latest module. Add an empty line in the documentation so that
+	// the docs for the module it aliases are concatenated as a new paragraph.
 	writeln!(
 		file,
 		r#"
@@ -151,6 +153,7 @@ pub use private::v{0} as v{0};"#,
 ///
 /// This alias is updated as new firmware versions are released and is excluded from
 /// all semver guarantees (i.e. changing it does not necessitate a major version bump).
+///
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v_latest")))]
 #[cfg(feature = "v_latest")]
 pub use private::v{} as v_latest;"#,

@@ -285,6 +285,7 @@ pub use private::v7_38 as v7_38;
 ///
 /// This alias is updated as new firmware versions are released and is excluded from
 /// all semver guarantees (i.e. changing it does not necessitate a major version bump).
+///
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v_latest")))]
 #[cfg(feature = "v_latest")]
 pub use private::v7_38 as v_latest;
