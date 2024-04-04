@@ -4,12 +4,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  RUSTFLAGS: -Dwarnings -Dmissing_debug_implementations
+  RUSTDOCFLAGS: -Dwarnings -Dmissing_docs -Drustdoc::missing_crate_level_docs
+
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
-    env:
-      RUSTFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v4
       - name: Install libudev
@@ -27,8 +29,6 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, windows-latest, macOS-latest ]
-    env:
-      RUSTFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v4
       - name: Install libudev
@@ -64,7 +64,7 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-features -- -D warnings
+      - run: cargo clippy --all-features
 
   spelling:
     name: Spell Check
@@ -79,8 +79,6 @@ jobs:
   doc:
     name: Rustdoc
     runs-on: ubuntu-latest
-    env:
-      RUSTDOCFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v4
       - name: Install libudev
