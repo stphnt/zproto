@@ -9,7 +9,7 @@ jobs:
     name: Check
     runs-on: ubuntu-latest
     env:
-      RUSTFLAGS: -Dwarnings
+      RUSTFLAGS: -Dwarnings -Dmissing_debug_implementations
     steps:
       - uses: actions/checkout@v4
       - name: Install libudev
@@ -80,7 +80,7 @@ jobs:
     name: Rustdoc
     runs-on: ubuntu-latest
     env:
-      RUSTDOCFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings -Drustdoc::missing_crate_level_docs -Dmissing_docs
     steps:
       - uses: actions/checkout@v4
       - name: Install libudev

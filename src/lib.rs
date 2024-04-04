@@ -4,9 +4,6 @@
 //! ports. See the [`ascii`] and [`binary`] modules for an introduction to their
 //! use.
 
-#![deny(missing_docs)]
-#![deny(rustdoc::missing_crate_level_docs)]
-#![deny(missing_debug_implementations)]
 #![cfg_attr(all(doc, feature = "doc_cfg"), feature(doc_cfg))]
 
 #[cfg(feature = "ascii")]
