@@ -1,4 +1,28 @@
-//! Types and for accessing device or axis settings
+//! Types for accessing device or axis settings.
+//!
+//! The primary type of interest is the [`Settings`] type, which can be used to
+//! generate [`Routine`]s for getting or setting device/axis settings on a [`Chain`]
+//!
+//! ## Example
+//!
+//! ```
+//! # use zproto::error::AsciiError;
+//! # fn wrapper() -> Result<(), AsciiError> {
+//! use zproto::ascii::{Port, setting::v_latest::{DeviceId, Version}};
+//!
+//! let mut port = Port::open_serial("/dev/ttyUSB0")?;
+//! let chain = port.chain()?;
+//! for device in &chain {
+//!     let settings = device.settings();
+//!     let device_id = port.run(settings.get(DeviceId))?;
+//!     let version = port.run(settings.get(Version))?;
+//!     println!("{device_id} {version}");
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`Chain`]: crate::ascii::chain::Chain
 
 use crate::{
 	ascii::{
