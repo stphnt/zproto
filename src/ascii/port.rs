@@ -19,6 +19,7 @@ use crate::{
 		},
 	},
 	error::*,
+	routine::{IntoRoutine, Routine},
 	timeout_guard::TimeoutGuard,
 };
 pub use options::*;
@@ -1245,6 +1246,11 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// Create a [`Chain`].
 	pub fn chain(&mut self) -> Result<Chain, AsciiError> {
 		Chain::new(self)
+	}
+
+	/// Converts the specified `item` into a [`Routine`] and runs it, returning the result.
+	pub fn run<R: IntoRoutine<Self>>(&mut self, item: R) -> Result<R::Output, R::Error> {
+		item.into_routine().run(self)
 	}
 
 	/// Set a callback that will be called immediately after any ASCII packet is
