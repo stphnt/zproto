@@ -8,7 +8,7 @@ mod test;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 use crate::{
 	ascii::{
-		chain::{Chain, SyncChain},
+		chain::Chain,
 		checksum::Lrc,
 		command::{Command, CommandWriter, MaxPacketSize, Target},
 		id,
@@ -19,6 +19,7 @@ use crate::{
 		},
 	},
 	error::*,
+	routine::{IntoRoutine, Routine},
 	timeout_guard::TimeoutGuard,
 };
 pub use options::*;
@@ -1242,14 +1243,14 @@ impl<'a, B: Backend> Port<'a, B> {
 		self.backend
 	}
 
-	/// Consume the port, converting it into a [`Chain`].
-	pub fn into_chain(self) -> Result<Chain<'a, B>, AsciiError> {
+	/// Create a [`Chain`].
+	pub fn chain(&mut self) -> Result<Chain, AsciiError> {
 		Chain::new(self)
 	}
 
-	/// Consume the port, converting it into a [`SyncChain`].
-	pub fn into_sync_chain(self) -> Result<SyncChain<'a, B>, AsciiError> {
-		Chain::new_sync(self)
+	/// Converts the specified `item` into a [`Routine`] and runs it, returning the result.
+	pub fn run<R: IntoRoutine<Self>>(&mut self, item: R) -> Result<R::Output, R::Error> {
+		item.into_routine().run(self)
 	}
 
 	/// Set a callback that will be called immediately after any ASCII packet is
