@@ -14,6 +14,7 @@ pub mod backend;
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub mod binary;
 pub mod error;
+pub mod routine;
 pub mod shared;
 pub mod timeout_guard;
 
