@@ -15,7 +15,6 @@ pub mod backend;
 pub mod binary;
 pub mod error;
 pub mod routine;
-pub mod shared;
 pub mod timeout_guard;
 
 #[cfg(not(any(feature = "ascii", feature = "binary")))]
