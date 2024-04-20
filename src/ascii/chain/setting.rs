@@ -9,14 +9,16 @@ use crate::{
 			Axis, Device,
 		},
 		command::Target,
-		marker::Markers,
-		response::{check, Reply},
+		response::{
+			check::{self, Check},
+			Reply,
+		},
 		setting::Setting,
 		Port,
 	},
 	backend::Backend,
 	error::AsciiError,
-	shared::SharedMut,
+	routine::Routine,
 };
 
 /// An interface for getting and/or setting the settings on a single device or axis.
@@ -24,29 +26,22 @@ use crate::{
 /// A [`Settings`] instance is created via the [`Device::settings`](super::Device::settings)
 /// and [`Axis::settings`](super::Axis::settings) methods.
 #[derive(Debug)]
-pub struct Settings<'a, B, P: SharedMut<Port<'a, B>>, S> {
-	port: P,
-	_info: P::Wrapper<ChainInfo>,
+pub struct Settings<'a, S> {
+	_info: &'a ChainInfo,
 	target: Target,
-	_markers: Markers<'a, B>,
 	_scope_marker: std::marker::PhantomData<S>,
 }
 
 /// A type of [`Settings`] that gives access to axis-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type AxisSettings<'a, B, P> = Settings<'a, B, P, RequiresAxisScope>;
+pub type AxisSettings<'a> = Settings<'a, RequiresAxisScope>;
 
-impl<'a, B, P> AxisSettings<'a, B, P>
-where
-	P: SharedMut<Port<'a, B>>,
-{
-	pub(crate) fn new_axis(axis: &Axis<'a, B, P>) -> Self {
+impl<'a> AxisSettings<'a> {
+	pub(crate) fn new_axis(axis: &Axis<'a>) -> Self {
 		Settings {
-			port: axis.port.clone(),
-			_info: axis.info.clone(),
+			_info: axis.info,
 			target: axis.target(),
-			_markers: Markers::default(),
 			_scope_marker: std::marker::PhantomData,
 		}
 	}
@@ -55,123 +50,217 @@ where
 /// A type of [`Settings`] that gives access to device-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type DeviceSettings<'a, B, P> = Settings<'a, B, P, RequiresDeviceScope>;
+pub type DeviceSettings<'a> = Settings<'a, RequiresDeviceScope>;
 
-impl<'a, B, P> DeviceSettings<'a, B, P>
-where
-	P: SharedMut<Port<'a, B>>,
-{
-	pub(crate) fn new_device(device: &Device<'a, B, P>) -> Self {
+impl<'a> DeviceSettings<'a> {
+	pub(crate) fn new_device(device: &Device<'a>) -> Self {
 		Settings {
-			port: device.port.clone(),
-			_info: device.info.clone(),
+			_info: device.info,
 			target: device.target(),
-			_markers: Markers::default(),
 			_scope_marker: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<'a, B, P, S> Settings<'a, B, P, S>
-where
-	B: Backend,
-	P: SharedMut<Port<'a, B>>,
-{
+impl<'a, S> Settings<'a, S> {
 	/// Get the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn get<T>(&self, setting: T) -> Result<<T::Type as DataType>::Owned, AsciiError>
+	pub fn get<T>(&self, setting: T) -> Get<T>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 	{
-		let mut port = self.port.lock_mut().unwrap();
-		let reply = port
-			.command_reply((self.target, format!("get {}", setting.name())))?
-			.flag_ok()?;
-		Ok(T::Type::parse(reply.data())?)
+		Get {
+			target: self.target,
+			setting,
+		}
 	}
 
 	/// Same as [`Settings::get`] except that the reply is validated with the custom [`Check`](check::Check).
-	pub fn get_with_check<T>(
-		&self,
-		setting: T,
-		checker: impl check::Check<Reply>,
-	) -> Result<<T::Type as DataType>::Owned, AsciiError>
+	pub fn get_with_check<T, C>(&self, setting: T, checker: C) -> GetWithCheck<T, C>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
+		C: check::Check<Reply>,
 	{
-		let mut port = self.port.lock_mut().unwrap();
-		let reply = port
-			.command_reply((self.target, format!("get {}", setting.name())))?
-			.check(checker)?;
-		Ok(T::Type::parse(reply.data())?)
+		GetWithCheck {
+			target: self.target,
+			setting,
+			checker,
+		}
 	}
 
 	/// Set the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn set<T, V>(&self, setting: T, value: V) -> Result<(), AsciiError>
+	pub fn set<T, V>(&self, setting: T, value: V) -> Set<T, V>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
 	{
-		let mut port = self.port.lock_mut().unwrap();
-		let _ = port
-			.command_reply((
-				self.target,
-				format!(
-					"set {} {}",
-					setting.name(),
-					T::Type::display(value.borrow())
-				),
-			))?
-			.flag_ok()?;
-		Ok(())
+		Set {
+			target: self.target,
+			setting,
+			value,
+		}
 	}
 
 	/// Same as [`Settings::set`] except that the reply is validated with the custom [`Check`](check::Check).
-	pub fn set_with_check<T, V>(
-		&self,
-		setting: T,
-		value: V,
-		checker: impl check::Check<Reply>,
-	) -> Result<(), AsciiError>
+	pub fn set_with_check<T, V, C>(&self, setting: T, value: V, checker: C) -> SetWithCheck<T, V, C>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
+		C: check::Check<Reply>,
 	{
-		let mut port = self.port.lock_mut().unwrap();
+		SetWithCheck {
+			target: self.target,
+			setting,
+			value,
+			checker,
+		}
+	}
+}
+
+/// A routine that will get the value of a device or axis setting, `T`.
+///
+/// It is created via the [`get`] method on [`Settings`].
+///
+/// [`get`]: Settings::get
+#[derive(Debug)]
+#[must_use = "routines are lazy and do nothing unless consumed"]
+pub struct Get<T> {
+	target: Target,
+	setting: T,
+}
+
+impl<'a, B, T> Routine<Port<'a, B>> for Get<T>
+where
+	B: Backend,
+	T: Setting,
+	<T::Type as DataType>::Owned: 'a,
+{
+	type Output = <T::Type as DataType>::Owned;
+	type Error = AsciiError;
+
+	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+		let reply = port
+			.command_reply((self.target, format!("get {}", self.setting.name())))?
+			.flag_ok()?;
+		Ok(T::Type::parse(reply.data())?)
+	}
+}
+
+/// A routine that will get the value of a device or axis setting, `T`.
+/// Responses are validated with the custom [`Check`], `C`.
+///
+/// It is created via the [`get_with_check`] method on [`Settings`].
+///
+/// [`get_with_check`]: Settings::get_with_check
+#[derive(Debug)]
+#[must_use = "routines are lazy and do nothing unless consumed"]
+pub struct GetWithCheck<T, C> {
+	target: Target,
+	setting: T,
+	checker: C,
+}
+
+impl<'a, B, T, C> Routine<Port<'a, B>> for GetWithCheck<T, C>
+where
+	B: Backend,
+	T: Setting,
+	for<'b> &'b C: Check<Reply>,
+	<T::Type as DataType>::Owned: 'a,
+{
+	type Output = <T::Type as DataType>::Owned;
+	type Error = AsciiError;
+
+	fn run(&mut self, port: &mut Port<'_, B>) -> Result<Self::Output, Self::Error> {
+		let reply = port
+			.command_reply((self.target, format!("get {}", self.setting.name())))?
+			.check(&self.checker)?;
+		Ok(T::Type::parse(reply.data())?)
+	}
+}
+
+/// A routine that will set a device or axis setting, `T`, to a value with type `V`.
+///
+/// It is created via the [`set`] method on [`Settings`].
+///
+/// [`set`]: Settings::set
+#[derive(Debug)]
+#[must_use = "routines are lazy and do nothing unless consumed"]
+pub struct Set<T, V> {
+	target: Target,
+	setting: T,
+	value: V,
+}
+impl<'a, B, T, V> Routine<Port<'a, B>> for Set<T, V>
+where
+	B: Backend,
+	T: Setting,
+	V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
+{
+	type Output = ();
+	type Error = AsciiError;
+
+	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
 		let _ = port
 			.command_reply((
 				self.target,
 				format!(
 					"set {} {}",
-					setting.name(),
-					T::Type::display(value.borrow())
+					self.setting.name(),
+					T::Type::display(self.value.borrow())
 				),
 			))?
-			.check(checker)?;
+			.flag_ok_and(check::minimal())?;
 		Ok(())
 	}
+}
 
-	#[cfg(test)]
-	pub(crate) fn port(&self) -> &P {
-		&self.port
+/// A routine that will set a device or axis setting, `T`, to a value with type `V`.
+/// Responses are validated with the custom [`Check`], `C`.
+///
+/// It is created via the [`set_with_check`] method on [`Settings`].
+///
+/// [`set_with_check`]: Settings::set_with_check
+#[derive(Debug)]
+#[must_use = "routines are lazy and do nothing unless consumed"]
+pub struct SetWithCheck<T, V, C> {
+	target: Target,
+	setting: T,
+	value: V,
+	checker: C,
+}
+impl<'a, B, T, V, C> Routine<Port<'a, B>> for SetWithCheck<T, V, C>
+where
+	B: Backend,
+	T: Setting,
+	V: std::borrow::Borrow<<T::Type as DataType>::Borrowed> + 'a,
+	for<'b> &'b C: check::Check<Reply>,
+{
+	type Output = ();
+	type Error = AsciiError;
+
+	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+		let _ = port
+			.command_reply((
+				self.target,
+				format!(
+					"set {} {}",
+					self.setting.name(),
+					T::Type::display(self.value.borrow())
+				),
+			))?
+			.check(&self.checker)?;
+		Ok(())
 	}
 }
 
 #[cfg(test)]
 mod test {
-	use super::super::test::new_mock_chain;
+	use super::super::test::{new_mock_chain, new_mock_port_and_chain};
 	use super::*;
-	use crate::{
-		ascii::{
-			chain::scope::{AxisScope, DeviceScope},
-			Port,
-		},
-		backend::Mock,
-	};
-	use std::{cell::RefCell, rc::Rc};
+	use crate::ascii::chain::scope::{AxisScope, DeviceScope};
 
 	struct DeviceSetting;
 	impl Setting for DeviceSetting {
@@ -191,54 +280,39 @@ mod test {
 	}
 	impl AxisScope for AxisSetting {}
 
-	type SharedPort<'a, B> = Rc<RefCell<Port<'a, B>>>;
-
-	fn new_mock_device_settings() -> DeviceSettings<'static, Mock, SharedPort<'static, Mock>> {
-		new_mock_chain(1, 1).device(1).unwrap().settings()
-	}
-	fn new_mock_axis_settings() -> AxisSettings<'static, Mock, SharedPort<'static, Mock>> {
-		new_mock_chain(1, 1)
-			.device(1)
-			.unwrap()
-			.axis(1)
-			.unwrap()
-			.settings()
-	}
-
 	/// Ensure settings of the appropriate scope are accepted by the `get()` and
 	/// `set()` methods.
 	#[test]
 	fn setting_scope_restrictions() {
-		let chain = new_mock_chain(1, 1);
+		let (mut port, chain) = new_mock_port_and_chain(1, 1);
 
 		// `get()` accepts appropriately scoped settings and parse the values as the
 		// appropriate type
 		let device = chain.device(1).unwrap();
 		let device_settings = device.settings();
 		{
-			let mut port = device_settings.port().borrow_mut();
 			port.backend_mut().append_data(b"@01 0 OK IDLE FZ 23\r\n");
 		}
-		let value = device_settings.get(DeviceSetting).unwrap();
+		let value = device_settings.get(DeviceSetting).run(&mut port).unwrap();
 		assert_eq!(value, 23u8);
 
 		let axis_settings = device.axis(1).unwrap().settings();
 		{
-			let mut port = device_settings.port().borrow_mut();
 			port.backend_mut().append_data(b"@01 1 OK IDLE FZ 34\r\n");
 		}
-		let value = axis_settings.get(AxisSetting).unwrap();
+		let value = axis_settings.get(AxisSetting).run(&mut port).unwrap();
 		assert_eq!(value, 34u32);
 
 		// `set()` accepts values of the appropriate type.
-		let _ = device_settings.set(DeviceSetting, 1u8);
-		let _ = axis_settings.set(AxisSetting, 1u32);
+		let _ = device_settings.set(DeviceSetting, 1u8).run(&mut port);
+		let _ = axis_settings.set(AxisSetting, 1u32).run(&mut port);
 	}
 
 	/// Ensure `set()` accepts the appropriate types
 	#[test]
 	fn set_accepted_values() {
-		let settings = new_mock_device_settings();
+		let chain = new_mock_chain(1, 1);
+		let settings = chain.device(1).unwrap().settings();
 		// The value's type should be appropriately inferred.
 		let _ = settings.set(DeviceSetting, 1);
 		// Explicit type (u8) should work.
@@ -254,17 +328,19 @@ mod test {
 	/// Ensure that Strings are accepted as valid axis- and device-scope settings.
 	#[test]
 	fn strings_as_settings() {
+		let (mut port, chain) = new_mock_port_and_chain(1, 1);
+		let port = &mut port;
 		{
-			let settings = new_mock_device_settings();
-			let _: Result<String, AsciiError> = settings.get("anything");
-			let _: Result<String, AsciiError> = settings.get("anything".to_string());
-			let _: Result<String, AsciiError> = settings.get(&"anything".to_string());
+			let settings = chain.device(1).unwrap().settings();
+			let _: Result<String, AsciiError> = settings.get("anything").run(port);
+			let _: Result<String, AsciiError> = settings.get("anything".to_string()).run(port);
+			let _: Result<String, AsciiError> = settings.get(&"anything".to_string()).run(port);
 		}
 		{
-			let settings = new_mock_axis_settings();
-			let _: Result<String, AsciiError> = settings.get("anything");
-			let _: Result<String, AsciiError> = settings.get("anything".to_string());
-			let _: Result<String, AsciiError> = settings.get(&"anything".to_string());
+			let settings = chain.device(1).unwrap().axis(1).unwrap().settings();
+			let _: Result<String, AsciiError> = settings.get("anything").run(port);
+			let _: Result<String, AsciiError> = settings.get("anything".to_string()).run(port);
+			let _: Result<String, AsciiError> = settings.get(&"anything".to_string()).run(port);
 		}
 	}
 }
