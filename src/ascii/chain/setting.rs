@@ -76,7 +76,7 @@ impl<'a, S> Settings<'a, S> {
 		}
 	}
 
-	/// Same as [`Settings::get`] except that the reply is validated with the custom [`Check`](check::Check).
+	/// Same as [`Settings::get`] except that the reply is validated with the custom [`Check`].
 	pub fn get_with_check<T, C>(&self, setting: T, checker: C) -> GetWithCheck<T, C>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
@@ -104,7 +104,7 @@ impl<'a, S> Settings<'a, S> {
 		}
 	}
 
-	/// Same as [`Settings::set`] except that the reply is validated with the custom [`Check`](check::Check).
+	/// Same as [`Settings::set`] except that the reply is validated with the custom [`Check`].
 	pub fn set_with_check<T, V, C>(&self, setting: T, value: V, checker: C) -> SetWithCheck<T, V, C>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
