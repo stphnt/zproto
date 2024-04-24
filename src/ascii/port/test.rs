@@ -13,9 +13,9 @@ use crate::{
 	error::*,
 };
 
-impl<'a> Port<'a, Mock, ()> {
+impl<'a> Port<'a, Mock> {
 	/// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
-	pub fn open_mock() -> Port<'a, Mock, ()> {
+	pub fn open_mock() -> Port<'a, Mock> {
 		Port::from_backend(Mock::new(), false, false, MaxPacketSize::default())
 	}
 }

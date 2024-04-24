@@ -71,6 +71,10 @@ pub enum Direction {
 	Recv,
 }
 
+/// The default tag to mark types
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum DefaultTag {}
+
 /// A port configured to use the ASCII protocol.
 ///
 /// A port is parameterized by some [`Backend`] type, `B`. Use the convenience
@@ -81,7 +85,7 @@ pub enum Direction {
 ///
 /// See the [`ascii`](crate::ascii) module-level documentation for more details.
 #[derive(Debug)]
-pub struct Port<'a, B, Tag> {
+pub struct Port<'a, B, Tag = DefaultTag> {
 	/// The underlying backend
 	backend: B,
 	/// The message ID generator
@@ -115,7 +119,7 @@ pub struct Port<'a, B, Tag> {
 	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a> Port<'a, Serial, ()> {
+impl<'a> Port<'a, Serial, DefaultTag> {
 	/// Open the serial port at the specified path using the default options.
 	///
 	/// Alternatively, use [`Port::open_serial_options`] to customize how the port is opened.
@@ -131,7 +135,7 @@ impl<'a> Port<'a, Serial, ()> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn open_serial(path: &str) -> Result<Port<'a, Serial, ()>, AsciiError> {
+	pub fn open_serial(path: &str) -> Result<Port<'a, Serial>, AsciiError> {
 		OpenSerialOptions::new().open(path)
 	}
 
@@ -141,7 +145,7 @@ impl<'a> Port<'a, Serial, ()> {
 	}
 }
 
-impl<'a> Port<'a, TcpStream, ()> {
+impl<'a> Port<'a, TcpStream, DefaultTag> {
 	/// Open the TCP port at the specified address using the default options.
 	///
 	/// Alternatively, use [`Port::open_tcp_options`] to customize how the port is opened.
@@ -157,7 +161,7 @@ impl<'a> Port<'a, TcpStream, ()> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream, ()>, io::Error> {
+	pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream>, io::Error> {
 		OpenTcpOptions::default().open(address)
 	}
 
