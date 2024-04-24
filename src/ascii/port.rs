@@ -78,16 +78,19 @@ pub enum DefaultTag {}
 /// A port configured to use the ASCII protocol.
 ///
 /// A port is parameterized by some [`Backend`] type, `B`. Use the convenience
-/// methods [`Port::open_serial`] and [`Port::open_tcp`] to construct a serial
+/// methods [`open_serial`] and [`open_tcp`] to construct a serial
 /// port (`Port<Serial>`) or a TCP port (`Port<TcpStream>`). To customize the
 /// construction of these types, or to construct a port with a dynamic backend,
 /// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
 ///
 /// To make a port's type unique, use the [`into_tagged`] method.
 ///
-/// See the [`ascii`](crate::ascii) module-level documentation for more details.
+/// See the [`ascii`] module-level documentation for more details.
 ///
+/// [`ascii`]: crate::ascii
 /// [`into_tagged`]: Port::into_tagged
+/// [`open_serial`]: Port::open_serial
+/// [`open_tcp`]: Port::open_tcp
 #[derive(Debug)]
 pub struct Port<'a, B, Tag = DefaultTag> {
 	/// The underlying backend
