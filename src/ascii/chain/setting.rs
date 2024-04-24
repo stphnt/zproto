@@ -50,23 +50,25 @@ use crate::{
 /// A [`Settings`] instance is created via the [`Device::settings`](super::Device::settings)
 /// and [`Axis::settings`](super::Axis::settings) methods.
 #[derive(Debug)]
-pub struct Settings<'a, S> {
+pub struct Settings<'a, S, Tag> {
 	_info: &'a ChainInfo,
 	target: Target,
 	_scope_marker: std::marker::PhantomData<S>,
+	_tag: std::marker::PhantomData<Tag>,
 }
 
 /// A type of [`Settings`] that gives access to axis-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type AxisSettings<'a> = Settings<'a, RequiresAxisScope>;
+pub type AxisSettings<'a, Tag> = Settings<'a, RequiresAxisScope, Tag>;
 
-impl<'a> AxisSettings<'a> {
-	pub(crate) fn new_axis(axis: &Axis<'a>) -> Self {
+impl<'a, Tag> AxisSettings<'a, Tag> {
+	pub(crate) fn new_axis(axis: &Axis<'a, Tag>) -> Self {
 		Settings {
 			_info: axis.info,
 			target: axis.target(),
 			_scope_marker: std::marker::PhantomData,
+			_tag: std::marker::PhantomData,
 		}
 	}
 }
@@ -74,19 +76,20 @@ impl<'a> AxisSettings<'a> {
 /// A type of [`Settings`] that gives access to device-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type DeviceSettings<'a> = Settings<'a, RequiresDeviceScope>;
+pub type DeviceSettings<'a, Tag> = Settings<'a, RequiresDeviceScope, Tag>;
 
-impl<'a> DeviceSettings<'a> {
-	pub(crate) fn new_device(device: &Device<'a>) -> Self {
+impl<'a, Tag> DeviceSettings<'a, Tag> {
+	pub(crate) fn new_device(device: &Device<'a, Tag>) -> Self {
 		Settings {
 			_info: device.info,
 			target: device.target(),
 			_scope_marker: std::marker::PhantomData,
+			_tag: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<'a, S> Settings<'a, S> {
+impl<'a, S, Tag> Settings<'a, S, Tag> {
 	/// Get the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".

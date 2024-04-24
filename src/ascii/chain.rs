@@ -82,21 +82,18 @@ impl<Tag> Chain<Tag> {
 	}
 
 	/// Get an iterator over the devices in the chain.
-	pub fn iter(&self) -> IterDevices {
+	pub fn iter(&self) -> IterDevices<'_, Tag> {
 		IterDevices::new(&self.info)
 	}
 
 	/// Get the [`Device`] at the specified address.
 	///
 	/// Returns `None` if there is no device at that address.
-	pub fn device(&self, address: u8) -> Option<Device<'_>> {
+	pub fn device(&self, address: u8) -> Option<Device<'_, Tag>> {
 		NonZeroU8::new(address).and_then(|address| {
 			let address_exists = self.info.devices.contains_key(&address);
 			if address_exists {
-				Some(Device {
-					info: &self.info,
-					address,
-				})
+				Some(Device::new(&self.info, address))
 			} else {
 				None
 			}
@@ -105,8 +102,8 @@ impl<Tag> Chain<Tag> {
 }
 
 impl<'a, Tag> std::iter::IntoIterator for &'a Chain<Tag> {
-	type Item = Device<'a>;
-	type IntoIter = IterDevices<'a>;
+	type Item = Device<'a, Tag>;
+	type IntoIter = IterDevices<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterDevices::new(&self.info)
@@ -114,8 +111,8 @@ impl<'a, Tag> std::iter::IntoIterator for &'a Chain<Tag> {
 }
 
 impl<'a, Tag> std::iter::IntoIterator for &'a mut Chain<Tag> {
-	type Item = Device<'a>;
-	type IntoIter = IterDevices<'a>;
+	type Item = Device<'a, Tag>;
+	type IntoIter = IterDevices<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterDevices::new(&self.info)
@@ -150,31 +147,41 @@ impl Chain<DefaultTag> {
 
 /// Represents a single device (controller or integrated product).
 #[derive(Debug)]
-pub struct Device<'a> {
+pub struct Device<'a, Tag> {
 	info: &'a ChainInfo,
 	address: NonZeroU8,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a> Device<'a> {
+impl<'a, Tag> Device<'a, Tag> {
+	/// Create a new `Device`
+	fn new(info: &'a ChainInfo, address: NonZeroU8) -> Self {
+		Device {
+			info,
+			address,
+			tag: std::marker::PhantomData,
+		}
+	}
+
 	/// Get the [`Target`] for the device.
 	pub fn target(&self) -> Target {
 		self.address.get().into()
 	}
 
 	/// Get an iterator over the axes of the device.
-	pub fn iter(&self) -> IterAxes<'a> {
+	pub fn iter(&self) -> IterAxes<'a, Tag> {
 		IterAxes::new(self.info, self.address)
 	}
 
 	/// Get access to this device's settings.
-	pub fn settings(&self) -> DeviceSettings<'a> {
+	pub fn settings(&self) -> DeviceSettings<'a, Tag> {
 		DeviceSettings::new_device(self)
 	}
 
 	/// Get the [`Axis`] at the specified axis number (1-based).
 	///
 	/// Returns None if there is no axis with that number.
-	pub fn axis(&self, number: u8) -> Option<Axis<'a>> {
+	pub fn axis(&self, number: u8) -> Option<Axis<'a, Tag>> {
 		NonZeroU8::new(number).and_then(|number| {
 			let is_valid_number = self
 				.info
@@ -182,11 +189,7 @@ impl<'a> Device<'a> {
 				.get(&self.address)
 				.map(|device_info| device_info.valid_axis_number(number));
 			if let Some(true) = is_valid_number {
-				Some(Axis {
-					info: self.info,
-					address: self.address,
-					axis: number,
-				})
+				Some(Axis::new(self.info, self.address, number))
 			} else {
 				None
 			}
@@ -194,36 +197,37 @@ impl<'a> Device<'a> {
 	}
 }
 
-impl<'a> Clone for Device<'a> {
+impl<'a, Tag> Clone for Device<'a, Tag> {
 	fn clone(&self) -> Self {
 		Device {
 			info: self.info,
 			address: self.address,
+			tag: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<'a> std::iter::IntoIterator for Device<'a> {
-	type Item = Axis<'a>;
-	type IntoIter = IntoIterAxes<'a>;
+impl<'a, Tag> std::iter::IntoIterator for Device<'a, Tag> {
+	type Item = Axis<'a, Tag>;
+	type IntoIter = IntoIterAxes<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIterAxes::new(self.info, self.address)
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &Device<'a> {
-	type Item = Axis<'a>;
-	type IntoIter = IterAxes<'a>;
+impl<'a, Tag> std::iter::IntoIterator for &Device<'a, Tag> {
+	type Item = Axis<'a, Tag>;
+	type IntoIter = IterAxes<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterAxes::new(self.info, self.address)
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &mut Device<'a> {
-	type Item = Axis<'a>;
-	type IntoIter = IterAxes<'a>;
+impl<'a, Tag> std::iter::IntoIterator for &mut Device<'a, Tag> {
+	type Item = Axis<'a, Tag>;
+	type IntoIter = IterAxes<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterAxes::new(self.info, self.address)
@@ -232,33 +236,45 @@ impl<'a> std::iter::IntoIterator for &mut Device<'a> {
 
 /// Represents a single axis on a device.
 #[derive(Debug)]
-pub struct Axis<'a> {
+pub struct Axis<'a, Tag> {
 	/// Information about the chain
 	info: &'a ChainInfo,
 	/// The device address
 	address: NonZeroU8,
 	/// The axis number
 	axis: NonZeroU8,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a> Clone for Axis<'a> {
+impl<'a, Tag> Clone for Axis<'a, Tag> {
 	fn clone(&self) -> Self {
 		Axis {
 			info: self.info,
 			address: self.address,
 			axis: self.axis,
+			tag: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<'a> Axis<'a> {
+impl<'a, Tag> Axis<'a, Tag> {
+	/// Create an `Axis`
+	fn new(info: &'a ChainInfo, address: NonZeroU8, axis: NonZeroU8) -> Self {
+		Axis {
+			info,
+			address,
+			axis,
+			tag: std::marker::PhantomData,
+		}
+	}
+
 	/// Get the [`Target`] for the axis.
 	pub fn target(&self) -> Target {
 		(self.address.get(), self.axis.get()).into()
 	}
 
 	/// Get access to this axis's settings.
-	pub fn settings(&self) -> AxisSettings<'a> {
+	pub fn settings(&self) -> AxisSettings<'a, Tag> {
 		AxisSettings::new_axis(self)
 	}
 }
