@@ -65,7 +65,7 @@ impl ChainOptions {
 
 /// Represents a chain of devices.
 #[derive(Debug)]
-pub struct Chain<Tag> {
+pub struct Chain<Tag = DefaultTag> {
 	info: ChainInfo,
 	tag: std::marker::PhantomData<Tag>,
 }
