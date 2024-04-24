@@ -93,18 +93,19 @@ impl<'a, S, Tag> Settings<'a, S, Tag> {
 	/// Get the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn get<T>(&self, setting: T) -> Get<T>
+	pub fn get<T>(&self, setting: T) -> Get<T, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 	{
 		Get {
 			target: self.target,
 			setting,
+			tag: std::marker::PhantomData,
 		}
 	}
 
 	/// Same as [`Settings::get`] except that the reply is validated with the custom [`Check`].
-	pub fn get_with_check<T, C>(&self, setting: T, checker: C) -> GetWithCheck<T, C>
+	pub fn get_with_check<T, C>(&self, setting: T, checker: C) -> GetWithCheck<T, C, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		C: check::Check<Reply>,
@@ -113,13 +114,14 @@ impl<'a, S, Tag> Settings<'a, S, Tag> {
 			target: self.target,
 			setting,
 			checker,
+			tag: std::marker::PhantomData,
 		}
 	}
 
 	/// Set the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn set<T, V>(&self, setting: T, value: V) -> Set<T, V>
+	pub fn set<T, V>(&self, setting: T, value: V) -> Set<T, V, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
@@ -128,11 +130,17 @@ impl<'a, S, Tag> Settings<'a, S, Tag> {
 			target: self.target,
 			setting,
 			value,
+			tag: std::marker::PhantomData,
 		}
 	}
 
 	/// Same as [`Settings::set`] except that the reply is validated with the custom [`Check`].
-	pub fn set_with_check<T, V, C>(&self, setting: T, value: V, checker: C) -> SetWithCheck<T, V, C>
+	pub fn set_with_check<T, V, C>(
+		&self,
+		setting: T,
+		value: V,
+		checker: C,
+	) -> SetWithCheck<T, V, C, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
@@ -143,6 +151,7 @@ impl<'a, S, Tag> Settings<'a, S, Tag> {
 			setting,
 			value,
 			checker,
+			tag: std::marker::PhantomData,
 		}
 	}
 }
@@ -154,12 +163,13 @@ impl<'a, S, Tag> Settings<'a, S, Tag> {
 /// [`get`]: Settings::get
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct Get<T> {
+pub struct Get<T, Tag> {
 	target: Target,
 	setting: T,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, B, T, Tag> Routine<Port<'a, B, Tag>> for Get<T>
+impl<'a, B, T, Tag> Routine<Port<'a, B, Tag>> for Get<T, Tag>
 where
 	B: Backend,
 	T: Setting,
@@ -184,13 +194,14 @@ where
 /// [`get_with_check`]: Settings::get_with_check
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct GetWithCheck<T, C> {
+pub struct GetWithCheck<T, C, Tag> {
 	target: Target,
 	setting: T,
 	checker: C,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, B, T, C, Tag> Routine<Port<'a, B, Tag>> for GetWithCheck<T, C>
+impl<'a, B, T, C, Tag> Routine<Port<'a, B, Tag>> for GetWithCheck<T, C, Tag>
 where
 	B: Backend,
 	T: Setting,
@@ -215,12 +226,13 @@ where
 /// [`set`]: Settings::set
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct Set<T, V> {
+pub struct Set<T, V, Tag> {
 	target: Target,
 	setting: T,
 	value: V,
+	tag: std::marker::PhantomData<Tag>,
 }
-impl<'a, B, T, V, Tag> Routine<Port<'a, B, Tag>> for Set<T, V>
+impl<'a, B, T, V, Tag> Routine<Port<'a, B, Tag>> for Set<T, V, Tag>
 where
 	B: Backend,
 	T: Setting,
@@ -252,13 +264,14 @@ where
 /// [`set_with_check`]: Settings::set_with_check
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct SetWithCheck<T, V, C> {
+pub struct SetWithCheck<T, V, C, Tag> {
 	target: Target,
 	setting: T,
 	value: V,
 	checker: C,
+	tag: std::marker::PhantomData<Tag>,
 }
-impl<'a, B, T, V, C, Tag> Routine<Port<'a, B, Tag>> for SetWithCheck<T, V, C>
+impl<'a, B, T, V, C, Tag> Routine<Port<'a, B, Tag>> for SetWithCheck<T, V, C, Tag>
 where
 	B: Backend,
 	T: Setting,
