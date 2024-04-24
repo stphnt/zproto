@@ -83,7 +83,11 @@ pub enum DefaultTag {}
 /// construction of these types, or to construct a port with a dynamic backend,
 /// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
 ///
+/// To make a port's type unique, use the [`into_tagged`] method.
+///
 /// See the [`ascii`](crate::ascii) module-level documentation for more details.
+///
+/// [`into_tagged`]: Port::into_tagged
 #[derive(Debug)]
 pub struct Port<'a, B, Tag = DefaultTag> {
 	/// The underlying backend
