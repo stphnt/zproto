@@ -156,7 +156,7 @@ pub struct Get<T> {
 	setting: T,
 }
 
-impl<'a, B, T> Routine<Port<'a, B>> for Get<T>
+impl<'a, B, T, Tag> Routine<Port<'a, B, Tag>> for Get<T>
 where
 	B: Backend,
 	T: Setting,
@@ -165,7 +165,7 @@ where
 	type Output = <T::Type as DataType>::Owned;
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let reply = port
 			.command_reply((self.target, format!("get {}", self.setting.name())))?
 			.flag_ok()?;
@@ -187,7 +187,7 @@ pub struct GetWithCheck<T, C> {
 	checker: C,
 }
 
-impl<'a, B, T, C> Routine<Port<'a, B>> for GetWithCheck<T, C>
+impl<'a, B, T, C, Tag> Routine<Port<'a, B, Tag>> for GetWithCheck<T, C>
 where
 	B: Backend,
 	T: Setting,
@@ -197,7 +197,7 @@ where
 	type Output = <T::Type as DataType>::Owned;
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'_, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'_, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let reply = port
 			.command_reply((self.target, format!("get {}", self.setting.name())))?
 			.check(&self.checker)?;
@@ -217,7 +217,7 @@ pub struct Set<T, V> {
 	setting: T,
 	value: V,
 }
-impl<'a, B, T, V> Routine<Port<'a, B>> for Set<T, V>
+impl<'a, B, T, V, Tag> Routine<Port<'a, B, Tag>> for Set<T, V>
 where
 	B: Backend,
 	T: Setting,
@@ -226,7 +226,7 @@ where
 	type Output = ();
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let _ = port
 			.command_reply((
 				self.target,
@@ -255,7 +255,7 @@ pub struct SetWithCheck<T, V, C> {
 	value: V,
 	checker: C,
 }
-impl<'a, B, T, V, C> Routine<Port<'a, B>> for SetWithCheck<T, V, C>
+impl<'a, B, T, V, C, Tag> Routine<Port<'a, B, Tag>> for SetWithCheck<T, V, C>
 where
 	B: Backend,
 	T: Setting,
@@ -265,7 +265,7 @@ where
 	type Output = ();
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let _ = port
 			.command_reply((
 				self.target,

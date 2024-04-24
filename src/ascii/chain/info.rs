@@ -16,7 +16,7 @@ pub struct ChainInfo {
 
 impl ChainInfo {
 	/// Collect all the devices found on the chain
-	pub fn new<B: Backend>(port: &mut Port<'_, B>) -> Result<Self, AsciiError> {
+	pub fn new<B: Backend, Tag>(port: &mut Port<'_, B, Tag>) -> Result<Self, AsciiError> {
 		let mut unique_addresses = std::collections::HashSet::new();
 		let mut devices = BTreeMap::new();
 		for result in port.command_replies_until_timeout_iter("get system.axiscount")? {

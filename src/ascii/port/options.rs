@@ -122,7 +122,7 @@ impl OpenSerialOptions {
 	}
 
 	/// Open the port at the specified path with the custom options.
-	pub fn open<'a>(&self, path: &str) -> Result<Port<'a, Serial>, AsciiError> {
+	pub fn open<'a>(&self, path: &str) -> Result<Port<'a, Serial, ()>, AsciiError> {
 		Ok(Port::from_backend(
 			self.open_serial_port(path)?,
 			self.generate_id,
@@ -137,7 +137,7 @@ impl OpenSerialOptions {
 	/// which does have runtime overhead. [`OpenSerialOptions::open`] should
 	/// generally be used instead, except when the type of the underlying
 	/// backend may not be known at compile time.
-	pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend>>, AsciiError> {
+	pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend>, ()>, AsciiError> {
 		Ok(Port::from_backend(
 			Box::new(self.open_serial_port(path)?),
 			self.generate_id,
@@ -234,7 +234,7 @@ impl OpenTcpOptions {
 	}
 
 	/// Open the port at the specified path with the custom options.
-	pub fn open<'a, A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<'a, TcpStream>> {
+	pub fn open<'a, A: ToSocketAddrs>(&self, address: A) -> io::Result<Port<'a, TcpStream, ()>> {
 		Ok(Port::from_backend(
 			self.open_tcp_stream(address)?,
 			self.generate_id,
@@ -252,7 +252,7 @@ impl OpenTcpOptions {
 	pub fn open_dyn<'a, A: ToSocketAddrs>(
 		&self,
 		address: A,
-	) -> io::Result<Port<'a, Box<dyn Backend>>> {
+	) -> io::Result<Port<'a, Box<dyn Backend>, ()>> {
 		Ok(Port::from_backend(
 			Box::new(self.open_tcp_stream(address)?),
 			self.generate_id,

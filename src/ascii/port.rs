@@ -81,7 +81,7 @@ pub enum Direction {
 ///
 /// See the [`ascii`](crate::ascii) module-level documentation for more details.
 #[derive(Debug)]
-pub struct Port<'a, B> {
+pub struct Port<'a, B, Tag> {
 	/// The underlying backend
 	backend: B,
 	/// The message ID generator
@@ -111,9 +111,11 @@ pub struct Port<'a, B> {
 	packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
 	/// Optional hook to call when an unexpected Alert is received.
 	unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
+	/// The type differentiating this Port for other Ports at compile time.
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a> Port<'a, Serial> {
+impl<'a> Port<'a, Serial, ()> {
 	/// Open the serial port at the specified path using the default options.
 	///
 	/// Alternatively, use [`Port::open_serial_options`] to customize how the port is opened.
@@ -129,7 +131,7 @@ impl<'a> Port<'a, Serial> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn open_serial(path: &str) -> Result<Port<'a, Serial>, AsciiError> {
+	pub fn open_serial(path: &str) -> Result<Port<'a, Serial, ()>, AsciiError> {
 		OpenSerialOptions::new().open(path)
 	}
 
@@ -139,7 +141,7 @@ impl<'a> Port<'a, Serial> {
 	}
 }
 
-impl<'a> Port<'a, TcpStream> {
+impl<'a> Port<'a, TcpStream, ()> {
 	/// Open the TCP port at the specified address using the default options.
 	///
 	/// Alternatively, use [`Port::open_tcp_options`] to customize how the port is opened.
@@ -155,7 +157,7 @@ impl<'a> Port<'a, TcpStream> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream>, io::Error> {
+	pub fn open_tcp<A: ToSocketAddrs>(address: A) -> Result<Port<'a, TcpStream, ()>, io::Error> {
 		OpenTcpOptions::default().open(address)
 	}
 
@@ -165,7 +167,7 @@ impl<'a> Port<'a, TcpStream> {
 	}
 }
 
-impl<'a, B: Backend> Port<'a, B> {
+impl<'a, B: Backend, Tag> Port<'a, B, Tag> {
 	/// Create a `Port` from a [`Backend`] type.
 	fn from_backend(
 		backend: B,
@@ -183,6 +185,7 @@ impl<'a, B: Backend> Port<'a, B> {
 			builder: ResponseBuilder::default(),
 			packet_hook: None,
 			unexpected_alert_hook: None,
+			tag: std::marker::PhantomData,
 		}
 	}
 
@@ -392,14 +395,14 @@ impl<'a, B: Backend> Port<'a, B> {
 	pub fn command_reply_infos_iter<C: Command>(
 		&mut self,
 		cmd: C,
-	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B>), AsciiError> {
+	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B, Tag>), AsciiError> {
 		self.internal_command_reply_infos_iter(&cmd)
 	}
 
 	fn internal_command_reply_infos_iter(
 		&mut self,
 		cmd: &dyn Command,
-	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B>), AsciiError> {
+	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B, Tag>), AsciiError> {
 		let target = cmd.target();
 		let reply = self.internal_command_reply(cmd)?;
 		let old_generate_id = self.set_message_ids(true);
@@ -476,7 +479,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		cmd: C,
 		n: usize,
-	) -> Result<iter::NResponses<'_, 'a, B, Reply>, AsciiError>
+	) -> Result<iter::NResponses<'_, 'a, B, Reply, Tag>, AsciiError>
 	where
 		C: Command,
 	{
@@ -493,7 +496,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		cmd: &dyn Command,
 		n: usize,
-	) -> Result<iter::NResponses<'_, 'a, B, Reply>, AsciiError> {
+	) -> Result<iter::NResponses<'_, 'a, B, Reply, Tag>, AsciiError> {
 		let id = self.command(cmd)?;
 		Ok(self.internal_response_n_iter(
 			n,
@@ -568,7 +571,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	pub fn command_replies_until_timeout_iter<C>(
 		&mut self,
 		cmd: C,
-	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply>, AsciiError>
+	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply, Tag>, AsciiError>
 	where
 		C: Command,
 	{
@@ -584,7 +587,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	fn internal_command_replies_until_timeout_iter(
 		&mut self,
 		cmd: &dyn Command,
-	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply>, AsciiError> {
+	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply, Tag>, AsciiError> {
 		let id = self.command(cmd)?;
 		Ok(
 			self.internal_responses_until_timeout_iter(HeaderCheck::Matches {
@@ -838,7 +841,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		n: usize,
 		header_check: HeaderCheck,
-	) -> iter::NResponses<'_, 'a, B, R>
+	) -> iter::NResponses<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -897,7 +900,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn response_n_iter<R>(&mut self, n: usize) -> iter::NResponses<'_, 'a, B, R>
+	pub fn response_n_iter<R>(&mut self, n: usize) -> iter::NResponses<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -993,7 +996,9 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn responses_until_timeout_iter<R>(&mut self) -> iter::ResponsesUntilTimeout<'_, 'a, B, R>
+	pub fn responses_until_timeout_iter<R>(
+		&mut self,
+	) -> iter::ResponsesUntilTimeout<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -1003,7 +1008,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	fn internal_responses_until_timeout_iter<R>(
 		&mut self,
 		header_check: HeaderCheck,
-	) -> iter::ResponsesUntilTimeout<'_, 'a, B, R>
+	) -> iter::ResponsesUntilTimeout<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -1030,7 +1035,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn poll<C>(&mut self, command: C) -> iter::Poll<'_, 'a, B, C>
+	pub fn poll<C>(&mut self, command: C) -> iter::Poll<'_, 'a, B, C, Tag>
 	where
 		C: Command,
 	{
@@ -1392,7 +1397,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	}
 }
 
-impl<'a, B: Backend> io::Write for Port<'a, B> {
+impl<'a, B: Backend, Tag> io::Write for Port<'a, B, Tag> {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
 		self.check_poisoned()?;
 		self.backend.write(buf)
@@ -1404,14 +1409,14 @@ impl<'a, B: Backend> io::Write for Port<'a, B> {
 	}
 }
 
-impl<'a, B: Backend> io::Read for Port<'a, B> {
+impl<'a, B: Backend, Tag> io::Read for Port<'a, B, Tag> {
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 		self.check_poisoned()?;
 		self.backend.read(buf)
 	}
 }
 
-impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
+impl<'a, B: Backend, Tag> crate::timeout_guard::Port<B> for Port<'a, B, Tag> {
 	fn backend_mut(&mut self) -> &mut B {
 		&mut self.backend
 	}

@@ -47,7 +47,7 @@ impl ChainOptions {
 	}
 
 	/// Create a [`Chain`] from the given [`Port`].
-	pub fn build<B: Backend>(&self, port: &mut Port<'_, B>) -> Result<Chain, AsciiError> {
+	pub fn build<B: Backend, Tag>(&self, port: &mut Port<'_, B, Tag>) -> Result<Chain, AsciiError> {
 		if self.renumber {
 			for result in port.command_replies_until_timeout_iter("renumber")? {
 				result?.flag_ok()?;
@@ -131,7 +131,7 @@ impl Chain {
 	/// Chain::options().build(&mut port)
 	/// # }
 	/// ```
-	pub fn new<B: Backend>(port: &mut Port<'_, B>) -> Result<Self, AsciiError> {
+	pub fn new<B: Backend, Tag>(port: &mut Port<'_, B, Tag>) -> Result<Self, AsciiError> {
 		ChainOptions::default().build(port)
 	}
 

@@ -13,9 +13,9 @@ use crate::{
 /// An iterator that will read `N` responses of type `R`
 #[derive(Debug)]
 #[must_use = "NResponses is an iterator and will not read responses unless consumed."]
-pub struct NResponses<'i, 'p, B, R> {
+pub struct NResponses<'i, 'p, B, R, Tag> {
 	/// The port to read responses on
-	port: &'i mut Port<'p, B>,
+	port: &'i mut Port<'p, B, Tag>,
 	/// The number of responses left to read.
 	count: usize,
 	/// How to check the headers of the responses.
@@ -23,13 +23,17 @@ pub struct NResponses<'i, 'p, B, R> {
 	_marker: std::marker::PhantomData<(B, R)>,
 }
 
-impl<'i, 'p, B, R> NResponses<'i, 'p, B, R>
+impl<'i, 'p, B, R, Tag> NResponses<'i, 'p, B, R, Tag>
 where
 	B: Backend,
 	R: Response,
 {
 	/// Create a new `NResponses` iterator.
-	pub(super) fn new(port: &'i mut Port<'p, B>, header_check: HeaderCheck, count: usize) -> Self {
+	pub(super) fn new(
+		port: &'i mut Port<'p, B, Tag>,
+		header_check: HeaderCheck,
+		count: usize,
+	) -> Self {
 		port.pre_receive_response();
 		NResponses {
 			port,
@@ -40,7 +44,7 @@ where
 	}
 }
 
-impl<'i, 'p, B, R> Iterator for NResponses<'i, 'p, B, R>
+impl<'i, 'p, B, R, Tag> Iterator for NResponses<'i, 'p, B, R, Tag>
 where
 	B: Backend,
 	R: Response,
@@ -67,9 +71,9 @@ where
 /// An iterator that will read responses of type `R` from a port until a read times out.
 #[derive(Debug)]
 #[must_use = "ResponsesUntilTimeout is an iterator and will not read responses unless consumed."]
-pub struct ResponsesUntilTimeout<'i, 'p, B, R> {
+pub struct ResponsesUntilTimeout<'i, 'p, B, R, Tag> {
 	/// The port to read responses on
-	port: &'i mut Port<'p, B>,
+	port: &'i mut Port<'p, B, Tag>,
 	/// How to check the headers of the responses.
 	header_check: HeaderCheck,
 	/// Whether iteration is complete.
@@ -77,13 +81,13 @@ pub struct ResponsesUntilTimeout<'i, 'p, B, R> {
 	_marker: std::marker::PhantomData<(B, R)>,
 }
 
-impl<'i, 'p, B, R> ResponsesUntilTimeout<'i, 'p, B, R>
+impl<'i, 'p, B, R, Tag> ResponsesUntilTimeout<'i, 'p, B, R, Tag>
 where
 	B: Backend,
 	R: Response,
 {
 	/// Create a new `ResponsesUntilTimeout` iterator.
-	pub(super) fn new(port: &'i mut Port<'p, B>, header_check: HeaderCheck) -> Self {
+	pub(super) fn new(port: &'i mut Port<'p, B, Tag>, header_check: HeaderCheck) -> Self {
 		port.pre_receive_response();
 		ResponsesUntilTimeout {
 			port,
@@ -94,7 +98,7 @@ where
 	}
 }
 
-impl<'i, 'p, B, R> Iterator for ResponsesUntilTimeout<'i, 'p, B, R>
+impl<'i, 'p, B, R, Tag> Iterator for ResponsesUntilTimeout<'i, 'p, B, R, Tag>
 where
 	B: Backend,
 	R: Response,
@@ -127,19 +131,19 @@ where
 ///
 /// See [Port::command_reply_infos_iter](super::Port::command_reply_infos_iter) for details.
 #[derive(Debug)]
-pub struct InfosUntilSentinel<'i, 'p, B> {
-	port: &'i mut Port<'p, B>,
+pub struct InfosUntilSentinel<'i, 'p, B, Tag> {
+	port: &'i mut Port<'p, B, Tag>,
 	header_check: HeaderCheck,
 	done: bool,
 }
 
-impl<'i, 'p, B> InfosUntilSentinel<'i, 'p, B>
+impl<'i, 'p, B, Tag> InfosUntilSentinel<'i, 'p, B, Tag>
 where
 	B: Backend,
 {
 	/// Create a new `InfosUntilSentinel` instance.
 	pub(crate) fn new(
-		port: &'i mut Port<'p, B>,
+		port: &'i mut Port<'p, B, Tag>,
 		target: Target,
 		info_id: Option<u8>,
 		sentinel_id: Option<u8>,
@@ -157,7 +161,7 @@ where
 	}
 }
 
-impl<'i, 'p, B> Iterator for InfosUntilSentinel<'i, 'p, B>
+impl<'i, 'p, B, Tag> Iterator for InfosUntilSentinel<'i, 'p, B, Tag>
 where
 	B: Backend,
 {
@@ -198,12 +202,12 @@ where
 
 /// An iterator that will continually send a command and read a reply.
 #[derive(Debug)]
-pub struct Poll<'i, 'p, B, C> {
-	pub(super) port: &'i mut Port<'p, B>,
+pub struct Poll<'i, 'p, B, C, Tag> {
+	pub(super) port: &'i mut Port<'p, B, Tag>,
 	pub(super) command: C,
 }
 
-impl<'i, 'p, B, C> Iterator for Poll<'i, 'p, B, C>
+impl<'i, 'p, B, C, Tag> Iterator for Poll<'i, 'p, B, C, Tag>
 where
 	B: Backend,
 	C: Command,
