@@ -1253,7 +1253,7 @@ impl<'a, B: Backend, Tag> Port<'a, B, Tag> {
 	}
 
 	/// Create a [`Chain`].
-	pub fn chain(&mut self) -> Result<Chain, AsciiError> {
+	pub fn chain(&mut self) -> Result<Chain<Tag>, AsciiError> {
 		Chain::new(self)
 	}
 

@@ -7,7 +7,7 @@ pub mod scope;
 pub mod setting;
 
 use crate::{
-	ascii::{command::Target, Port},
+	ascii::{command::Target, port::DefaultTag, Port},
 	backend::Backend,
 	error::AsciiError,
 };
@@ -47,7 +47,10 @@ impl ChainOptions {
 	}
 
 	/// Create a [`Chain`] from the given [`Port`].
-	pub fn build<B: Backend, Tag>(&self, port: &mut Port<'_, B, Tag>) -> Result<Chain, AsciiError> {
+	pub fn build<B: Backend, Tag>(
+		&self,
+		port: &mut Port<'_, B, Tag>,
+	) -> Result<Chain<Tag>, AsciiError> {
 		if self.renumber {
 			for result in port.command_replies_until_timeout_iter("renumber")? {
 				result?.flag_ok()?;
@@ -55,17 +58,19 @@ impl ChainOptions {
 		}
 		Ok(Chain {
 			info: ChainInfo::new(port)?,
+			tag: std::marker::PhantomData,
 		})
 	}
 }
 
 /// Represents a chain of devices.
 #[derive(Debug)]
-pub struct Chain {
+pub struct Chain<Tag> {
 	info: ChainInfo,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl Chain {
+impl<Tag> Chain<Tag> {
 	/// Get the number of devices in the chain.
 	pub fn len(&self) -> usize {
 		self.info.devices.len()
@@ -99,7 +104,7 @@ impl Chain {
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &'a Chain {
+impl<'a, Tag> std::iter::IntoIterator for &'a Chain<Tag> {
 	type Item = Device<'a>;
 	type IntoIter = IterDevices<'a>;
 
@@ -108,7 +113,7 @@ impl<'a> std::iter::IntoIterator for &'a Chain {
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &'a mut Chain {
+impl<'a, Tag> std::iter::IntoIterator for &'a mut Chain<Tag> {
 	type Item = Device<'a>;
 	type IntoIter = IterDevices<'a>;
 
@@ -117,7 +122,7 @@ impl<'a> std::iter::IntoIterator for &'a mut Chain {
 	}
 }
 
-impl Chain {
+impl<Tag> Chain<Tag> {
 	/// Create a new [`Chain`] using the default options.
 	///
 	/// To customize how the chain is built use [`options`](Chain::options).
@@ -131,10 +136,12 @@ impl Chain {
 	/// Chain::options().build(&mut port)
 	/// # }
 	/// ```
-	pub fn new<B: Backend, Tag>(port: &mut Port<'_, B, Tag>) -> Result<Self, AsciiError> {
+	pub fn new<B: Backend>(port: &mut Port<'_, B, Tag>) -> Result<Self, AsciiError> {
 		ChainOptions::default().build(port)
 	}
+}
 
+impl Chain<DefaultTag> {
 	/// Get a [`ChainOptions`] to customize the creation of a new [`Chain`].
 	pub fn options() -> ChainOptions {
 		ChainOptions::default()
@@ -259,13 +266,14 @@ impl<'a> Axis<'a> {
 #[cfg(test)]
 pub(crate) mod test {
 	use super::*;
+	use crate::ascii::port::DefaultTag;
 	use crate::backend::Mock;
 	use crate::error::DuplicateAddressError;
 
 	pub fn new_mock_port_and_chain(
 		num_devices: usize,
 		num_axes_per_device: usize,
-	) -> (Port<'static, Mock>, Chain) {
+	) -> (Port<'static, Mock>, Chain<DefaultTag>) {
 		let mut port = Port::open_mock();
 		{
 			let backend = port.backend_mut();
@@ -279,7 +287,7 @@ pub(crate) mod test {
 		(port, chain)
 	}
 
-	pub fn new_mock_chain(num_devices: usize, num_axes_per_device: usize) -> Chain {
+	pub fn new_mock_chain(num_devices: usize, num_axes_per_device: usize) -> Chain<DefaultTag> {
 		let (_, chain) = new_mock_port_and_chain(num_devices, num_axes_per_device);
 		chain
 	}
