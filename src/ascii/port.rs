@@ -193,6 +193,86 @@ impl<'a, B: Backend, Tag> Port<'a, B, Tag> {
 		}
 	}
 
+	/// Convert the type of this port by "tagging" it with the type `T`.
+	///
+	/// This does not change the runtime behaviour of the port; it only changes
+	/// how the compiler treats the port and the types generated from the port,
+	/// such as [`Chain`], during compilation.
+	///
+	/// This is primarily used for differentiating multiple `Port`s from each
+	/// other and preventing them from being used where they should not be.
+	///
+	/// # Examples
+	///
+	/// When communicating with products over more than one port it can be easy
+	/// to pass the wrong port to the [`Routine`]s generated from a port's
+	/// [`Chain`]. In the best case, the command fails at run time, but in many
+	/// cases it simply results in incorrect data.
+	///
+	/// ```
+	/// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
+	/// # fn wrapper<B: Backend>(mut port_a: Port<B>, mut port_b: Port<B>) -> Result<(), AsciiError> {
+	/// use zproto::ascii::setting::v_latest::SystemSerial;
+	///
+	/// let chain = port_a.chain()?;
+	/// for device in &chain {
+	///     let get_system_serial = device.settings().get(SystemSerial);
+	///     let _serial = port_b.run(get_system_serial)?;
+	///     //            ^^^^^^ OOPS! This is the wrong port!
+	/// }
+	/// # Ok(())
+	/// # }
+	/// ```
+	///
+	/// However, by tagging each port's type, we change the type of the port and
+	/// the types of the routines generated from it, turning the above runtime
+	/// error into a compiler error.
+	///
+	/// ```compile_fail
+	/// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
+	/// # fn wrapper<B: Backend>(mut port_a: Port<B>, mut port_b: Port<B>) -> Result<(), AsciiError> {
+	/// use zproto::ascii::setting::v_latest::SystemSerial;
+	///
+	/// struct PortA;
+	/// let mut port_a = port_a.into_tagged::<PortA>();
+	/// let chain = port_a.chain()?; // Has a different type
+	/// for device in &chain {
+	///     let get_system_serial = device.settings().get(SystemSerial); // Has a different type
+	///     // Yay! This no longer compiles because the type of port_b is
+	///     // incompatible with the type of get_system_serial.
+	///     let _id = port_b.run(get_system_serial)?;
+	///     // ERROR:        ^^^ the trait `Routine<Port<B>>` is not implemented for `Get<SystemSerial, PortA>`
+	/// }
+	/// # Ok(())
+	/// # }
+	/// ```
+	///
+	/// Using tagged ports can also be useful for ensuring functions receive
+	/// appropriate types.
+	///
+	/// ```
+	/// # use zproto::ascii::{Port, chain::Chain};
+	/// fn do_something<Backend, Tag>(port: &mut Port<Backend, Tag>, chain: &Chain<Tag>) {
+	///     // The chain is guaranteed to be associated with the port, assuming
+	///     // each type Tag is a only used to tag one port.
+	///     todo!()
+	/// }
+	/// ```
+	pub fn into_tagged<T>(self) -> Port<'a, B, T> {
+		Port {
+			backend: self.backend,
+			ids: self.ids,
+			generate_id: self.generate_id,
+			generate_checksum: self.generate_checksum,
+			max_packet_size: self.max_packet_size,
+			poison: self.poison,
+			packet_hook: self.packet_hook,
+			builder: self.builder,
+			unexpected_alert_hook: self.unexpected_alert_hook,
+			tag: std::marker::PhantomData,
+		}
+	}
+
 	/// Check if the port is poisoned and report the error if it exists.
 	fn check_poisoned(&mut self) -> Result<(), io::Error> {
 		if let Some(poison) = self.poison.take() {
