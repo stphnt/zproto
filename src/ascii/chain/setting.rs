@@ -50,23 +50,25 @@ use crate::{
 /// A [`Settings`] instance is created via the [`Device::settings`](super::Device::settings)
 /// and [`Axis::settings`](super::Axis::settings) methods.
 #[derive(Debug)]
-pub struct Settings<'a, S> {
+pub struct Settings<'a, S, Tag> {
 	_info: &'a ChainInfo,
 	target: Target,
 	_scope_marker: std::marker::PhantomData<S>,
+	_tag: std::marker::PhantomData<Tag>,
 }
 
 /// A type of [`Settings`] that gives access to axis-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type AxisSettings<'a> = Settings<'a, RequiresAxisScope>;
+pub type AxisSettings<'a, Tag> = Settings<'a, RequiresAxisScope, Tag>;
 
-impl<'a> AxisSettings<'a> {
-	pub(crate) fn new_axis(axis: &Axis<'a>) -> Self {
+impl<'a, Tag> AxisSettings<'a, Tag> {
+	pub(crate) fn new_axis(axis: &Axis<'a, Tag>) -> Self {
 		Settings {
 			_info: axis.info,
 			target: axis.target(),
 			_scope_marker: std::marker::PhantomData,
+			_tag: std::marker::PhantomData,
 		}
 	}
 }
@@ -74,34 +76,36 @@ impl<'a> AxisSettings<'a> {
 /// A type of [`Settings`] that gives access to device-scope settings.
 ///
 /// For more details see [`Settings`].
-pub type DeviceSettings<'a> = Settings<'a, RequiresDeviceScope>;
+pub type DeviceSettings<'a, Tag> = Settings<'a, RequiresDeviceScope, Tag>;
 
-impl<'a> DeviceSettings<'a> {
-	pub(crate) fn new_device(device: &Device<'a>) -> Self {
+impl<'a, Tag> DeviceSettings<'a, Tag> {
+	pub(crate) fn new_device(device: &Device<'a, Tag>) -> Self {
 		Settings {
 			_info: device.info,
 			target: device.target(),
 			_scope_marker: std::marker::PhantomData,
+			_tag: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<'a, S> Settings<'a, S> {
+impl<'a, S, Tag> Settings<'a, S, Tag> {
 	/// Get the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn get<T>(&self, setting: T) -> Get<T>
+	pub fn get<T>(&self, setting: T) -> Get<T, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 	{
 		Get {
 			target: self.target,
 			setting,
+			tag: std::marker::PhantomData,
 		}
 	}
 
 	/// Same as [`Settings::get`] except that the reply is validated with the custom [`Check`].
-	pub fn get_with_check<T, C>(&self, setting: T, checker: C) -> GetWithCheck<T, C>
+	pub fn get_with_check<T, C>(&self, setting: T, checker: C) -> GetWithCheck<T, C, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		C: check::Check<Reply>,
@@ -110,13 +114,14 @@ impl<'a, S> Settings<'a, S> {
 			target: self.target,
 			setting,
 			checker,
+			tag: std::marker::PhantomData,
 		}
 	}
 
 	/// Set the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn set<T, V>(&self, setting: T, value: V) -> Set<T, V>
+	pub fn set<T, V>(&self, setting: T, value: V) -> Set<T, V, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
@@ -125,11 +130,17 @@ impl<'a, S> Settings<'a, S> {
 			target: self.target,
 			setting,
 			value,
+			tag: std::marker::PhantomData,
 		}
 	}
 
 	/// Same as [`Settings::set`] except that the reply is validated with the custom [`Check`].
-	pub fn set_with_check<T, V, C>(&self, setting: T, value: V, checker: C) -> SetWithCheck<T, V, C>
+	pub fn set_with_check<T, V, C>(
+		&self,
+		setting: T,
+		value: V,
+		checker: C,
+	) -> SetWithCheck<T, V, C, Tag>
 	where
 		T: Setting + SatisfiesRequiredScope<S>,
 		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
@@ -140,6 +151,7 @@ impl<'a, S> Settings<'a, S> {
 			setting,
 			value,
 			checker,
+			tag: std::marker::PhantomData,
 		}
 	}
 }
@@ -151,12 +163,13 @@ impl<'a, S> Settings<'a, S> {
 /// [`get`]: Settings::get
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct Get<T> {
+pub struct Get<T, Tag> {
 	target: Target,
 	setting: T,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, B, T> Routine<Port<'a, B>> for Get<T>
+impl<'a, B, T, Tag> Routine<Port<'a, B, Tag>> for Get<T, Tag>
 where
 	B: Backend,
 	T: Setting,
@@ -165,7 +178,7 @@ where
 	type Output = <T::Type as DataType>::Owned;
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let reply = port
 			.command_reply((self.target, format!("get {}", self.setting.name())))?
 			.flag_ok()?;
@@ -181,13 +194,14 @@ where
 /// [`get_with_check`]: Settings::get_with_check
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct GetWithCheck<T, C> {
+pub struct GetWithCheck<T, C, Tag> {
 	target: Target,
 	setting: T,
 	checker: C,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, B, T, C> Routine<Port<'a, B>> for GetWithCheck<T, C>
+impl<'a, B, T, C, Tag> Routine<Port<'a, B, Tag>> for GetWithCheck<T, C, Tag>
 where
 	B: Backend,
 	T: Setting,
@@ -197,7 +211,7 @@ where
 	type Output = <T::Type as DataType>::Owned;
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'_, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'_, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let reply = port
 			.command_reply((self.target, format!("get {}", self.setting.name())))?
 			.check(&self.checker)?;
@@ -212,12 +226,13 @@ where
 /// [`set`]: Settings::set
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct Set<T, V> {
+pub struct Set<T, V, Tag> {
 	target: Target,
 	setting: T,
 	value: V,
+	tag: std::marker::PhantomData<Tag>,
 }
-impl<'a, B, T, V> Routine<Port<'a, B>> for Set<T, V>
+impl<'a, B, T, V, Tag> Routine<Port<'a, B, Tag>> for Set<T, V, Tag>
 where
 	B: Backend,
 	T: Setting,
@@ -226,7 +241,7 @@ where
 	type Output = ();
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let _ = port
 			.command_reply((
 				self.target,
@@ -249,13 +264,14 @@ where
 /// [`set_with_check`]: Settings::set_with_check
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct SetWithCheck<T, V, C> {
+pub struct SetWithCheck<T, V, C, Tag> {
 	target: Target,
 	setting: T,
 	value: V,
 	checker: C,
+	tag: std::marker::PhantomData<Tag>,
 }
-impl<'a, B, T, V, C> Routine<Port<'a, B>> for SetWithCheck<T, V, C>
+impl<'a, B, T, V, C, Tag> Routine<Port<'a, B, Tag>> for SetWithCheck<T, V, C, Tag>
 where
 	B: Backend,
 	T: Setting,
@@ -265,7 +281,7 @@ where
 	type Output = ();
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let _ = port
 			.command_reply((
 				self.target,

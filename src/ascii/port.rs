@@ -71,17 +71,28 @@ pub enum Direction {
 	Recv,
 }
 
+/// The default tag to mark types
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum DefaultTag {}
+
 /// A port configured to use the ASCII protocol.
 ///
 /// A port is parameterized by some [`Backend`] type, `B`. Use the convenience
-/// methods [`Port::open_serial`] and [`Port::open_tcp`] to construct a serial
+/// methods [`open_serial`] and [`open_tcp`] to construct a serial
 /// port (`Port<Serial>`) or a TCP port (`Port<TcpStream>`). To customize the
 /// construction of these types, or to construct a port with a dynamic backend,
 /// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
 ///
-/// See the [`ascii`](crate::ascii) module-level documentation for more details.
+/// To make a port's type unique, use the [`into_tagged`] method.
+///
+/// See the [`ascii`] module-level documentation for more details.
+///
+/// [`ascii`]: crate::ascii
+/// [`into_tagged`]: Port::into_tagged
+/// [`open_serial`]: Port::open_serial
+/// [`open_tcp`]: Port::open_tcp
 #[derive(Debug)]
-pub struct Port<'a, B> {
+pub struct Port<'a, B, Tag = DefaultTag> {
 	/// The underlying backend
 	backend: B,
 	/// The message ID generator
@@ -111,9 +122,11 @@ pub struct Port<'a, B> {
 	packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
 	/// Optional hook to call when an unexpected Alert is received.
 	unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
+	/// The type differentiating this Port for other Ports at compile time.
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a> Port<'a, Serial> {
+impl<'a> Port<'a, Serial, DefaultTag> {
 	/// Open the serial port at the specified path using the default options.
 	///
 	/// Alternatively, use [`Port::open_serial_options`] to customize how the port is opened.
@@ -139,7 +152,7 @@ impl<'a> Port<'a, Serial> {
 	}
 }
 
-impl<'a> Port<'a, TcpStream> {
+impl<'a> Port<'a, TcpStream, DefaultTag> {
 	/// Open the TCP port at the specified address using the default options.
 	///
 	/// Alternatively, use [`Port::open_tcp_options`] to customize how the port is opened.
@@ -165,7 +178,7 @@ impl<'a> Port<'a, TcpStream> {
 	}
 }
 
-impl<'a, B: Backend> Port<'a, B> {
+impl<'a, B: Backend, Tag> Port<'a, B, Tag> {
 	/// Create a `Port` from a [`Backend`] type.
 	fn from_backend(
 		backend: B,
@@ -183,6 +196,87 @@ impl<'a, B: Backend> Port<'a, B> {
 			builder: ResponseBuilder::default(),
 			packet_hook: None,
 			unexpected_alert_hook: None,
+			tag: std::marker::PhantomData,
+		}
+	}
+
+	/// Convert the type of this port by "tagging" it with the type `T`.
+	///
+	/// This does not change the runtime behaviour of the port; it only changes
+	/// how the compiler treats the port and the types generated from the port,
+	/// such as [`Chain`], during compilation.
+	///
+	/// This is primarily used for differentiating multiple `Port`s from each
+	/// other and preventing them from being used where they should not be.
+	///
+	/// # Examples
+	///
+	/// When communicating with products over more than one port it can be easy
+	/// to pass the wrong port to the [`Routine`]s generated from a port's
+	/// [`Chain`]. In the best case, the command fails at run time, but in many
+	/// cases it simply results in incorrect data.
+	///
+	/// ```
+	/// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
+	/// # fn wrapper<B: Backend>(mut port_a: Port<B>, mut port_b: Port<B>) -> Result<(), AsciiError> {
+	/// use zproto::ascii::setting::v_latest::SystemSerial;
+	///
+	/// let chain = port_a.chain()?;
+	/// for device in &chain {
+	///     let get_system_serial = device.settings().get(SystemSerial);
+	///     let _serial = port_b.run(get_system_serial)?;
+	///     //            ^^^^^^ OOPS! This is the wrong port!
+	/// }
+	/// # Ok(())
+	/// # }
+	/// ```
+	///
+	/// However, by tagging each port's type, we change the type of the port and
+	/// the types of the routines generated from it, turning the above runtime
+	/// error into a compiler error.
+	///
+	/// ```compile_fail
+	/// # use zproto::{ascii::Port, backend::Backend, error::AsciiError};
+	/// # fn wrapper<B: Backend>(mut port_a: Port<B>, mut port_b: Port<B>) -> Result<(), AsciiError> {
+	/// use zproto::ascii::setting::v_latest::SystemSerial;
+	///
+	/// struct PortA;
+	/// let mut port_a = port_a.into_tagged::<PortA>();
+	/// let chain = port_a.chain()?; // Has a different type
+	/// for device in &chain {
+	///     let get_system_serial = device.settings().get(SystemSerial); // Has a different type
+	///     // Yay! This no longer compiles because the type of port_b is
+	///     // incompatible with the type of get_system_serial.
+	///     let _id = port_b.run(get_system_serial)?;
+	///     // ERROR:        ^^^ the trait `Routine<Port<B>>` is not implemented for `Get<SystemSerial, PortA>`
+	/// }
+	/// # Ok(())
+	/// # }
+	/// ```
+	///
+	/// Using tagged ports can also be useful for ensuring functions receive
+	/// appropriate types.
+	///
+	/// ```
+	/// # use zproto::ascii::{Port, chain::Chain};
+	/// fn do_something<Backend, Tag>(port: &mut Port<Backend, Tag>, chain: &Chain<Tag>) {
+	///     // The chain is guaranteed to be associated with the port, assuming
+	///     // each type Tag is a only used to tag one port.
+	///     todo!()
+	/// }
+	/// ```
+	pub fn into_tagged<T>(self) -> Port<'a, B, T> {
+		Port {
+			backend: self.backend,
+			ids: self.ids,
+			generate_id: self.generate_id,
+			generate_checksum: self.generate_checksum,
+			max_packet_size: self.max_packet_size,
+			poison: self.poison,
+			packet_hook: self.packet_hook,
+			builder: self.builder,
+			unexpected_alert_hook: self.unexpected_alert_hook,
+			tag: std::marker::PhantomData,
 		}
 	}
 
@@ -392,14 +486,14 @@ impl<'a, B: Backend> Port<'a, B> {
 	pub fn command_reply_infos_iter<C: Command>(
 		&mut self,
 		cmd: C,
-	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B>), AsciiError> {
+	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B, Tag>), AsciiError> {
 		self.internal_command_reply_infos_iter(&cmd)
 	}
 
 	fn internal_command_reply_infos_iter(
 		&mut self,
 		cmd: &dyn Command,
-	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B>), AsciiError> {
+	) -> Result<(NotChecked<Reply>, iter::InfosUntilSentinel<'_, 'a, B, Tag>), AsciiError> {
 		let target = cmd.target();
 		let reply = self.internal_command_reply(cmd)?;
 		let old_generate_id = self.set_message_ids(true);
@@ -476,7 +570,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		cmd: C,
 		n: usize,
-	) -> Result<iter::NResponses<'_, 'a, B, Reply>, AsciiError>
+	) -> Result<iter::NResponses<'_, 'a, B, Reply, Tag>, AsciiError>
 	where
 		C: Command,
 	{
@@ -493,7 +587,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		cmd: &dyn Command,
 		n: usize,
-	) -> Result<iter::NResponses<'_, 'a, B, Reply>, AsciiError> {
+	) -> Result<iter::NResponses<'_, 'a, B, Reply, Tag>, AsciiError> {
 		let id = self.command(cmd)?;
 		Ok(self.internal_response_n_iter(
 			n,
@@ -568,7 +662,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	pub fn command_replies_until_timeout_iter<C>(
 		&mut self,
 		cmd: C,
-	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply>, AsciiError>
+	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply, Tag>, AsciiError>
 	where
 		C: Command,
 	{
@@ -584,7 +678,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	fn internal_command_replies_until_timeout_iter(
 		&mut self,
 		cmd: &dyn Command,
-	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply>, AsciiError> {
+	) -> Result<iter::ResponsesUntilTimeout<'_, 'a, B, Reply, Tag>, AsciiError> {
 		let id = self.command(cmd)?;
 		Ok(
 			self.internal_responses_until_timeout_iter(HeaderCheck::Matches {
@@ -838,7 +932,7 @@ impl<'a, B: Backend> Port<'a, B> {
 		&mut self,
 		n: usize,
 		header_check: HeaderCheck,
-	) -> iter::NResponses<'_, 'a, B, R>
+	) -> iter::NResponses<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -897,7 +991,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn response_n_iter<R>(&mut self, n: usize) -> iter::NResponses<'_, 'a, B, R>
+	pub fn response_n_iter<R>(&mut self, n: usize) -> iter::NResponses<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -993,7 +1087,9 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn responses_until_timeout_iter<R>(&mut self) -> iter::ResponsesUntilTimeout<'_, 'a, B, R>
+	pub fn responses_until_timeout_iter<R>(
+		&mut self,
+	) -> iter::ResponsesUntilTimeout<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -1003,7 +1099,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	fn internal_responses_until_timeout_iter<R>(
 		&mut self,
 		header_check: HeaderCheck,
-	) -> iter::ResponsesUntilTimeout<'_, 'a, B, R>
+	) -> iter::ResponsesUntilTimeout<'_, 'a, B, R, Tag>
 	where
 		R: Response,
 	{
@@ -1030,7 +1126,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn poll<C>(&mut self, command: C) -> iter::Poll<'_, 'a, B, C>
+	pub fn poll<C>(&mut self, command: C) -> iter::Poll<'_, 'a, B, C, Tag>
 	where
 		C: Command,
 	{
@@ -1244,7 +1340,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	}
 
 	/// Create a [`Chain`].
-	pub fn chain(&mut self) -> Result<Chain, AsciiError> {
+	pub fn chain(&mut self) -> Result<Chain<Tag>, AsciiError> {
 		Chain::new(self)
 	}
 
@@ -1392,7 +1488,7 @@ impl<'a, B: Backend> Port<'a, B> {
 	}
 }
 
-impl<'a, B: Backend> io::Write for Port<'a, B> {
+impl<'a, B: Backend, Tag> io::Write for Port<'a, B, Tag> {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
 		self.check_poisoned()?;
 		self.backend.write(buf)
@@ -1404,14 +1500,14 @@ impl<'a, B: Backend> io::Write for Port<'a, B> {
 	}
 }
 
-impl<'a, B: Backend> io::Read for Port<'a, B> {
+impl<'a, B: Backend, Tag> io::Read for Port<'a, B, Tag> {
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 		self.check_poisoned()?;
 		self.backend.read(buf)
 	}
 }
 
-impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
+impl<'a, B: Backend, Tag> crate::timeout_guard::Port<B> for Port<'a, B, Tag> {
 	fn backend_mut(&mut self) -> &mut B {
 		&mut self.backend
 	}

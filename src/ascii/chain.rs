@@ -7,7 +7,7 @@ pub mod scope;
 pub mod setting;
 
 use crate::{
-	ascii::{command::Target, Port},
+	ascii::{command::Target, port::DefaultTag, Port},
 	backend::Backend,
 	error::AsciiError,
 };
@@ -47,7 +47,10 @@ impl ChainOptions {
 	}
 
 	/// Create a [`Chain`] from the given [`Port`].
-	pub fn build<B: Backend>(&self, port: &mut Port<'_, B>) -> Result<Chain, AsciiError> {
+	pub fn build<B: Backend, Tag>(
+		&self,
+		port: &mut Port<'_, B, Tag>,
+	) -> Result<Chain<Tag>, AsciiError> {
 		if self.renumber {
 			for result in port.command_replies_until_timeout_iter("renumber")? {
 				result?.flag_ok()?;
@@ -55,17 +58,19 @@ impl ChainOptions {
 		}
 		Ok(Chain {
 			info: ChainInfo::new(port)?,
+			tag: std::marker::PhantomData,
 		})
 	}
 }
 
 /// Represents a chain of devices.
 #[derive(Debug)]
-pub struct Chain {
+pub struct Chain<Tag = DefaultTag> {
 	info: ChainInfo,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl Chain {
+impl<Tag> Chain<Tag> {
 	/// Get the number of devices in the chain.
 	pub fn len(&self) -> usize {
 		self.info.devices.len()
@@ -77,21 +82,18 @@ impl Chain {
 	}
 
 	/// Get an iterator over the devices in the chain.
-	pub fn iter(&self) -> IterDevices {
+	pub fn iter(&self) -> IterDevices<'_, Tag> {
 		IterDevices::new(&self.info)
 	}
 
 	/// Get the [`Device`] at the specified address.
 	///
 	/// Returns `None` if there is no device at that address.
-	pub fn device(&self, address: u8) -> Option<Device<'_>> {
+	pub fn device(&self, address: u8) -> Option<Device<'_, Tag>> {
 		NonZeroU8::new(address).and_then(|address| {
 			let address_exists = self.info.devices.contains_key(&address);
 			if address_exists {
-				Some(Device {
-					info: &self.info,
-					address,
-				})
+				Some(Device::new(&self.info, address))
 			} else {
 				None
 			}
@@ -99,25 +101,25 @@ impl Chain {
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &'a Chain {
-	type Item = Device<'a>;
-	type IntoIter = IterDevices<'a>;
+impl<'a, Tag> std::iter::IntoIterator for &'a Chain<Tag> {
+	type Item = Device<'a, Tag>;
+	type IntoIter = IterDevices<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterDevices::new(&self.info)
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &'a mut Chain {
-	type Item = Device<'a>;
-	type IntoIter = IterDevices<'a>;
+impl<'a, Tag> std::iter::IntoIterator for &'a mut Chain<Tag> {
+	type Item = Device<'a, Tag>;
+	type IntoIter = IterDevices<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterDevices::new(&self.info)
 	}
 }
 
-impl Chain {
+impl<Tag> Chain<Tag> {
 	/// Create a new [`Chain`] using the default options.
 	///
 	/// To customize how the chain is built use [`options`](Chain::options).
@@ -131,10 +133,12 @@ impl Chain {
 	/// Chain::options().build(&mut port)
 	/// # }
 	/// ```
-	pub fn new<B: Backend>(port: &mut Port<'_, B>) -> Result<Self, AsciiError> {
+	pub fn new<B: Backend>(port: &mut Port<'_, B, Tag>) -> Result<Self, AsciiError> {
 		ChainOptions::default().build(port)
 	}
+}
 
+impl Chain<DefaultTag> {
 	/// Get a [`ChainOptions`] to customize the creation of a new [`Chain`].
 	pub fn options() -> ChainOptions {
 		ChainOptions::default()
@@ -143,31 +147,41 @@ impl Chain {
 
 /// Represents a single device (controller or integrated product).
 #[derive(Debug)]
-pub struct Device<'a> {
+pub struct Device<'a, Tag> {
 	info: &'a ChainInfo,
 	address: NonZeroU8,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a> Device<'a> {
+impl<'a, Tag> Device<'a, Tag> {
+	/// Create a new `Device`
+	fn new(info: &'a ChainInfo, address: NonZeroU8) -> Self {
+		Device {
+			info,
+			address,
+			tag: std::marker::PhantomData,
+		}
+	}
+
 	/// Get the [`Target`] for the device.
 	pub fn target(&self) -> Target {
 		self.address.get().into()
 	}
 
 	/// Get an iterator over the axes of the device.
-	pub fn iter(&self) -> IterAxes<'a> {
+	pub fn iter(&self) -> IterAxes<'a, Tag> {
 		IterAxes::new(self.info, self.address)
 	}
 
 	/// Get access to this device's settings.
-	pub fn settings(&self) -> DeviceSettings<'a> {
+	pub fn settings(&self) -> DeviceSettings<'a, Tag> {
 		DeviceSettings::new_device(self)
 	}
 
 	/// Get the [`Axis`] at the specified axis number (1-based).
 	///
 	/// Returns None if there is no axis with that number.
-	pub fn axis(&self, number: u8) -> Option<Axis<'a>> {
+	pub fn axis(&self, number: u8) -> Option<Axis<'a, Tag>> {
 		NonZeroU8::new(number).and_then(|number| {
 			let is_valid_number = self
 				.info
@@ -175,11 +189,7 @@ impl<'a> Device<'a> {
 				.get(&self.address)
 				.map(|device_info| device_info.valid_axis_number(number));
 			if let Some(true) = is_valid_number {
-				Some(Axis {
-					info: self.info,
-					address: self.address,
-					axis: number,
-				})
+				Some(Axis::new(self.info, self.address, number))
 			} else {
 				None
 			}
@@ -187,36 +197,37 @@ impl<'a> Device<'a> {
 	}
 }
 
-impl<'a> Clone for Device<'a> {
+impl<'a, Tag> Clone for Device<'a, Tag> {
 	fn clone(&self) -> Self {
 		Device {
 			info: self.info,
 			address: self.address,
+			tag: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<'a> std::iter::IntoIterator for Device<'a> {
-	type Item = Axis<'a>;
-	type IntoIter = IntoIterAxes<'a>;
+impl<'a, Tag> std::iter::IntoIterator for Device<'a, Tag> {
+	type Item = Axis<'a, Tag>;
+	type IntoIter = IntoIterAxes<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIterAxes::new(self.info, self.address)
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &Device<'a> {
-	type Item = Axis<'a>;
-	type IntoIter = IterAxes<'a>;
+impl<'a, Tag> std::iter::IntoIterator for &Device<'a, Tag> {
+	type Item = Axis<'a, Tag>;
+	type IntoIter = IterAxes<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterAxes::new(self.info, self.address)
 	}
 }
 
-impl<'a> std::iter::IntoIterator for &mut Device<'a> {
-	type Item = Axis<'a>;
-	type IntoIter = IterAxes<'a>;
+impl<'a, Tag> std::iter::IntoIterator for &mut Device<'a, Tag> {
+	type Item = Axis<'a, Tag>;
+	type IntoIter = IterAxes<'a, Tag>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IterAxes::new(self.info, self.address)
@@ -225,33 +236,45 @@ impl<'a> std::iter::IntoIterator for &mut Device<'a> {
 
 /// Represents a single axis on a device.
 #[derive(Debug)]
-pub struct Axis<'a> {
+pub struct Axis<'a, Tag> {
 	/// Information about the chain
 	info: &'a ChainInfo,
 	/// The device address
 	address: NonZeroU8,
 	/// The axis number
 	axis: NonZeroU8,
+	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a> Clone for Axis<'a> {
+impl<'a, Tag> Clone for Axis<'a, Tag> {
 	fn clone(&self) -> Self {
 		Axis {
 			info: self.info,
 			address: self.address,
 			axis: self.axis,
+			tag: std::marker::PhantomData,
 		}
 	}
 }
 
-impl<'a> Axis<'a> {
+impl<'a, Tag> Axis<'a, Tag> {
+	/// Create an `Axis`
+	fn new(info: &'a ChainInfo, address: NonZeroU8, axis: NonZeroU8) -> Self {
+		Axis {
+			info,
+			address,
+			axis,
+			tag: std::marker::PhantomData,
+		}
+	}
+
 	/// Get the [`Target`] for the axis.
 	pub fn target(&self) -> Target {
 		(self.address.get(), self.axis.get()).into()
 	}
 
 	/// Get access to this axis's settings.
-	pub fn settings(&self) -> AxisSettings<'a> {
+	pub fn settings(&self) -> AxisSettings<'a, Tag> {
 		AxisSettings::new_axis(self)
 	}
 }
@@ -259,13 +282,14 @@ impl<'a> Axis<'a> {
 #[cfg(test)]
 pub(crate) mod test {
 	use super::*;
+	use crate::ascii::port::DefaultTag;
 	use crate::backend::Mock;
 	use crate::error::DuplicateAddressError;
 
 	pub fn new_mock_port_and_chain(
 		num_devices: usize,
 		num_axes_per_device: usize,
-	) -> (Port<'static, Mock>, Chain) {
+	) -> (Port<'static, Mock>, Chain<DefaultTag>) {
 		let mut port = Port::open_mock();
 		{
 			let backend = port.backend_mut();
@@ -279,7 +303,7 @@ pub(crate) mod test {
 		(port, chain)
 	}
 
-	pub fn new_mock_chain(num_devices: usize, num_axes_per_device: usize) -> Chain {
+	pub fn new_mock_chain(num_devices: usize, num_axes_per_device: usize) -> Chain<DefaultTag> {
 		let (_, chain) = new_mock_port_and_chain(num_devices, num_axes_per_device);
 		chain
 	}
