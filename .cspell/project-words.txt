@@ -1,22 +1,14 @@
+# cspell-tools: keep-case no-split
 Addrs
 builtins
 Displayer
 elif
-hexdigit
-idents
 inferencing
+Interner
 libudev
 microstep
 monomorphized
-peekable
 RAII
-repr
-rustc
-rustdoc
-serialport
-struct
 subslices
-system.axiscount
-trybuild
 unhomed
 zproto
