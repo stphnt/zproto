@@ -1,8 +1,10 @@
+# cspell-tools: keep-case no-split
 Addrs
 builtins
 Displayer
 elif
 inferencing
+Interner
 libudev
 microstep
 monomorphized
