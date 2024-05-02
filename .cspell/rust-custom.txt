@@ -1,0 +1,10 @@
+# cspell-tools: keep-case no-split
+argh
+hexdigit
+idents
+peekable
+repr
+rusqlite
+rustc
+serialport
+trybuild

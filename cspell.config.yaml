@@ -1,20 +1,20 @@
 ---
 $schema: https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
 version: '0.2'
-import: 
+import:
   - '@cspell/dict-rust/cspell-ext.json'
 dictionaryDefinitions:
   - name: project-words
     path: './.cspell/project-words.txt'
   - name: zaber-words
     path: './.cspell/zaber-words.txt'
-  - name: rust-libs
-    path: './.cspell/rust-libs.txt'
+  - name: rust-custom
+    path: './.cspell/rust-custom.txt'
 dictionaries:
   - en-gb
   - project-words
   - zaber-words
-  - rust-libs
+  - rust-custom
 ignorePaths:
   - 'target'
   - '.cspell'
