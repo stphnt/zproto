@@ -19,3 +19,6 @@ ignorePaths:
   - 'target'
   - '.cspell'
   - '.github'
+overrides:
+  - filename: "**/*.stderr"
+    languageId: "rust"
