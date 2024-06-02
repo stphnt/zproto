@@ -112,8 +112,10 @@ pub(crate) mod private {
 	pub mod v7_36;
 	#[cfg(feature = "v7_37")]
 	pub mod v7_37;
-	#[cfg(any(feature = "v7_38", feature = "v_latest"))]
+	#[cfg(feature = "v7_38")]
 	pub mod v7_38;
+	#[cfg(any(feature = "v7_39", feature = "v_latest"))]
+	pub mod v7_39;
 }
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v6_14")))]
 #[cfg(feature = "v6_14")]
@@ -280,6 +282,9 @@ pub use private::v7_37 as v7_37;
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v7_38")))]
 #[cfg(feature = "v7_38")]
 pub use private::v7_38 as v7_38;
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v7_39")))]
+#[cfg(feature = "v7_39")]
+pub use private::v7_39 as v7_39;
 
 /// An alias for the module containing settings for the latest version of firmware.
 ///
@@ -288,4 +293,4 @@ pub use private::v7_38 as v7_38;
 ///
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v_latest")))]
 #[cfg(feature = "v_latest")]
-pub use private::v7_38 as v_latest;
+pub use private::v7_39 as v_latest;
