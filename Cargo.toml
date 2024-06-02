@@ -11,6 +11,13 @@ documentation = "https://docs.rs/zproto"
 homepage = "https://github.com/stphnt/zproto"
 keywords = ["Zaber", "ASCII", "Binary", "serial", "RS232"]
 categories = ["hardware-support"]
+include = [
+    "examples/",
+    "src/",
+    "test/",
+    "LICENSE",
+    "README.md",
+]
 
 [package.metadata.docs.rs]
 all-features = true
