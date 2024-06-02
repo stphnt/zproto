@@ -9,6 +9,7 @@ decelonly
 deviceid
 forceprofile
 fwhm
+hardstop
 holderid
 ictrl
 maxspeed

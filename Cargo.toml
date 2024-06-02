@@ -77,6 +77,7 @@ v7_35 = [] # Enable APIs related to firmware version 7.35
 v7_36 = [] # Enable APIs related to firmware version 7.36
 v7_37 = [] # Enable APIs related to firmware version 7.37
 v7_38 = [] # Enable APIs related to firmware version 7.38
+v7_39 = [] # Enable APIs related to firmware version 7.39
 v_latest = [] # Enable APIs related to the latest firmware version
 
 # Use the nightly-only `doc_cfg` feature when generating the documentation.
