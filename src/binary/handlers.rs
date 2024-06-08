@@ -21,6 +21,20 @@ where
 #[deprecated = "use the PacketHandler alias instead"]
 pub type PacketCallback<'a> = PacketHandler<'a>;
 
+/// The same as [`PacketHandler`] but also implements `Send`.
+///
+/// See [`Port::set_packet_handler`] for more details.
+pub type SendPacketHandler<'a> = Box<dyn FnMut(&[u8], Message, Direction) + Send + 'a>;
+
+impl<'a, F> crate::convert::From<F> for SendPacketHandler<'a>
+where
+    F: FnMut(&[u8], Message, Direction) + Send + 'a,
+{
+    fn from(value: F) -> Self {
+        Box::new(value)
+    }
+}
+
 /// Implementation detail.
 ///
 /// A collection of event handlers that can only be used in the local thread.
@@ -37,6 +51,27 @@ impl std::fmt::Debug for LocalHandlers<'_> {
 
 impl<'a> Handlers for LocalHandlers<'a> {
     type PacketHandler = PacketHandler<'a>;
+    fn packet(&mut self) -> &mut Option<Self::PacketHandler> {
+        &mut self.packet
+    }
+}
+
+/// Implementation detail.
+///
+/// A collection of event handlers that can be sent to other threads (i.e. they implement `Send`).
+#[derive(Default)]
+pub struct SendHandlers<'a> {
+    pub(super) packet: Option<SendPacketHandler<'a>>,
+}
+
+impl std::fmt::Debug for SendHandlers<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SendHandlers").finish_non_exhaustive()
+    }
+}
+
+impl<'a> Handlers for SendHandlers<'a> {
+    type PacketHandler = SendPacketHandler<'a>;
     fn packet(&mut self) -> &mut Option<Self::PacketHandler> {
         &mut self.packet
     }

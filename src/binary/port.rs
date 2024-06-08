@@ -4,10 +4,10 @@
 use crate::backend::Mock;
 use crate::{
     backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
-    binary::{command, traits, Handlers, LocalHandlers, Message},
+    binary::{command, traits, Handlers, LocalHandlers, Message, SendHandlers},
     error::{
         BinaryCommandFailureError, BinaryError, BinaryUnexpectedCommandError,
-        BinaryUnexpectedIdError, BinaryUnexpectedTargetError,
+        BinaryUnexpectedIdError, BinaryUnexpectedTargetError, TryIntoSendError,
     },
     timeout_guard::TimeoutGuard,
 };
@@ -233,6 +233,8 @@ pub enum Direction {
     /// The packet was received from a device.
     Recv,
 }
+/// The type of [`Port`] that implements `Send`.
+pub type SendPort<'a, B> = Port<'a, B, SendHandlers<'a>>;
 
 /// A Port for transmitting and receiving Zaber Binary protocol messages.
 ///
@@ -340,6 +342,60 @@ where
         } else {
             Ok(())
         }
+    }
+
+    /// Convert this port into one that implements `Send` and can therefore be sent
+    /// to another thread.
+    ///
+    /// Returns an error if `Send` bounds could not be added. In particular if
+    /// an event handler is currently set. As such, it is recommended to call
+    /// [`Port::try_into_send`] before setting a callback if you need to do both.
+    ///
+    /// The [`Port::set_packet_handler`] on the new port will have an additional
+    /// `Send` bound on any function used as a callback.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use zproto::{binary::Port, backend::Backend};
+    /// # use std::{error::Error, fmt::Debug};
+    /// # fn wrapper<B: Backend + Debug + Send + 'static>(
+    /// #     port: Port<'static, B>
+    /// # ) -> Result<(), Box<dyn Error>> {
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let port = Port::open_serial("...")?
+    ///     .try_into_send()  // Required in order to send the port to another thread.
+    ///     .unwrap();
+    /// let port = Arc::new(Mutex::new(port));
+    ///
+    /// let mut handles = vec![];
+    /// for i in 0..10 {
+    ///     let port = port.clone();
+    ///     let handle = std::thread::spawn(move || {
+    ///         let mut guard = port.lock().unwrap();
+    ///         // do something with the port ...
+    ///     });
+    ///     handles.push(handle);
+    /// }
+    ///
+    /// for handle in handles {
+    ///     let _ = handle.join();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError> {
+        if self.handlers.packet().is_some() {
+            return Err(TryIntoSendError::new());
+        }
+        Ok(Port {
+            backend: self.backend,
+            id: self.id,
+            poison: self.poison,
+            handlers: SendHandlers::default(),
+            lifetime: std::marker::PhantomData,
+        })
     }
 
     /// Transmit a message and then receive a response.
