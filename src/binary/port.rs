@@ -4,7 +4,7 @@
 use crate::backend::Mock;
 use crate::{
     backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
-    binary::{command, traits, LocalHandlers, Message, PacketHandler},
+    binary::{command, traits, Handlers, LocalHandlers, Message},
     error::{
         BinaryCommandFailureError, BinaryError, BinaryUnexpectedCommandError,
         BinaryUnexpectedIdError, BinaryUnexpectedTargetError,
@@ -238,7 +238,7 @@ pub enum Direction {
 ///
 /// See the [`binary`](crate::binary) module documentation details on how to use
 /// a `Port`.
-pub struct Port<'a, B> {
+pub struct Port<'a, B, H = LocalHandlers<'a>> {
     /// The backend to transmit/receive commands with
     backend: B,
     /// The message ID state
@@ -257,10 +257,12 @@ pub struct Port<'a, B> {
     /// can poison the port.
     poison: Option<io::Error>,
     /// User specified event handlers.
-    handlers: LocalHandlers<'a>,
+    handlers: H,
+    /// Lifetime marker
+    lifetime: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a, B: Backend> std::fmt::Debug for Port<'a, B> {
+impl<'a, B: Backend, H> std::fmt::Debug for Port<'a, B, H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Port")
             .field("name", &self.backend.name())
@@ -314,14 +316,20 @@ impl<'a> Port<'a, Mock> {
     }
 }
 
-impl<'a, B: Backend> Port<'a, B> {
+impl<'a, B, H> Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Message, Direction) + 'a,
+{
     /// Get a `Port` from the given backend.
-    fn from_backend(backend: B) -> Port<'a, B> {
+    fn from_backend(backend: B) -> Port<'a, B, H> {
         Port {
             backend,
             id: MessageId::Disabled(0),
             poison: None,
-            handlers: LocalHandlers::default(),
+            handlers: H::default(),
+            lifetime: std::marker::PhantomData,
         }
     }
 
@@ -442,7 +450,7 @@ impl<'a, B: Backend> Port<'a, B> {
             buffer
         );
 
-        if let Some(ref mut callback) = self.handlers.packet {
+        if let Some(ref mut callback) = self.handlers.packet() {
             (callback)(
                 &buffer,
                 Message::from_bytes(&buffer, id.is_some()),
@@ -476,7 +484,7 @@ impl<'a, B: Backend> Port<'a, B> {
         );
         let response = Message::from_bytes(&buf, self.id.is_enabled());
 
-        if let Some(ref mut callback) = self.handlers.packet {
+        if let Some(ref mut callback) = self.handlers.packet() {
             (callback)(&buf, response, Direction::Recv);
         }
         checks(response)?;
@@ -811,16 +819,19 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketHandler>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<H::PacketHandler>
     where
-        F: FnMut(&[u8], Message, Direction) + 'a,
+        H::PacketHandler: crate::convert::From<F>,
     {
-        std::mem::replace(&mut self.handlers.packet, Some(Box::new(callback)))
+        std::mem::replace(
+            self.handlers.packet(),
+            Some(crate::convert::From::from(callback)),
+        )
     }
 
     /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
-    pub fn clear_packet_handler(&mut self) -> Option<PacketHandler> {
-        self.handlers.packet.take()
+    pub fn clear_packet_handler(&mut self) -> Option<H::PacketHandler> {
+        self.handlers.packet().take()
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the
@@ -858,7 +869,7 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 }
 
-impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
+impl<'a, B: Backend, H> crate::timeout_guard::Port<B> for Port<'a, B, H> {
     fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
