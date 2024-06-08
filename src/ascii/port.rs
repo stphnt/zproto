@@ -1,5 +1,6 @@
 //! Types for opening and using a serial port with the ASCII protocol.
 
+mod handlers;
 mod options;
 #[cfg(test)]
 mod test;
@@ -17,6 +18,8 @@ use crate::{
     error::*,
     timeout_guard::TimeoutGuard,
 };
+use handlers::LocalHandlers;
+pub use handlers::{PacketHandler, UnexpectedAlertHandler};
 pub use options::*;
 use std::{
     convert::TryFrom,
@@ -25,15 +28,13 @@ use std::{
     time::Duration,
 };
 
-/// A callback that is called after a packet is either transmitted or received.
-///
-/// See [`Port::set_packet_handler`] for more details.
-pub type PacketCallback<'a> = Box<dyn FnMut(&[u8], Direction) + 'a>;
+/// Deprecated. Use [`PacketHandler`] instead.
+#[deprecated = "use the PacketHandler alias instead"]
+pub type PacketCallback<'a> = PacketHandler<'a>;
 
-/// A callback that is called when an unexpected Alert is received.
-///
-/// See [`Port::set_unexpected_alert_handler`] for more details.
-pub type UnexpectedAlertCallback<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + 'a>;
+/// Deprecated. Use [`UnexpectedAlertHandler`] instead.
+#[deprecated = "use the UnexpectedAlertHandler alias instead"]
+pub type UnexpectedAlertCallback<'a> = UnexpectedAlertHandler<'a>;
 
 type DefaultCheck<R> = Option<fn(R) -> Result<R, AsciiCheckError<R>>>;
 
@@ -93,10 +94,8 @@ pub struct Port<'a, B> {
     poison: Option<io::Error>,
     /// The builder used to concatenate packets in to responses.
     builder: ResponseBuilder,
-    /// Optional hook to call after a packet is sent/received.
-    packet_hook: Option<PacketCallback<'a>>,
-    /// Optional hook to call when an unexpected Alert is received.
-    unexpected_alert_hook: Option<UnexpectedAlertCallback<'a>>,
+    /// User supplied event handlers
+    handlers: LocalHandlers<'a>,
 }
 
 impl<'a, B: Backend> std::fmt::Debug for Port<'a, B> {
@@ -165,8 +164,7 @@ impl<'a, B: Backend> Port<'a, B> {
             max_packet_size,
             poison: None,
             builder: ResponseBuilder::default(),
-            packet_hook: None,
-            unexpected_alert_hook: None,
+            handlers: LocalHandlers::default(),
         }
     }
 
@@ -218,7 +216,7 @@ impl<'a, B: Backend> Port<'a, B> {
                 String::from_utf8_lossy(buffer.as_slice()).trim_end()
             );
             self.backend.write_all(buffer.as_slice())?;
-            if let Some(ref mut callback) = self.packet_hook {
+            if let Some(ref mut callback) = self.handlers.packet {
                 (callback)(buffer.as_slice(), Direction::Tx);
             }
             buffer.clear();
@@ -677,7 +675,7 @@ impl<'a, B: Backend> Port<'a, B> {
             String::from_utf8_lossy(&raw_packet).trim_end()
         );
 
-        if let Some(ref mut callback) = self.packet_hook {
+        if let Some(ref mut callback) = self.handlers.packet {
             (callback)(raw_packet.as_slice(), Direction::Recv);
         }
 
@@ -743,7 +741,7 @@ impl<'a, B: Backend> Port<'a, B> {
             Ok(())
         };
 
-        if let Some(callback) = &mut self.unexpected_alert_hook {
+        if let Some(callback) = &mut self.handlers.unexpected_alert {
             // There is an handler for alerts, check if we need to call it for any remaining responses.
             loop {
                 match inner() {
@@ -825,7 +823,7 @@ impl<'a, B: Backend> Port<'a, B> {
                         .map_err(From::from)
                 }
             }();
-            if let Some(callback) = &mut self.unexpected_alert_hook {
+            if let Some(callback) = &mut self.handlers.unexpected_alert {
                 // There is an handler for alerts, check if we need to call it.
                 match result {
                     Err(AsciiError::UnexpectedResponse(err)) => {
@@ -1403,16 +1401,16 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketCallback<'a>>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketHandler<'a>>
     where
         F: FnMut(&[u8], Direction) + 'a,
     {
-        std::mem::replace(&mut self.packet_hook, Some(Box::new(callback)))
+        std::mem::replace(&mut self.handlers.packet, Some(Box::new(callback)))
     }
 
     /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
-    pub fn clear_packet_handler(&mut self) -> Option<PacketCallback<'a>> {
-        self.packet_hook.take()
+    pub fn clear_packet_handler(&mut self) -> Option<PacketHandler<'a>> {
+        self.handlers.packet.take()
     }
 
     /// Set a callback that will be called whenever an unexpected Alert is
@@ -1457,16 +1455,19 @@ impl<'a, B: Backend> Port<'a, B> {
     pub fn set_unexpected_alert_handler<F>(
         &mut self,
         callback: F,
-    ) -> Option<UnexpectedAlertCallback<'a>>
+    ) -> Option<UnexpectedAlertHandler<'a>>
     where
         F: FnMut(Alert) -> Result<(), Alert> + 'a,
     {
-        std::mem::replace(&mut self.unexpected_alert_hook, Some(Box::new(callback)))
+        std::mem::replace(
+            &mut self.handlers.unexpected_alert,
+            Some(Box::new(callback)),
+        )
     }
 
     /// Clear any callback registered via [`set_unexpected_alert_handler`](Port::set_unexpected_alert_handler) and return it.
-    pub fn clear_unexpected_alert_handler(&mut self) -> Option<UnexpectedAlertCallback<'a>> {
-        self.unexpected_alert_hook.take()
+    pub fn clear_unexpected_alert_handler(&mut self) -> Option<UnexpectedAlertHandler<'a>> {
+        self.handlers.unexpected_alert.take()
     }
 }
 
