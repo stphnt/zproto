@@ -1,6 +1,6 @@
 [package]
 name = "zproto"
-version = "0.3.4"
+version = "0.3.5"
 authors = ["Stephen Hunt <stphnhnt.git@gmail.com>"]
 edition = "2021"
 description = "A library from communicating with Zaber products in Rust."
