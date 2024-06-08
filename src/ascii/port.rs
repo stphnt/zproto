@@ -18,8 +18,7 @@ use crate::{
     error::*,
     timeout_guard::TimeoutGuard,
 };
-
-pub use handlers::{Handlers, LocalHandlers, PacketHandler, UnexpectedAlertHandler};
+pub use handlers::{Handlers, LocalHandlers, PacketHandler, SendHandlers, UnexpectedAlertHandler};
 pub use options::*;
 use std::{
     convert::TryFrom,
@@ -58,6 +57,9 @@ pub enum Direction {
     /// The packet was received from a device.
     Recv,
 }
+
+/// The type of [`Port`] that implements `Send`.
+pub type SendPort<'a, B> = Port<'a, B, SendHandlers<'a>>;
 
 /// A port configured to use the ASCII protocol.
 ///
@@ -184,6 +186,65 @@ where
         } else {
             Ok(())
         }
+    }
+
+    /// Convert this port into one that implements `Send` and can therefore be
+    /// sent to another thread.
+    ///
+    /// Returns an error if `Send` bounds could not be added. This is, if any
+    /// event handlers are currently set. As such, it is recommended to call
+    /// [`Port::try_into_send`] before setting handlers.
+    ///
+    /// The [`Port::set_packet_handler`] and [`Port::set_unexpected_alert_handler`]
+    /// methods on the new port will have an additional `Send` bound on any function
+    /// used as an event handler.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use zproto::{ascii::Port, backend::Backend};
+    /// # use std::{error::Error, fmt::Debug};
+    /// # fn wrapper<B: Backend + Debug + Send + 'static>(
+    /// #     port: Port<'static, B>
+    /// # ) -> Result<(), Box<dyn Error>> {
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let port = Port::open_serial("...")?
+    ///     .try_into_send()  // Required in order to send the port to another thread.
+    ///     .unwrap();
+    /// let port = Arc::new(Mutex::new(port));
+    ///
+    /// let mut handles = vec![];
+    /// for i in 0..10 {
+    ///     let port = port.clone();
+    ///     let handle = std::thread::spawn(move || {
+    ///         let mut guard = port.lock().unwrap();
+    ///         // do something with the port ...
+    ///     });
+    ///     handles.push(handle);
+    /// }
+    ///
+    /// for handle in handles {
+    ///     let _ = handle.join();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError> {
+        if self.handlers.packet().is_some() || self.handlers.unexpected_alert().is_some() {
+            return Err(TryIntoSendError::new());
+        }
+        Ok(Port {
+            backend: self.backend,
+            ids: self.ids,
+            generate_id: self.generate_id,
+            generate_checksum: self.generate_checksum,
+            max_packet_size: self.max_packet_size,
+            poison: self.poison,
+            builder: self.builder,
+            handlers: SendHandlers::default(),
+            lifetime: std::marker::PhantomData,
+        })
     }
 
     /// Send a command. A reply is not read.

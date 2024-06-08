@@ -17,6 +17,20 @@ where
     }
 }
 
+/// The same as [`PacketHandler`] but also implements `Send`.
+///
+/// See [`Port::set_packet_handler`] for more details.
+pub type SendPacketHandler<'a> = Box<dyn FnMut(&[u8], Direction) + Send + 'a>;
+
+impl<'a, F> crate::convert::From<F> for SendPacketHandler<'a>
+where
+    F: FnMut(&[u8], Direction) + Send + 'a,
+{
+    fn from(value: F) -> Self {
+        Box::new(value)
+    }
+}
+
 /// A callback that is called when an unexpected Alert is received.
 ///
 /// See [`Port::set_unexpected_alert_handler`] for more details.
@@ -25,6 +39,20 @@ pub type UnexpectedAlertHandler<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> 
 impl<'a, F> crate::convert::From<F> for UnexpectedAlertHandler<'a>
 where
     F: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
+    fn from(value: F) -> Self {
+        Box::new(value)
+    }
+}
+
+/// The same as [`UnexpectedAlertHandler`] but also implements `Send`.
+///
+/// See [`Port::set_unexpected_alert_handler`] for more details.
+pub type SendUnexpectedAlertHandler<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + Send + 'a>;
+
+impl<'a, F> crate::convert::From<F> for SendUnexpectedAlertHandler<'a>
+where
+    F: FnMut(Alert) -> Result<(), Alert> + Send + 'a,
 {
     fn from(value: F) -> Self {
         Box::new(value)
@@ -54,6 +82,32 @@ impl<'a> Handlers for LocalHandlers<'a> {
     }
     fn unexpected_alert(&mut self) -> &mut Option<Self::UnexpectedAlertHandler> {
         &mut self.unexpected_alert
+    }
+}
+
+/// Implementation detail.
+///
+/// Collection of event handlers that can be sent to other threads (i.e. they implement `Send`).
+#[derive(Default)]
+pub struct SendHandlers<'a> {
+    pub(super) packets: Option<SendPacketHandler<'a>>,
+    pub(super) unexpected_alerts: Option<SendUnexpectedAlertHandler<'a>>,
+}
+
+impl std::fmt::Debug for SendHandlers<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SendHandlers").finish_non_exhaustive()
+    }
+}
+
+impl<'a> Handlers for SendHandlers<'a> {
+    type PacketHandler = SendPacketHandler<'a>;
+    type UnexpectedAlertHandler = SendUnexpectedAlertHandler<'a>;
+    fn packet(&mut self) -> &mut Option<Self::PacketHandler> {
+        &mut self.packets
+    }
+    fn unexpected_alert(&mut self) -> &mut Option<Self::UnexpectedAlertHandler> {
+        &mut self.unexpected_alerts
     }
 }
 
