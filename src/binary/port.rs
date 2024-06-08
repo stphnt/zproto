@@ -230,17 +230,6 @@ impl MessageId {
 /// See [`Port::set_packet_handler`] for more details.
 pub type PacketCallback<'a> = Box<dyn FnMut(&[u8], Message, Direction) + 'a>;
 
-/// A wrapper around an [`PacketCallback`] that simply implements `Debug` so
-/// that the [`Port`] can implement `Debug`.
-#[repr(transparent)]
-struct PacketCallbackDebugWrapper<'a>(PacketCallback<'a>);
-
-impl<'a> std::fmt::Debug for PacketCallbackDebugWrapper<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "PacketCallback")
-    }
-}
-
 /// The direction a packet was sent.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Direction {
@@ -273,7 +262,7 @@ pub struct Port<'a, B> {
     /// can poison the port.
     poison: Option<io::Error>,
     /// Optional hook to call after a packet is sent/received.
-    packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
+    packet_hook: Option<PacketCallback<'a>>,
 }
 
 impl<'a, B: Backend> std::fmt::Debug for Port<'a, B> {
@@ -459,7 +448,7 @@ impl<'a, B: Backend> Port<'a, B> {
         );
 
         if let Some(ref mut callback) = self.packet_hook {
-            (callback.0)(
+            (callback)(
                 &buffer,
                 Message::from_bytes(&buffer, id.is_some()),
                 Direction::Tx,
@@ -493,7 +482,7 @@ impl<'a, B: Backend> Port<'a, B> {
         let response = Message::from_bytes(&buf, self.id.is_enabled());
 
         if let Some(ref mut callback) = self.packet_hook {
-            (callback.0)(&buf, response, Direction::Recv);
+            (callback)(&buf, response, Direction::Recv);
         }
         checks(response)?;
         Ok(response)
@@ -831,16 +820,12 @@ impl<'a, B: Backend> Port<'a, B> {
     where
         F: FnMut(&[u8], Message, Direction) + 'a,
     {
-        std::mem::replace(
-            &mut self.packet_hook,
-            Some(PacketCallbackDebugWrapper(Box::new(callback))),
-        )
-        .map(|wrapper| wrapper.0)
+        std::mem::replace(&mut self.packet_hook, Some(Box::new(callback)))
     }
 
     /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
     pub fn clear_packet_handler(&mut self) -> Option<PacketCallback> {
-        self.packet_hook.take().map(|wrapper| wrapper.0)
+        self.packet_hook.take()
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the
