@@ -254,7 +254,6 @@ pub enum Direction {
 ///
 /// See the [`binary`](crate::binary) module documentation details on how to use
 /// a `Port`.
-#[derive(Debug)]
 pub struct Port<'a, B> {
     /// The backend to transmit/receive commands with
     backend: B,
@@ -275,6 +274,14 @@ pub struct Port<'a, B> {
     poison: Option<io::Error>,
     /// Optional hook to call after a packet is sent/received.
     packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
+}
+
+impl<'a, B: Backend> std::fmt::Debug for Port<'a, B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Port")
+            .field("name", &self.backend.name())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> Port<'a, Serial> {

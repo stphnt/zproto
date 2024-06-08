@@ -89,7 +89,6 @@ pub enum Direction {
 /// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
 ///
 /// See the [`ascii`](crate::ascii) module-level documentation for more details.
-#[derive(Debug)]
 pub struct Port<'a, B> {
     /// The underlying backend
     backend: B,
@@ -120,6 +119,14 @@ pub struct Port<'a, B> {
     packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
     /// Optional hook to call when an unexpected Alert is received.
     unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
+}
+
+impl<'a, B: Backend> std::fmt::Debug for Port<'a, B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Port")
+            .field("name", &self.backend.name())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> Port<'a, Serial> {
