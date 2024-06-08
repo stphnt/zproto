@@ -206,12 +206,14 @@
 //!
 
 pub mod command;
+mod handlers;
 mod port;
 pub mod traits;
 
 use std::convert::Infallible;
 
 use crate::error;
+pub use handlers::*;
 pub use port::*;
 
 /// A Binary Protocol message.

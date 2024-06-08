@@ -4,7 +4,7 @@
 use crate::backend::Mock;
 use crate::{
     backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
-    binary::{command, traits, Message},
+    binary::{command, traits, LocalHandlers, Message, PacketHandler},
     error::{
         BinaryCommandFailureError, BinaryError, BinaryUnexpectedCommandError,
         BinaryUnexpectedIdError, BinaryUnexpectedTargetError,
@@ -225,11 +225,6 @@ impl MessageId {
     }
 }
 
-/// A callback that is called after a packet is either transmitted or received.
-///
-/// See [`Port::set_packet_handler`] for more details.
-pub type PacketCallback<'a> = Box<dyn FnMut(&[u8], Message, Direction) + 'a>;
-
 /// The direction a packet was sent.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Direction {
@@ -261,8 +256,8 @@ pub struct Port<'a, B> {
     /// certainly cause the program to abort rather than unwind the stack) it
     /// can poison the port.
     poison: Option<io::Error>,
-    /// Optional hook to call after a packet is sent/received.
-    packet_hook: Option<PacketCallback<'a>>,
+    /// User specified event handlers.
+    handlers: LocalHandlers<'a>,
 }
 
 impl<'a, B: Backend> std::fmt::Debug for Port<'a, B> {
@@ -326,7 +321,7 @@ impl<'a, B: Backend> Port<'a, B> {
             backend,
             id: MessageId::Disabled(0),
             poison: None,
-            packet_hook: None,
+            handlers: LocalHandlers::default(),
         }
     }
 
@@ -447,7 +442,7 @@ impl<'a, B: Backend> Port<'a, B> {
             buffer
         );
 
-        if let Some(ref mut callback) = self.packet_hook {
+        if let Some(ref mut callback) = self.handlers.packet {
             (callback)(
                 &buffer,
                 Message::from_bytes(&buffer, id.is_some()),
@@ -481,7 +476,7 @@ impl<'a, B: Backend> Port<'a, B> {
         );
         let response = Message::from_bytes(&buf, self.id.is_enabled());
 
-        if let Some(ref mut callback) = self.packet_hook {
+        if let Some(ref mut callback) = self.handlers.packet {
             (callback)(&buf, response, Direction::Recv);
         }
         checks(response)?;
@@ -816,16 +811,16 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketCallback>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketHandler>
     where
         F: FnMut(&[u8], Message, Direction) + 'a,
     {
-        std::mem::replace(&mut self.packet_hook, Some(Box::new(callback)))
+        std::mem::replace(&mut self.handlers.packet, Some(Box::new(callback)))
     }
 
     /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
-    pub fn clear_packet_handler(&mut self) -> Option<PacketCallback> {
-        self.packet_hook.take()
+    pub fn clear_packet_handler(&mut self) -> Option<PacketHandler> {
+        self.handlers.packet.take()
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the
