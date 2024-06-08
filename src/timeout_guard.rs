@@ -17,7 +17,7 @@ mod private {
     /// Marks a trait a sealed.
     pub trait Sealed {}
     #[cfg(feature = "ascii")]
-    impl<'a, B> Sealed for crate::ascii::Port<'a, B> {}
+    impl<'a, B, H> Sealed for crate::ascii::Port<'a, B, H> {}
     #[cfg(feature = "binary")]
     impl<'a, B> Sealed for crate::binary::Port<'a, B> {}
 }

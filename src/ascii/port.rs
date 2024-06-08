@@ -18,8 +18,8 @@ use crate::{
     error::*,
     timeout_guard::TimeoutGuard,
 };
-use handlers::LocalHandlers;
-pub use handlers::{PacketHandler, UnexpectedAlertHandler};
+
+pub use handlers::{Handlers, LocalHandlers, PacketHandler, UnexpectedAlertHandler};
 pub use options::*;
 use std::{
     convert::TryFrom,
@@ -68,7 +68,7 @@ pub enum Direction {
 /// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
 ///
 /// See the [`ascii`](crate::ascii) module-level documentation for more details.
-pub struct Port<'a, B> {
+pub struct Port<'a, B, H = LocalHandlers<'a>> {
     /// The underlying backend
     backend: B,
     /// The message ID generator
@@ -95,10 +95,12 @@ pub struct Port<'a, B> {
     /// The builder used to concatenate packets in to responses.
     builder: ResponseBuilder,
     /// User supplied event handlers
-    handlers: LocalHandlers<'a>,
+    handlers: H,
+    /// Marker for the lifetime
+    lifetime: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a, B: Backend> std::fmt::Debug for Port<'a, B> {
+impl<'a, B: Backend, H> std::fmt::Debug for Port<'a, B, H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Port")
             .field("name", &self.backend.name())
@@ -148,7 +150,13 @@ impl<'a> Port<'a, TcpStream> {
     }
 }
 
-impl<'a, B: Backend> Port<'a, B> {
+impl<'a, B, H> Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+    H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
     /// Create a `Port` from a [`Backend`] type.
     fn from_backend(
         backend: B,
@@ -164,7 +172,8 @@ impl<'a, B: Backend> Port<'a, B> {
             max_packet_size,
             poison: None,
             builder: ResponseBuilder::default(),
-            handlers: LocalHandlers::default(),
+            handlers: H::default(),
+            lifetime: std::marker::PhantomData,
         }
     }
 
@@ -216,7 +225,7 @@ impl<'a, B: Backend> Port<'a, B> {
                 String::from_utf8_lossy(buffer.as_slice()).trim_end()
             );
             self.backend.write_all(buffer.as_slice())?;
-            if let Some(ref mut callback) = self.handlers.packet {
+            if let Some(ref mut callback) = self.handlers.packet() {
                 (callback)(buffer.as_slice(), Direction::Tx);
             }
             buffer.clear();
@@ -675,7 +684,7 @@ impl<'a, B: Backend> Port<'a, B> {
             String::from_utf8_lossy(&raw_packet).trim_end()
         );
 
-        if let Some(ref mut callback) = self.handlers.packet {
+        if let Some(ref mut callback) = self.handlers.packet() {
             (callback)(raw_packet.as_slice(), Direction::Recv);
         }
 
@@ -741,7 +750,7 @@ impl<'a, B: Backend> Port<'a, B> {
             Ok(())
         };
 
-        if let Some(callback) = &mut self.handlers.unexpected_alert {
+        if let Some(callback) = &mut self.handlers.unexpected_alert() {
             // There is an handler for alerts, check if we need to call it for any remaining responses.
             loop {
                 match inner() {
@@ -823,7 +832,7 @@ impl<'a, B: Backend> Port<'a, B> {
                         .map_err(From::from)
                 }
             }();
-            if let Some(callback) = &mut self.handlers.unexpected_alert {
+            if let Some(callback) = &mut self.handlers.unexpected_alert() {
                 // There is an handler for alerts, check if we need to call it.
                 match result {
                     Err(AsciiError::UnexpectedResponse(err)) => {
@@ -1401,16 +1410,19 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketHandler<'a>>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<H::PacketHandler>
     where
-        F: FnMut(&[u8], Direction) + 'a,
+        H::PacketHandler: crate::convert::From<F>,
     {
-        std::mem::replace(&mut self.handlers.packet, Some(Box::new(callback)))
+        std::mem::replace(
+            self.handlers.packet(),
+            Some(crate::convert::From::from(callback)),
+        )
     }
 
     /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
-    pub fn clear_packet_handler(&mut self) -> Option<PacketHandler<'a>> {
-        self.handlers.packet.take()
+    pub fn clear_packet_handler(&mut self) -> Option<H::PacketHandler> {
+        self.handlers.packet().take()
     }
 
     /// Set a callback that will be called whenever an unexpected Alert is
@@ -1455,23 +1467,29 @@ impl<'a, B: Backend> Port<'a, B> {
     pub fn set_unexpected_alert_handler<F>(
         &mut self,
         callback: F,
-    ) -> Option<UnexpectedAlertHandler<'a>>
+    ) -> Option<H::UnexpectedAlertHandler>
     where
-        F: FnMut(Alert) -> Result<(), Alert> + 'a,
+        H::UnexpectedAlertHandler: crate::convert::From<F>,
     {
         std::mem::replace(
-            &mut self.handlers.unexpected_alert,
-            Some(Box::new(callback)),
+            self.handlers.unexpected_alert(),
+            Some(crate::convert::From::from(callback)),
         )
     }
 
     /// Clear any callback registered via [`set_unexpected_alert_handler`](Port::set_unexpected_alert_handler) and return it.
-    pub fn clear_unexpected_alert_handler(&mut self) -> Option<UnexpectedAlertHandler<'a>> {
-        self.handlers.unexpected_alert.take()
+    pub fn clear_unexpected_alert_handler(&mut self) -> Option<H::UnexpectedAlertHandler> {
+        self.handlers.unexpected_alert().take()
     }
 }
 
-impl<'a, B: Backend> io::Write for Port<'a, B> {
+impl<'a, B, H> io::Write for Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+    H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.check_poisoned()?;
         self.backend.write(buf)
@@ -1483,14 +1501,20 @@ impl<'a, B: Backend> io::Write for Port<'a, B> {
     }
 }
 
-impl<'a, B: Backend> io::Read for Port<'a, B> {
+impl<'a, B, H> io::Read for Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+    H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.check_poisoned()?;
         self.backend.read(buf)
     }
 }
 
-impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
+impl<'a, B: Backend, H> crate::timeout_guard::Port<B> for Port<'a, B, H> {
     fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }

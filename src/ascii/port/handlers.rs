@@ -8,10 +8,28 @@ use super::{Alert, Direction};
 /// See [`Port::set_packet_handler`] for more details.
 pub type PacketHandler<'a> = Box<dyn FnMut(&[u8], Direction) + 'a>;
 
+impl<'a, F> crate::convert::From<F> for PacketHandler<'a>
+where
+    F: FnMut(&[u8], Direction) + 'a,
+{
+    fn from(value: F) -> Self {
+        Box::new(value)
+    }
+}
+
 /// A callback that is called when an unexpected Alert is received.
 ///
 /// See [`Port::set_unexpected_alert_handler`] for more details.
 pub type UnexpectedAlertHandler<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + 'a>;
+
+impl<'a, F> crate::convert::From<F> for UnexpectedAlertHandler<'a>
+where
+    F: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
+    fn from(value: F) -> Self {
+        Box::new(value)
+    }
+}
 
 /// Implementation detail.
 ///
@@ -26,4 +44,28 @@ impl std::fmt::Debug for LocalHandlers<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LocalHandlers").finish_non_exhaustive()
     }
+}
+
+impl<'a> Handlers for LocalHandlers<'a> {
+    type PacketHandler = PacketHandler<'a>;
+    type UnexpectedAlertHandler = UnexpectedAlertHandler<'a>;
+    fn packet(&mut self) -> &mut Option<Self::PacketHandler> {
+        &mut self.packet
+    }
+    fn unexpected_alert(&mut self) -> &mut Option<Self::UnexpectedAlertHandler> {
+        &mut self.unexpected_alert
+    }
+}
+
+/// Any type that defines event handlers for a [`Port`].
+pub trait Handlers: Default {
+    /// The type of function called when a packet is sent/received.
+    type PacketHandler;
+    /// The type of function called when an unexpected alert message is received.
+    type UnexpectedAlertHandler;
+
+    /// Get the packet handler, if configured.
+    fn packet(&mut self) -> &mut Option<Self::PacketHandler>;
+    /// Get the unexpected alert handler, if configured.
+    fn unexpected_alert(&mut self) -> &mut Option<Self::UnexpectedAlertHandler>;
 }

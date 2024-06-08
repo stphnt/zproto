@@ -32,7 +32,7 @@ macro_rules! check_cases {
         $(
             $port.backend.append_data($response_bytes);
         )+
-        let m: fn(&mut Port<_>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
+        let m: fn(&mut Port<_, _>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
         match (m)(&mut $port) {
             Err(e) => panic!("unexpected error when reading {} via {}:\n\tactual error: {}\n\t{:?}\n",
                 stringify!($($response_bytes),+),
@@ -51,7 +51,7 @@ macro_rules! check_cases {
         $(
             $port.backend.append_data($response_bytes);
         )+
-        let m: fn(&mut Port<_>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
+        let m: fn(&mut Port<_, _>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
         match (m)(&mut $port) {
             Err(e) => {
                 if let Err(e) = $err_type::try_from(e) {
