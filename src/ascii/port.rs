@@ -1,5 +1,6 @@
 //! Types for opening and using a serial port with the ASCII protocol.
 
+mod handlers;
 mod options;
 #[cfg(test)]
 mod test;
@@ -17,6 +18,7 @@ use crate::{
     error::*,
     timeout_guard::TimeoutGuard,
 };
+pub use handlers::{Handlers, LocalHandlers, PacketHandler, SendHandlers, UnexpectedAlertHandler};
 pub use options::*;
 use std::{
     convert::TryFrom,
@@ -25,37 +27,13 @@ use std::{
     time::Duration,
 };
 
-/// A callback that is called after a packet is either transmitted or received.
-///
-/// See [`Port::set_packet_handler`] for more details.
-pub type PacketCallback<'a> = Box<dyn FnMut(&[u8], Direction) + 'a>;
+/// Deprecated. Use [`PacketHandler`] instead.
+#[deprecated = "use the PacketHandler alias instead"]
+pub type PacketCallback<'a> = PacketHandler<'a>;
 
-/// A wrapper around an [`PacketCallback`] that simply implements `Debug` so
-/// that the [`Port`] can derive `Debug`.
-#[repr(transparent)]
-struct PacketCallbackDebugWrapper<'a>(PacketCallback<'a>);
-
-impl<'a> std::fmt::Debug for PacketCallbackDebugWrapper<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "PacketCallback")
-    }
-}
-
-/// A callback that is called when an unexpected Alert is received.
-///
-/// See [`Port::set_unexpected_alert_handler`] for more details.
-pub type UnexpectedAlertCallback<'a> = Box<dyn FnMut(Alert) -> Result<(), Alert> + 'a>;
-
-/// A wrapper around an [`UnexpectedAlertCallback`] that simply implements `Debug` so
-/// that the [`Port`] can derive `Debug`.
-#[repr(transparent)]
-struct UnexpectedAlertDebugWrapper<'a>(UnexpectedAlertCallback<'a>);
-
-impl<'a> std::fmt::Debug for UnexpectedAlertDebugWrapper<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "UnexpectedAlertCallback")
-    }
-}
+/// Deprecated. Use [`UnexpectedAlertHandler`] instead.
+#[deprecated = "use the UnexpectedAlertHandler alias instead"]
+pub type UnexpectedAlertCallback<'a> = UnexpectedAlertHandler<'a>;
 
 type DefaultCheck<R> = Option<fn(R) -> Result<R, AsciiCheckError<R>>>;
 
@@ -80,6 +58,9 @@ pub enum Direction {
     Recv,
 }
 
+/// The type of [`Port`] that implements `Send`.
+pub type SendPort<'a, B> = Port<'a, B, SendHandlers<'a>>;
+
 /// A port configured to use the ASCII protocol.
 ///
 /// A port is parameterized by some [`Backend`] type, `B`. Use the convenience
@@ -89,8 +70,7 @@ pub enum Direction {
 /// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
 ///
 /// See the [`ascii`](crate::ascii) module-level documentation for more details.
-#[derive(Debug)]
-pub struct Port<'a, B> {
+pub struct Port<'a, B, H = LocalHandlers<'a>> {
     /// The underlying backend
     backend: B,
     /// The message ID generator
@@ -116,10 +96,18 @@ pub struct Port<'a, B> {
     poison: Option<io::Error>,
     /// The builder used to concatenate packets in to responses.
     builder: ResponseBuilder,
-    /// Optional hook to call after a packet is sent/received.
-    packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
-    /// Optional hook to call when an unexpected Alert is received.
-    unexpected_alert_hook: Option<UnexpectedAlertDebugWrapper<'a>>,
+    /// User supplied event handlers
+    handlers: H,
+    /// Marker for the lifetime
+    lifetime: std::marker::PhantomData<&'a ()>,
+}
+
+impl<'a, B: Backend, H> std::fmt::Debug for Port<'a, B, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Port")
+            .field("name", &self.backend.name())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> Port<'a, Serial> {
@@ -164,7 +152,13 @@ impl<'a> Port<'a, TcpStream> {
     }
 }
 
-impl<'a, B: Backend> Port<'a, B> {
+impl<'a, B, H> Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+    H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
     /// Create a `Port` from a [`Backend`] type.
     fn from_backend(
         backend: B,
@@ -180,8 +174,8 @@ impl<'a, B: Backend> Port<'a, B> {
             max_packet_size,
             poison: None,
             builder: ResponseBuilder::default(),
-            packet_hook: None,
-            unexpected_alert_hook: None,
+            handlers: H::default(),
+            lifetime: std::marker::PhantomData,
         }
     }
 
@@ -192,6 +186,65 @@ impl<'a, B: Backend> Port<'a, B> {
         } else {
             Ok(())
         }
+    }
+
+    /// Convert this port into one that implements `Send` and can therefore be
+    /// sent to another thread.
+    ///
+    /// Returns an error if `Send` bounds could not be added. This is, if any
+    /// event handlers are currently set. As such, it is recommended to call
+    /// [`Port::try_into_send`] before setting handlers.
+    ///
+    /// The [`Port::set_packet_handler`] and [`Port::set_unexpected_alert_handler`]
+    /// methods on the new port will have an additional `Send` bound on any function
+    /// used as an event handler.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use zproto::{ascii::Port, backend::Backend};
+    /// # use std::{error::Error, fmt::Debug};
+    /// # fn wrapper<B: Backend + Debug + Send + 'static>(
+    /// #     port: Port<'static, B>
+    /// # ) -> Result<(), Box<dyn Error>> {
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let port = Port::open_serial("...")?
+    ///     .try_into_send()  // Required in order to send the port to another thread.
+    ///     .unwrap();
+    /// let port = Arc::new(Mutex::new(port));
+    ///
+    /// let mut handles = vec![];
+    /// for i in 0..10 {
+    ///     let port = port.clone();
+    ///     let handle = std::thread::spawn(move || {
+    ///         let mut guard = port.lock().unwrap();
+    ///         // do something with the port ...
+    ///     });
+    ///     handles.push(handle);
+    /// }
+    ///
+    /// for handle in handles {
+    ///     let _ = handle.join();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError> {
+        if self.handlers.packet().is_some() || self.handlers.unexpected_alert().is_some() {
+            return Err(TryIntoSendError::new());
+        }
+        Ok(Port {
+            backend: self.backend,
+            ids: self.ids,
+            generate_id: self.generate_id,
+            generate_checksum: self.generate_checksum,
+            max_packet_size: self.max_packet_size,
+            poison: self.poison,
+            builder: self.builder,
+            handlers: SendHandlers::default(),
+            lifetime: std::marker::PhantomData,
+        })
     }
 
     /// Send a command. A reply is not read.
@@ -233,8 +286,8 @@ impl<'a, B: Backend> Port<'a, B> {
                 String::from_utf8_lossy(buffer.as_slice()).trim_end()
             );
             self.backend.write_all(buffer.as_slice())?;
-            if let Some(ref mut callback) = self.packet_hook {
-                (callback.0)(buffer.as_slice(), Direction::Tx);
+            if let Some(ref mut callback) = self.handlers.packet() {
+                (callback)(buffer.as_slice(), Direction::Tx);
             }
             buffer.clear();
         }
@@ -692,8 +745,8 @@ impl<'a, B: Backend> Port<'a, B> {
             String::from_utf8_lossy(&raw_packet).trim_end()
         );
 
-        if let Some(ref mut callback) = self.packet_hook {
-            (callback.0)(raw_packet.as_slice(), Direction::Recv);
+        if let Some(ref mut callback) = self.handlers.packet() {
+            (callback)(raw_packet.as_slice(), Direction::Recv);
         }
 
         // Parse the packet.
@@ -758,7 +811,7 @@ impl<'a, B: Backend> Port<'a, B> {
             Ok(())
         };
 
-        if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
+        if let Some(callback) = &mut self.handlers.unexpected_alert() {
             // There is an handler for alerts, check if we need to call it for any remaining responses.
             loop {
                 match inner() {
@@ -840,7 +893,7 @@ impl<'a, B: Backend> Port<'a, B> {
                         .map_err(From::from)
                 }
             }();
-            if let Some(UnexpectedAlertDebugWrapper(callback)) = &mut self.unexpected_alert_hook {
+            if let Some(callback) = &mut self.handlers.unexpected_alert() {
                 // There is an handler for alerts, check if we need to call it.
                 match result {
                     Err(AsciiError::UnexpectedResponse(err)) => {
@@ -1418,20 +1471,19 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketCallback<'a>>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<H::PacketHandler>
     where
-        F: FnMut(&[u8], Direction) + 'a,
+        H::PacketHandler: crate::convert::From<F>,
     {
         std::mem::replace(
-            &mut self.packet_hook,
-            Some(PacketCallbackDebugWrapper(Box::new(callback))),
+            self.handlers.packet(),
+            Some(crate::convert::From::from(callback)),
         )
-        .map(|wrapper| wrapper.0)
     }
 
     /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
-    pub fn clear_packet_handler(&mut self) -> Option<PacketCallback<'a>> {
-        self.packet_hook.take().map(|wrapper| wrapper.0)
+    pub fn clear_packet_handler(&mut self) -> Option<H::PacketHandler> {
+        self.handlers.packet().take()
     }
 
     /// Set a callback that will be called whenever an unexpected Alert is
@@ -1476,24 +1528,29 @@ impl<'a, B: Backend> Port<'a, B> {
     pub fn set_unexpected_alert_handler<F>(
         &mut self,
         callback: F,
-    ) -> Option<UnexpectedAlertCallback<'a>>
+    ) -> Option<H::UnexpectedAlertHandler>
     where
-        F: FnMut(Alert) -> Result<(), Alert> + 'a,
+        H::UnexpectedAlertHandler: crate::convert::From<F>,
     {
         std::mem::replace(
-            &mut self.unexpected_alert_hook,
-            Some(UnexpectedAlertDebugWrapper(Box::new(callback))),
+            self.handlers.unexpected_alert(),
+            Some(crate::convert::From::from(callback)),
         )
-        .map(|wrapper| wrapper.0)
     }
 
     /// Clear any callback registered via [`set_unexpected_alert_handler`](Port::set_unexpected_alert_handler) and return it.
-    pub fn clear_unexpected_alert_handler(&mut self) -> Option<UnexpectedAlertCallback<'a>> {
-        self.unexpected_alert_hook.take().map(|wrapper| wrapper.0)
+    pub fn clear_unexpected_alert_handler(&mut self) -> Option<H::UnexpectedAlertHandler> {
+        self.handlers.unexpected_alert().take()
     }
 }
 
-impl<'a, B: Backend> io::Write for Port<'a, B> {
+impl<'a, B, H> io::Write for Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+    H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.check_poisoned()?;
         self.backend.write(buf)
@@ -1505,14 +1562,20 @@ impl<'a, B: Backend> io::Write for Port<'a, B> {
     }
 }
 
-impl<'a, B: Backend> io::Read for Port<'a, B> {
+impl<'a, B, H> io::Read for Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+    H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+{
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.check_poisoned()?;
         self.backend.read(buf)
     }
 }
 
-impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
+impl<'a, B: Backend, H> crate::timeout_guard::Port<B> for Port<'a, B, H> {
     fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }

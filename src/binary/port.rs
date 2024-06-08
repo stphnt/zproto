@@ -4,10 +4,10 @@
 use crate::backend::Mock;
 use crate::{
     backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
-    binary::{command, traits, Message},
+    binary::{command, traits, Handlers, LocalHandlers, Message, SendHandlers},
     error::{
         BinaryCommandFailureError, BinaryError, BinaryUnexpectedCommandError,
-        BinaryUnexpectedIdError, BinaryUnexpectedTargetError,
+        BinaryUnexpectedIdError, BinaryUnexpectedTargetError, TryIntoSendError,
     },
     timeout_guard::TimeoutGuard,
 };
@@ -225,22 +225,6 @@ impl MessageId {
     }
 }
 
-/// A callback that is called after a packet is either transmitted or received.
-///
-/// See [`Port::set_packet_handler`] for more details.
-pub type PacketCallback<'a> = Box<dyn FnMut(&[u8], Message, Direction) + 'a>;
-
-/// A wrapper around an [`PacketCallback`] that simply implements `Debug` so
-/// that the [`Port`] can implement `Debug`.
-#[repr(transparent)]
-struct PacketCallbackDebugWrapper<'a>(PacketCallback<'a>);
-
-impl<'a> std::fmt::Debug for PacketCallbackDebugWrapper<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "PacketCallback")
-    }
-}
-
 /// The direction a packet was sent.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Direction {
@@ -249,13 +233,14 @@ pub enum Direction {
     /// The packet was received from a device.
     Recv,
 }
+/// The type of [`Port`] that implements `Send`.
+pub type SendPort<'a, B> = Port<'a, B, SendHandlers<'a>>;
 
 /// A Port for transmitting and receiving Zaber Binary protocol messages.
 ///
 /// See the [`binary`](crate::binary) module documentation details on how to use
 /// a `Port`.
-#[derive(Debug)]
-pub struct Port<'a, B> {
+pub struct Port<'a, B, H = LocalHandlers<'a>> {
     /// The backend to transmit/receive commands with
     backend: B,
     /// The message ID state
@@ -273,8 +258,18 @@ pub struct Port<'a, B> {
     /// certainly cause the program to abort rather than unwind the stack) it
     /// can poison the port.
     poison: Option<io::Error>,
-    /// Optional hook to call after a packet is sent/received.
-    packet_hook: Option<PacketCallbackDebugWrapper<'a>>,
+    /// User specified event handlers.
+    handlers: H,
+    /// Lifetime marker
+    lifetime: std::marker::PhantomData<&'a ()>,
+}
+
+impl<'a, B: Backend, H> std::fmt::Debug for Port<'a, B, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Port")
+            .field("name", &self.backend.name())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> Port<'a, Serial> {
@@ -323,14 +318,20 @@ impl<'a> Port<'a, Mock> {
     }
 }
 
-impl<'a, B: Backend> Port<'a, B> {
+impl<'a, B, H> Port<'a, B, H>
+where
+    B: Backend,
+    H: Handlers,
+    H::PacketHandler: FnMut(&[u8], Message, Direction) + 'a,
+{
     /// Get a `Port` from the given backend.
-    fn from_backend(backend: B) -> Port<'a, B> {
+    fn from_backend(backend: B) -> Port<'a, B, H> {
         Port {
             backend,
             id: MessageId::Disabled(0),
             poison: None,
-            packet_hook: None,
+            handlers: H::default(),
+            lifetime: std::marker::PhantomData,
         }
     }
 
@@ -341,6 +342,60 @@ impl<'a, B: Backend> Port<'a, B> {
         } else {
             Ok(())
         }
+    }
+
+    /// Convert this port into one that implements `Send` and can therefore be sent
+    /// to another thread.
+    ///
+    /// Returns an error if `Send` bounds could not be added. In particular if
+    /// an event handler is currently set. As such, it is recommended to call
+    /// [`Port::try_into_send`] before setting a callback if you need to do both.
+    ///
+    /// The [`Port::set_packet_handler`] on the new port will have an additional
+    /// `Send` bound on any function used as a callback.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use zproto::{binary::Port, backend::Backend};
+    /// # use std::{error::Error, fmt::Debug};
+    /// # fn wrapper<B: Backend + Debug + Send + 'static>(
+    /// #     port: Port<'static, B>
+    /// # ) -> Result<(), Box<dyn Error>> {
+    /// use std::sync::{Arc, Mutex};
+    ///
+    /// let port = Port::open_serial("...")?
+    ///     .try_into_send()  // Required in order to send the port to another thread.
+    ///     .unwrap();
+    /// let port = Arc::new(Mutex::new(port));
+    ///
+    /// let mut handles = vec![];
+    /// for i in 0..10 {
+    ///     let port = port.clone();
+    ///     let handle = std::thread::spawn(move || {
+    ///         let mut guard = port.lock().unwrap();
+    ///         // do something with the port ...
+    ///     });
+    ///     handles.push(handle);
+    /// }
+    ///
+    /// for handle in handles {
+    ///     let _ = handle.join();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError> {
+        if self.handlers.packet().is_some() {
+            return Err(TryIntoSendError::new());
+        }
+        Ok(Port {
+            backend: self.backend,
+            id: self.id,
+            poison: self.poison,
+            handlers: SendHandlers::default(),
+            lifetime: std::marker::PhantomData,
+        })
     }
 
     /// Transmit a message and then receive a response.
@@ -451,8 +506,8 @@ impl<'a, B: Backend> Port<'a, B> {
             buffer
         );
 
-        if let Some(ref mut callback) = self.packet_hook {
-            (callback.0)(
+        if let Some(ref mut callback) = self.handlers.packet() {
+            (callback)(
                 &buffer,
                 Message::from_bytes(&buffer, id.is_some()),
                 Direction::Tx,
@@ -485,8 +540,8 @@ impl<'a, B: Backend> Port<'a, B> {
         );
         let response = Message::from_bytes(&buf, self.id.is_enabled());
 
-        if let Some(ref mut callback) = self.packet_hook {
-            (callback.0)(&buf, response, Direction::Recv);
+        if let Some(ref mut callback) = self.handlers.packet() {
+            (callback)(&buf, response, Direction::Recv);
         }
         checks(response)?;
         Ok(response)
@@ -820,20 +875,19 @@ impl<'a, B: Backend> Port<'a, B> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<PacketCallback>
+    pub fn set_packet_handler<F>(&mut self, callback: F) -> Option<H::PacketHandler>
     where
-        F: FnMut(&[u8], Message, Direction) + 'a,
+        H::PacketHandler: crate::convert::From<F>,
     {
         std::mem::replace(
-            &mut self.packet_hook,
-            Some(PacketCallbackDebugWrapper(Box::new(callback))),
+            self.handlers.packet(),
+            Some(crate::convert::From::from(callback)),
         )
-        .map(|wrapper| wrapper.0)
     }
 
     /// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.
-    pub fn clear_packet_handler(&mut self) -> Option<PacketCallback> {
-        self.packet_hook.take().map(|wrapper| wrapper.0)
+    pub fn clear_packet_handler(&mut self) -> Option<H::PacketHandler> {
+        self.handlers.packet().take()
     }
 
     /// Set the port timeout and return a "scope guard" that will reset the
@@ -871,7 +925,7 @@ impl<'a, B: Backend> Port<'a, B> {
     }
 }
 
-impl<'a, B: Backend> crate::timeout_guard::Port<B> for Port<'a, B> {
+impl<'a, B: Backend, H> crate::timeout_guard::Port<B> for Port<'a, B, H> {
     fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
