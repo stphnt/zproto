@@ -55,6 +55,7 @@ impl<'a> Handlers for LocalHandlers<'a> {
         &mut self.packet
     }
 }
+impl<'a> private::Sealed for LocalHandlers<'a> {}
 
 /// Implementation detail.
 ///
@@ -76,12 +77,17 @@ impl<'a> Handlers for SendHandlers<'a> {
         &mut self.packet
     }
 }
+impl<'a> private::Sealed for SendHandlers<'a> {}
 
 /// Any type that defines callbacks for a [`Port`].
-pub trait Handlers: Default {
+pub trait Handlers: Default + private::Sealed {
     /// The type of function called when a packet is sent/received.
     type PacketHandler;
 
     /// Get the packet callback, if configured.
     fn packet(&mut self) -> &mut Option<Self::PacketHandler>;
+}
+
+mod private {
+    pub trait Sealed {}
 }

@@ -85,6 +85,8 @@ impl<'a> Handlers for LocalHandlers<'a> {
     }
 }
 
+impl<'a> private::Sealed for LocalHandlers<'a> {}
+
 /// Implementation detail.
 ///
 /// Collection of event handlers that can be sent to other threads (i.e. they implement `Send`).
@@ -111,8 +113,10 @@ impl<'a> Handlers for SendHandlers<'a> {
     }
 }
 
+impl<'a> private::Sealed for SendHandlers<'a> {}
+
 /// Any type that defines event handlers for a [`Port`].
-pub trait Handlers: Default {
+pub trait Handlers: Default + private::Sealed {
     /// The type of function called when a packet is sent/received.
     type PacketHandler;
     /// The type of function called when an unexpected alert message is received.
@@ -122,4 +126,8 @@ pub trait Handlers: Default {
     fn packet(&mut self) -> &mut Option<Self::PacketHandler>;
     /// Get the unexpected alert handler, if configured.
     fn unexpected_alert(&mut self) -> &mut Option<Self::UnexpectedAlertHandler>;
+}
+
+mod private {
+    pub trait Sealed {}
 }
