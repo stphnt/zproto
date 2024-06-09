@@ -376,3 +376,20 @@ impl_error_display! {
 	self =>
 	"the specified device is either disconnected or already in use by another process: {}", self.0
 }
+
+/// The port could not be converted into one that implements `Send`.
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct TryIntoSendError(());
+
+impl TryIntoSendError {
+	/// Create a new `TryIntoSendError`.
+	pub(crate) fn new() -> Self {
+		TryIntoSendError(())
+	}
+}
+
+impl_error_display! {
+	TryIntoSendError,
+	self =>
+	"cannot convert the port into one that implements `Send`"
+}

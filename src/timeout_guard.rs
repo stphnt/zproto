@@ -17,9 +17,9 @@ mod private {
 	/// Marks a trait a sealed.
 	pub trait Sealed {}
 	#[cfg(feature = "ascii")]
-	impl<'a, B, Tag> Sealed for crate::ascii::Port<'a, B, Tag> {}
+	impl<'a, B, H, Tag> Sealed for crate::ascii::Port<'a, B, H, Tag> {}
 	#[cfg(feature = "binary")]
-	impl<'a, B> Sealed for crate::binary::Port<'a, B> {}
+	impl<'a, B, H> Sealed for crate::binary::Port<'a, B, H> {}
 }
 
 /// An [RAII guard](https://rust-unofficial.github.io/patterns/patterns/behavioural/RAII.html)

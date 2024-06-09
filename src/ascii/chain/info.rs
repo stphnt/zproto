@@ -1,7 +1,11 @@
 //! Information about a chain, its devices and its axes.
 
 use crate::{
-	ascii::Port,
+	ascii::{
+		port::{handlers::Handlers, Direction},
+		response::Alert,
+		Port,
+	},
 	backend::Backend,
 	error::{AsciiCheckDataError, AsciiError, DuplicateAddressError},
 };
@@ -16,7 +20,13 @@ pub struct ChainInfo {
 
 impl ChainInfo {
 	/// Collect all the devices found on the chain
-	pub fn new<B: Backend, Tag>(port: &mut Port<'_, B, Tag>) -> Result<Self, AsciiError> {
+	pub fn new<'a, B, Tag, H>(port: &mut Port<'a, B, Tag, H>) -> Result<Self, AsciiError>
+	where
+		B: Backend,
+		H: Handlers,
+		H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+		H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+	{
 		let mut unique_addresses = std::collections::HashSet::new();
 		let mut devices = BTreeMap::new();
 		for result in port.command_replies_until_timeout_iter("get system.axiscount")? {
