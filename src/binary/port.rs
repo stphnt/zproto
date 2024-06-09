@@ -4,7 +4,11 @@
 use crate::backend::Mock;
 use crate::{
 	backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
-	binary::{command, traits, Handlers, LocalHandlers, Message, SendHandlers},
+	binary::{
+		command,
+		handlers::{Handlers, LocalHandlers, SendHandlers},
+		traits, Message,
+	},
 	error::{
 		BinaryCommandFailureError, BinaryError, BinaryUnexpectedCommandError,
 		BinaryUnexpectedIdError, BinaryUnexpectedTargetError, TryIntoSendError,
