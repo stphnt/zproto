@@ -50,18 +50,30 @@ pub type SendPort<'a, B, Tag = DefaultTag> = Port<'a, B, Tag, SendHandlers<'a>>;
 
 /// A port configured to use the ASCII protocol.
 ///
-/// A port is parameterized by some [`Backend`] type, `B`. Use the convenience
-/// methods [`open_serial`] and [`open_tcp`] to construct a serial
-/// port (`Port<Serial>`) or a TCP port (`Port<TcpStream>`). To customize the
-/// construction of these types, or to construct a port with a dynamic backend,
-/// use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder types.
+/// See the [`ascii`] module-level documentation for details on how to use a `Port`.
 ///
-/// To make a port's type unique, use the [`into_tagged`] method.
+/// A port is parameterized by three types:
 ///
-/// See the [`ascii`] module-level documentation for more details.
+/// 1. `B`: the type of [`Backend`] used to send/receive packets.
+///    * Use the convenience methods [`open_serial`] and [`open_tcp`] to construct
+///    a serial port (`Port<Serial>`) or a TCP port (`Port<TcpStream>`). To
+///    customize the construction of these types, or to construct a port with a
+///    dynamic backend, use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder
+///    types.
+/// 2. `Tag`: an optional type for "tagging" the port.
+///    * This has a default and can be ignored if you only ever have one port open.
+///      When working with multiple ports simultaneously, the `Tag` type can be used
+///      to statically differentiate them and improve your programs type safety. Use
+///      the [`into_tagged`] method to change a port's `Tag` type.
+/// 3. `H`: the type of event [handlers].
+///    * This has a default and can be ignored in single-threaded contexts.
+///      There are two types for event handlers: one that implements `Send` and one
+///      that does not (the default). To convert a port into a type that implements
+///      `Send`, use the [`try_into_send`] method.
 ///
 /// [`ascii`]: crate::ascii
 /// [`into_tagged`]: Port::into_tagged
+/// [`try_into_send`]: Port::try_into_send
 /// [`open_serial`]: Port::open_serial
 /// [`open_tcp`]: Port::open_tcp
 pub struct Port<'a, B, Tag = DefaultTag, H = LocalHandlers<'a>> {

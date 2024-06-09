@@ -238,8 +238,26 @@ pub type SendPort<'a, B> = Port<'a, B, SendHandlers<'a>>;
 
 /// A Port for transmitting and receiving Zaber Binary protocol messages.
 ///
-/// See the [`binary`](crate::binary) module documentation details on how to use
-/// a `Port`.
+/// See the [`binary`] module documentation for details on how to use a `Port`.
+///
+/// A port is parameterized by two types:
+/// 1. `B`: the type of [`Backend`] used to send/receive data.
+///    * Use the convenience methods [`open_serial`] and [`open_tcp`] to construct
+///      a serial port (`Port<Serial>`) and a TCP port (`Port<TcpStream>`). To
+///      customize the construction of these types, or to construct a port with a
+///      dynamic backend, use the [`OpenSerialOptions`] and [`OpenTcpOptions`]
+///      builder types.
+/// 2. `H`: the type of event [handlers].
+///    * This has a default and can be ignored in single-threaded contexts. There
+///      are two types for event handlers: on that implements `Send` and one that
+///      does not (the default). To convert a port into a type that implements
+///      `Send`, use the [`try_into_send`] method.
+///
+/// [`binary`]: crate::binary
+/// [`open_serial`]: Port::open_serial
+/// [`open_tcp`]: Port::open_tcp
+/// [handlers]: Handlers
+/// [`try_into_send`]: Port::try_into_send
 pub struct Port<'a, B, H = LocalHandlers<'a>> {
 	/// The backend to transmit/receive commands with
 	backend: B,
