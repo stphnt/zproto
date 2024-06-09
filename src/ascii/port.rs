@@ -255,7 +255,8 @@ where
 	///     // Yay! This no longer compiles because the type of port_b is
 	///     // incompatible with the type of get_system_serial.
 	///     let _id = port_b.run(get_system_serial)?;
-	///     // ERROR:        ^^^ the trait `Routine<Port<B>>` is not implemented for `Get<SystemSerial, PortA>`
+	///     // ERROR:        ^^^ the trait `Routine<Port<B>>` is not implemented for
+	///     //                   `Get<SystemSerial, PortA>`
 	/// }
 	/// # Ok(())
 	/// # }
