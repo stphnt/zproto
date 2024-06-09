@@ -1,6 +1,6 @@
 //! Error types related to Zaber's ASCII protocol.
 
-use super::SerialDeviceInUseOrDisconnectedError;
+use super::{SerialDeviceInUseOrDisconnectedError, TryIntoSendError};
 use crate::ascii::{
 	command::{Command, Target},
 	packet::Packet,
@@ -630,6 +630,7 @@ error_enum! {
 	pub enum AsciiError {
 		SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
 		Io(std::io::Error),
+		TryIntoSend(TryIntoSendError),
 		PacketMissingStart(AsciiPacketMissingStartError),
 		PacketMissingEnd(AsciiPacketMissingEndError),
 		PacketMalformed(AsciiPacketMalformedError),

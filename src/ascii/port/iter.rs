@@ -1,9 +1,10 @@
 //! Types for iterating over responses.
-use super::HeaderCheck;
+use super::{handlers::Handlers, HeaderCheck};
 use crate::{
 	ascii::{
 		command::{Command, Target},
-		response::{check::NotChecked, AnyResponse, Info, Reply, Response},
+		port::Direction,
+		response::{check::NotChecked, Alert, AnyResponse, Info, Reply, Response},
 		Port,
 	},
 	backend::Backend,
@@ -11,11 +12,10 @@ use crate::{
 };
 
 /// An iterator that will read `N` responses of type `R`
-#[derive(Debug)]
 #[must_use = "NResponses is an iterator and will not read responses unless consumed."]
-pub struct NResponses<'i, 'p, B, R, Tag> {
+pub struct NResponses<'i, 'p, B, R, Tag, H> {
 	/// The port to read responses on
-	port: &'i mut Port<'p, B, Tag>,
+	port: &'i mut Port<'p, B, Tag, H>,
 	/// The number of responses left to read.
 	count: usize,
 	/// How to check the headers of the responses.
@@ -23,14 +23,23 @@ pub struct NResponses<'i, 'p, B, R, Tag> {
 	_marker: std::marker::PhantomData<(B, R)>,
 }
 
-impl<'i, 'p, B, R, Tag> NResponses<'i, 'p, B, R, Tag>
+impl<'i, 'p, B, R, Tag, H> std::fmt::Debug for NResponses<'i, 'p, B, R, Tag, H> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("NResponses").finish_non_exhaustive()
+	}
+}
+
+impl<'i, 'p, B, R, Tag, H> NResponses<'i, 'p, B, R, Tag, H>
 where
 	B: Backend,
 	R: Response,
+	H: Handlers,
+	H::PacketHandler: FnMut(&[u8], Direction) + 'p,
+	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'p,
 {
 	/// Create a new `NResponses` iterator.
 	pub(super) fn new(
-		port: &'i mut Port<'p, B, Tag>,
+		port: &'i mut Port<'p, B, Tag, H>,
 		header_check: HeaderCheck,
 		count: usize,
 	) -> Self {
@@ -44,10 +53,13 @@ where
 	}
 }
 
-impl<'i, 'p, B, R, Tag> Iterator for NResponses<'i, 'p, B, R, Tag>
+impl<'i, 'p, B, R, Tag, H> Iterator for NResponses<'i, 'p, B, R, Tag, H>
 where
 	B: Backend,
 	R: Response,
+	H: Handlers,
+	H::PacketHandler: FnMut(&[u8], Direction) + 'p,
+	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'p,
 	AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 	AsciiError: From<AsciiCheckError<R>>,
 {
@@ -69,11 +81,10 @@ where
 }
 
 /// An iterator that will read responses of type `R` from a port until a read times out.
-#[derive(Debug)]
 #[must_use = "ResponsesUntilTimeout is an iterator and will not read responses unless consumed."]
-pub struct ResponsesUntilTimeout<'i, 'p, B, R, Tag> {
+pub struct ResponsesUntilTimeout<'i, 'p, B, R, Tag, H> {
 	/// The port to read responses on
-	port: &'i mut Port<'p, B, Tag>,
+	port: &'i mut Port<'p, B, Tag, H>,
 	/// How to check the headers of the responses.
 	header_check: HeaderCheck,
 	/// Whether iteration is complete.
@@ -81,13 +92,23 @@ pub struct ResponsesUntilTimeout<'i, 'p, B, R, Tag> {
 	_marker: std::marker::PhantomData<(B, R)>,
 }
 
-impl<'i, 'p, B, R, Tag> ResponsesUntilTimeout<'i, 'p, B, R, Tag>
+impl<'i, 'p, B, R, Tag, H> std::fmt::Debug for ResponsesUntilTimeout<'i, 'p, B, R, Tag, H> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("ResponsesUntilTimeout")
+			.finish_non_exhaustive()
+	}
+}
+
+impl<'i, 'p, B, R, Tag, H> ResponsesUntilTimeout<'i, 'p, B, R, Tag, H>
 where
 	B: Backend,
 	R: Response,
+	H: Handlers,
+	H::PacketHandler: FnMut(&[u8], Direction) + 'p,
+	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'p,
 {
 	/// Create a new `ResponsesUntilTimeout` iterator.
-	pub(super) fn new(port: &'i mut Port<'p, B, Tag>, header_check: HeaderCheck) -> Self {
+	pub(super) fn new(port: &'i mut Port<'p, B, Tag, H>, header_check: HeaderCheck) -> Self {
 		port.pre_receive_response();
 		ResponsesUntilTimeout {
 			port,
@@ -98,10 +119,13 @@ where
 	}
 }
 
-impl<'i, 'p, B, R, Tag> Iterator for ResponsesUntilTimeout<'i, 'p, B, R, Tag>
+impl<'i, 'p, B, R, Tag, H> Iterator for ResponsesUntilTimeout<'i, 'p, B, R, Tag, H>
 where
 	B: Backend,
 	R: Response,
+	H: Handlers,
+	H::PacketHandler: FnMut(&[u8], Direction) + 'p,
+	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'p,
 	AnyResponse: From<<R as TryFrom<AnyResponse>>::Error>,
 	AsciiError: From<AsciiCheckError<R>>,
 {
@@ -130,20 +154,28 @@ where
 /// received.
 ///
 /// See [Port::command_reply_infos_iter](super::Port::command_reply_infos_iter) for details.
-#[derive(Debug)]
-pub struct InfosUntilSentinel<'i, 'p, B, Tag> {
-	port: &'i mut Port<'p, B, Tag>,
+pub struct InfosUntilSentinel<'i, 'p, B, Tag, H> {
+	port: &'i mut Port<'p, B, Tag, H>,
 	header_check: HeaderCheck,
 	done: bool,
 }
 
-impl<'i, 'p, B, Tag> InfosUntilSentinel<'i, 'p, B, Tag>
+impl<'i, 'p, B, Tag, H> std::fmt::Debug for InfosUntilSentinel<'i, 'p, B, Tag, H> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("InfosUntilSentinel").finish_non_exhaustive()
+	}
+}
+
+impl<'i, 'p, B, Tag, H> InfosUntilSentinel<'i, 'p, B, Tag, H>
 where
 	B: Backend,
+	H: Handlers,
+	H::PacketHandler: FnMut(&[u8], Direction) + 'p,
+	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'p,
 {
 	/// Create a new `InfosUntilSentinel` instance.
 	pub(crate) fn new(
-		port: &'i mut Port<'p, B, Tag>,
+		port: &'i mut Port<'p, B, Tag, H>,
 		target: Target,
 		info_id: Option<u8>,
 		sentinel_id: Option<u8>,
@@ -161,9 +193,12 @@ where
 	}
 }
 
-impl<'i, 'p, B, Tag> Iterator for InfosUntilSentinel<'i, 'p, B, Tag>
+impl<'i, 'p, B, Tag, H> Iterator for InfosUntilSentinel<'i, 'p, B, Tag, H>
 where
 	B: Backend,
+	H: Handlers,
+	H::PacketHandler: FnMut(&[u8], Direction) + 'p,
+	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'p,
 {
 	type Item = Result<NotChecked<Info>, AsciiError>;
 
@@ -201,16 +236,24 @@ where
 }
 
 /// An iterator that will continually send a command and read a reply.
-#[derive(Debug)]
-pub struct Poll<'i, 'p, B, C, Tag> {
-	pub(super) port: &'i mut Port<'p, B, Tag>,
+pub struct Poll<'i, 'p, B, C, Tag, H> {
+	pub(super) port: &'i mut Port<'p, B, Tag, H>,
 	pub(super) command: C,
 }
 
-impl<'i, 'p, B, C, Tag> Iterator for Poll<'i, 'p, B, C, Tag>
+impl<'i, 'p, B, C, Tag, H> std::fmt::Debug for Poll<'i, 'p, B, C, Tag, H> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Poll").finish_non_exhaustive()
+	}
+}
+
+impl<'i, 'p, B, C, Tag, H> Iterator for Poll<'i, 'p, B, C, Tag, H>
 where
 	B: Backend,
 	C: Command,
+	H: Handlers,
+	H::PacketHandler: FnMut(&[u8], Direction) + 'p,
+	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'p,
 {
 	type Item = Result<NotChecked<Reply>, AsciiError>;
 

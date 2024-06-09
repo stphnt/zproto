@@ -105,6 +105,23 @@
 //! # }
 //! ```
 //!
+//! ## Sending a Port between threads
+//!
+//! By default a [`Port`] does not implement `Send`, so cannot be sent to another
+//! thread. If you're application requires this, use the [`Port::try_into_send`]
+//! method to convert it to one that can be. Doing so places [`Send`] bounds on
+//! any [packet](Port::set_packet_handler) handlers.
+//!
+//! ```
+//! # use zproto::ascii::Port;
+//! # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+//! let sendable_port = Port::open_serial("...")?
+//!     .try_into_send()
+//!     .unwrap();
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! ## Type Safety
 //!
 //! The library uses Rust's type system and the strongly-typed commands in the
@@ -206,12 +223,14 @@
 //!
 
 pub mod command;
+mod handlers;
 mod port;
 pub mod traits;
 
 use std::convert::Infallible;
 
 use crate::error;
+pub use handlers::*;
 pub use port::*;
 
 /// A Binary Protocol message.

@@ -153,6 +153,21 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! ## Sending a Port between threads
+//!
+//! By default a [`Port`] does not implement `Send`, so cannot be sent to another
+//! thread. If you're application requires this, use the [`Port::try_into_send`]
+//! method to convert it to one that can be. Doing so places [`Send`] bounds on
+//! any [packet] or [unexpected alert] handlers.
+//!
+//! ```
+//! # use zproto::ascii::Port;
+//! # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+//! let sendable_port = Port::open_serial("...")?.try_into_send()?;
+//! # Ok(())
+//! # }
+//! ```
 //! [`Alert`]: crate::ascii::response::Alert
 //! [`Reply`]: crate::ascii::response::Reply
 //! [`data()`]: crate::ascii::response::Reply::data
@@ -161,6 +176,8 @@
 //! [`NotChecked<R>`]: crate::ascii::response::check::NotChecked
 //! [`check`]: crate::ascii::response::check
 //! [`Target`]: crate::ascii::command::Target
+//! [packet]: Port::set_packet_handler
+//! [unexpected alert]: Port::set_unexpected_alert_handler
 
 pub mod chain;
 pub(crate) mod checksum;

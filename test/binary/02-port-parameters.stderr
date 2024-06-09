@@ -16,14 +16,14 @@ error[E0277]: the trait bound `(u8, Reset): ElicitsResponse` is not satisfied
             (u8, StoreCurrentPosition)
             (u8, StoreCurrentPosition, D)
           and $N others
-note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
+note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
  --> src/binary/port.rs
   |
   |     pub fn tx_recv<M>(&mut self, message: M) -> Result<Message<M::Response>, BinaryError>
   |            ------- required by a bound in this associated function
   |     where
   |         M: traits::TxMessage + traits::ElicitsResponse,
-  |                                ^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B>::tx_recv`
+  |                                ^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B, H>::tx_recv`
 
 error[E0277]: the trait bound `Home: TakesData<i32>` is not satisfied
   --> test/binary/02-port-parameters.rs:10:30
@@ -44,14 +44,14 @@ error[E0277]: the trait bound `Home: TakesData<i32>` is not satisfied
              <MoveAtConstantSpeed as TakesData<i32>>
            and $N others
    = note: required for `(u8, Home, i32)` to implement `TxMessage`
-note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
+note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
   --> src/binary/port.rs
    |
    |     pub fn tx_recv<M>(&mut self, message: M) -> Result<Message<M::Response>, BinaryError>
    |            ------- required by a bound in this associated function
    |     where
    |         M: traits::TxMessage + traits::ElicitsResponse,
-   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B>::tx_recv`
+   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B, H>::tx_recv`
 
 error[E0277]: the trait bound `MoveAbsolute: TakesNoData` is not satisfied
   --> test/binary/02-port-parameters.rs:11:30
@@ -72,14 +72,14 @@ error[E0277]: the trait bound `MoveAbsolute: TakesNoData` is not satisfied
              ReturnFirmwareBuild
            and $N others
    = note: required for `(u8, MoveAbsolute)` to implement `TxMessage`
-note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
+note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
   --> src/binary/port.rs
    |
    |     pub fn tx_recv<M>(&mut self, message: M) -> Result<Message<M::Response>, BinaryError>
    |            ------- required by a bound in this associated function
    |     where
    |         M: traits::TxMessage + traits::ElicitsResponse,
-   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B>::tx_recv`
+   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B, H>::tx_recv`
 
 error[E0277]: the trait bound `MoveAbsolute: TakesData<bool>` is not satisfied
   --> test/binary/02-port-parameters.rs:12:30
@@ -92,14 +92,14 @@ error[E0277]: the trait bound `MoveAbsolute: TakesData<bool>` is not satisfied
    = help: the trait `TakesData<i32>` is implemented for `MoveAbsolute`
    = help: for that trait implementation, expected `i32`, found `bool`
    = note: required for `(u8, MoveAbsolute, bool)` to implement `TxMessage`
-note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
+note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
   --> src/binary/port.rs
    |
    |     pub fn tx_recv<M>(&mut self, message: M) -> Result<Message<M::Response>, BinaryError>
    |            ------- required by a bound in this associated function
    |     where
    |         M: traits::TxMessage + traits::ElicitsResponse,
-   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B>::tx_recv`
+   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B, H>::tx_recv`
 
 error[E0277]: the trait bound `u8: TakesNoData` is not satisfied
   --> test/binary/02-port-parameters.rs:14:30
@@ -120,14 +120,14 @@ error[E0277]: the trait bound `u8: TakesNoData` is not satisfied
              ReturnFirmwareBuild
            and $N others
    = note: required for `(u8, u8)` to implement `TxMessage`
-note: required by a bound in `zproto::binary::Port::<'a, B>::tx_recv`
+note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
   --> src/binary/port.rs
    |
    |     pub fn tx_recv<M>(&mut self, message: M) -> Result<Message<M::Response>, BinaryError>
    |            ------- required by a bound in this associated function
    |     where
    |         M: traits::TxMessage + traits::ElicitsResponse,
-   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B>::tx_recv`
+   |            ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B, H>::tx_recv`
 
 error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesNoData` is not satisfied
   --> test/binary/02-port-parameters.rs:16:17
@@ -148,11 +148,11 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesNoDat
              ReturnFirmwareBuild
            and $N others
    = note: required for `(u8, zproto::binary::command::types::Error)` to implement `TxMessage`
-note: required by a bound in `zproto::binary::Port::<'a, B>::tx`
+note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx`
   --> src/binary/port.rs
    |
    |     pub fn tx<M: traits::TxMessage>(&mut self, message: M) -> Result<Option<u8>, BinaryError> {
-   |                  ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B>::tx`
+   |                  ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B, H>::tx`
 
 error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesData<i32>` is not satisfied
   --> test/binary/02-port-parameters.rs:17:17
@@ -173,8 +173,8 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesData<
              <MoveAtConstantSpeed as TakesData<i32>>
            and $N others
    = note: required for `(u8, zproto::binary::command::types::Error, i32)` to implement `TxMessage`
-note: required by a bound in `zproto::binary::Port::<'a, B>::tx`
+note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx`
   --> src/binary/port.rs
    |
    |     pub fn tx<M: traits::TxMessage>(&mut self, message: M) -> Result<Option<u8>, BinaryError> {
-   |                  ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B>::tx`
+   |                  ^^^^^^^^^^^^^^^^^ required by this bound in `Port::<'a, B, H>::tx`

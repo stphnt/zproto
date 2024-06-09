@@ -1,6 +1,6 @@
 //! Error types for the Zaber's Binary protocol.
 
-use super::SerialDeviceInUseOrDisconnectedError;
+use super::{SerialDeviceInUseOrDisconnectedError, TryIntoSendError};
 use crate::binary::Message;
 
 macro_rules! impl_binary_error {
@@ -111,6 +111,7 @@ error_enum! {
 	pub enum BinaryError {
 		SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
 		Io(std::io::Error),
+		TryIntoSend(TryIntoSendError),
 		CommandFailure(BinaryCommandFailureError),
 		UnexpectedTarget(BinaryUnexpectedTargetError),
 		UnexpectedId(BinaryUnexpectedIdError),

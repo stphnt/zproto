@@ -7,7 +7,12 @@ pub mod scope;
 pub mod setting;
 
 use crate::{
-	ascii::{command::Target, port::DefaultTag, Port},
+	ascii::{
+		command::Target,
+		port::{handlers::Handlers, DefaultTag, Direction},
+		response::Alert,
+		Port,
+	},
 	backend::Backend,
 	error::AsciiError,
 };
@@ -47,10 +52,16 @@ impl ChainOptions {
 	}
 
 	/// Create a [`Chain`] from the given [`Port`].
-	pub fn build<B: Backend, Tag>(
+	pub fn build<'a, B, Tag, H>(
 		&self,
-		port: &mut Port<'_, B, Tag>,
-	) -> Result<Chain<Tag>, AsciiError> {
+		port: &mut Port<'a, B, Tag, H>,
+	) -> Result<Chain<Tag>, AsciiError>
+	where
+		B: Backend,
+		H: Handlers,
+		H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+		H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+	{
 		if self.renumber {
 			for result in port.command_replies_until_timeout_iter("renumber")? {
 				result?.flag_ok()?;
@@ -133,7 +144,13 @@ impl<Tag> Chain<Tag> {
 	/// Chain::options().build(&mut port)
 	/// # }
 	/// ```
-	pub fn new<B: Backend>(port: &mut Port<'_, B, Tag>) -> Result<Self, AsciiError> {
+	pub fn new<'a, B, H>(port: &mut Port<'a, B, Tag, H>) -> Result<Self, AsciiError>
+	where
+		B: Backend,
+		H: Handlers,
+		H::PacketHandler: FnMut(&[u8], Direction) + 'a,
+		H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
+	{
 		ChainOptions::default().build(port)
 	}
 }

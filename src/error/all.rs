@@ -14,6 +14,7 @@ error_enum! {
 	pub enum Error {
 		SerialDeviceInUseOrDisconnected(SerialDeviceInUseOrDisconnectedError),
 		Io(std::io::Error),
+		TryIntoSend(TryIntoSendError),
 		AsciiPacketMissingStart(AsciiPacketMissingStartError),
 		AsciiPacketMissingEnd(AsciiPacketMissingEndError),
 		AsciiPacketMalformed(AsciiPacketMalformedError),
@@ -46,6 +47,7 @@ error_enum! {
 	impl From<AsciiError> {
 		SerialDeviceInUseOrDisconnected => SerialDeviceInUseOrDisconnected,
 		Io => Io,
+		TryIntoSend => TryIntoSend,
 		PacketMissingStart => AsciiPacketMissingStart,
 		PacketMissingEnd => AsciiPacketMissingEnd,
 		PacketMalformed => AsciiPacketMalformed,
@@ -74,6 +76,7 @@ error_enum! {
 	impl From<BinaryError> {
 		SerialDeviceInUseOrDisconnected => SerialDeviceInUseOrDisconnected,
 		Io => Io,
+		TryIntoSend => TryIntoSend,
 		CommandFailure => BinaryCommandFailure,
 		UnexpectedTarget => BinaryUnexpectedTarget,
 		UnexpectedId => BinaryUnexpectedId,

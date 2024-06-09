@@ -13,6 +13,7 @@ pub mod backend;
 #[cfg(feature = "binary")]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "binary")))]
 pub mod binary;
+pub mod convert;
 pub mod error;
 pub mod routine;
 pub mod timeout_guard;
