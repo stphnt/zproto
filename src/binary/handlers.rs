@@ -17,10 +17,6 @@ where
 	}
 }
 
-/// Deprecated. Use [`PacketHandler`] instead.
-#[deprecated = "use the PacketHandler alias instead"]
-pub type PacketCallback<'a> = PacketHandler<'a>;
-
 /// The same as [`PacketHandler`] but also implements `Send`.
 ///
 /// See [`Port::set_packet_handler`] for more details.

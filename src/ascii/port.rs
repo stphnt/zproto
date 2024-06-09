@@ -23,7 +23,7 @@ use crate::{
 	routine::{IntoRoutine, Routine},
 	timeout_guard::TimeoutGuard,
 };
-use handlers::{Handlers, LocalHandlers, PacketHandler, SendHandlers, UnexpectedAlertHandler};
+use handlers::{Handlers, LocalHandlers, SendHandlers};
 pub use options::*;
 use std::{
 	convert::TryFrom,
@@ -31,14 +31,6 @@ use std::{
 	net::{TcpStream, ToSocketAddrs},
 	time::Duration,
 };
-
-/// Deprecated. Use [`PacketHandler`] instead.
-#[deprecated = "use the PacketHandler alias instead"]
-pub type PacketCallback<'a> = PacketHandler<'a>;
-
-/// Deprecated. Use [`UnexpectedAlertHandler`] instead.
-#[deprecated = "use the UnexpectedAlertHandler alias instead"]
-pub type UnexpectedAlertCallback<'a> = UnexpectedAlertHandler<'a>;
 
 /// The direction a packet was sent.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
