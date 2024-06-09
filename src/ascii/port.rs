@@ -296,9 +296,7 @@ where
 	/// # ) -> Result<(), Box<dyn Error>> {
 	/// use std::sync::{Arc, Mutex};
 	///
-	/// let port = Port::open_serial("...")?
-	///     .try_into_send()  // Required in order to send the port to another thread.
-	///     .unwrap();
+	/// let port = Port::open_serial("...")?.try_into_send()?;
 	/// let port = Arc::new(Mutex::new(port));
 	///
 	/// let mut handles = vec![];

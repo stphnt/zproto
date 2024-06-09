@@ -164,9 +164,7 @@
 //! ```
 //! # use zproto::ascii::Port;
 //! # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-//! let sendable_port = Port::open_serial("...")?
-//!     .try_into_send()
-//!     .unwrap();
+//! let sendable_port = Port::open_serial("...")?.try_into_send()?;
 //! # Ok(())
 //! # }
 //! ```
