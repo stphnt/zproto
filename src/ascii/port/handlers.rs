@@ -59,8 +59,6 @@ where
 	}
 }
 
-/// Implementation detail.
-///
 /// Collection of event handlers that can only be used in the local thread.
 #[derive(Default)]
 pub struct LocalHandlers<'a> {
@@ -87,8 +85,6 @@ impl<'a> Handlers for LocalHandlers<'a> {
 
 impl<'a> private::Sealed for LocalHandlers<'a> {}
 
-/// Implementation detail.
-///
 /// Collection of event handlers that can be sent to other threads (i.e. they implement `Send`).
 #[derive(Default)]
 pub struct SendHandlers<'a> {
