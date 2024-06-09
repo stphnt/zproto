@@ -539,6 +539,8 @@ where
 	/// # Ok(())
 	/// # }
 	/// ```
+	// The return type is complex, but making a type alias doesn't make it better.
+	#[allow(clippy::type_complexity)]
 	pub fn command_reply_infos_iter<C: Command>(
 		&mut self,
 		cmd: C,
@@ -552,6 +554,8 @@ where
 		self.internal_command_reply_infos_iter(&cmd)
 	}
 
+	// The return type is complex, but making a type alias doesn't make it better.
+	#[allow(clippy::type_complexity)]
 	fn internal_command_reply_infos_iter(
 		&mut self,
 		cmd: &dyn Command,
