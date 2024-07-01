@@ -7,14 +7,14 @@ error[E0277]: the trait bound `(u8, Reset): ElicitsResponse` is not satisfied
   |                  required by a bound introduced by this call
   |
   = help: the following other types implement trait `ElicitsResponse`:
-            (u8, u8)
-            (u8, u8, D)
+            (u8, Activate)
+            (u8, Activate, D)
+            (u8, ConvertToAscii)
+            (u8, ConvertToAscii, D)
+            (u8, EchoData)
+            (u8, EchoData, D)
             (u8, Home)
             (u8, Home, D)
-            (u8, Renumber)
-            (u8, Renumber, D)
-            (u8, StoreCurrentPosition)
-            (u8, StoreCurrentPosition, D)
           and $N others
 note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
  --> src/binary/port.rs
@@ -34,14 +34,14 @@ error[E0277]: the trait bound `Home: TakesData<i32>` is not satisfied
    |                  required by a bound introduced by this call
    |
    = help: the following other types implement trait `TakesData<T>`:
-             <u8 as TakesData<T>>
-             <Renumber as TakesData<u8>>
-             <StoreCurrentPosition as TakesData<i32>>
-             <ReturnStoredPosition as TakesData<i32>>
-             <MoveToStoredPosition as TakesData<i32>>
+             <ConvertToAscii as TakesData<i32>>
+             <EchoData as TakesData<i32>>
              <MoveAbsolute as TakesData<i32>>
-             <MoveRelative as TakesData<i32>>
              <MoveAtConstantSpeed as TakesData<i32>>
+             <MoveIndex as TakesData<i32>>
+             <MoveRelative as TakesData<i32>>
+             <MoveToStoredPosition as TakesData<i32>>
+             <ReadAnalogInput as TakesData<i32>>
            and $N others
    = note: required for `(u8, Home, i32)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
@@ -62,14 +62,14 @@ error[E0277]: the trait bound `MoveAbsolute: TakesNoData` is not satisfied
    |                  required by a bound introduced by this call
    |
    = help: the following other types implement trait `TakesNoData`:
-             Reset
+             Activate
              Home
-             Stop
-             ReturnDeviceId
-             ReturnFirmwareVersion
-             ReturnPowerSupplyVoltage
-             ReturnStatus
-             ReturnFirmwareBuild
+             ReadAllDigitalInputs
+             ReadAllDigitalOutputs
+             Reset
+             ReturnAnalogInputCount
+             ReturnCalibratedEncoderCount
+             ReturnCalibrationError
            and $N others
    = note: required for `(u8, MoveAbsolute)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
@@ -110,14 +110,14 @@ error[E0277]: the trait bound `u8: TakesNoData` is not satisfied
    |                  required by a bound introduced by this call
    |
    = help: the following other types implement trait `TakesNoData`:
-             Reset
+             Activate
              Home
-             Stop
-             ReturnDeviceId
-             ReturnFirmwareVersion
-             ReturnPowerSupplyVoltage
-             ReturnStatus
-             ReturnFirmwareBuild
+             ReadAllDigitalInputs
+             ReadAllDigitalOutputs
+             Reset
+             ReturnAnalogInputCount
+             ReturnCalibratedEncoderCount
+             ReturnCalibrationError
            and $N others
    = note: required for `(u8, u8)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx_recv`
@@ -138,14 +138,14 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesNoDat
    |          required by a bound introduced by this call
    |
    = help: the following other types implement trait `TakesNoData`:
-             Reset
+             Activate
              Home
-             Stop
-             ReturnDeviceId
-             ReturnFirmwareVersion
-             ReturnPowerSupplyVoltage
-             ReturnStatus
-             ReturnFirmwareBuild
+             ReadAllDigitalInputs
+             ReadAllDigitalOutputs
+             Reset
+             ReturnAnalogInputCount
+             ReturnCalibratedEncoderCount
+             ReturnCalibrationError
            and $N others
    = note: required for `(u8, zproto::binary::command::types::Error)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx`
@@ -163,14 +163,14 @@ error[E0277]: the trait bound `zproto::binary::command::types::Error: TakesData<
    |          required by a bound introduced by this call
    |
    = help: the following other types implement trait `TakesData<T>`:
-             <u8 as TakesData<T>>
-             <Renumber as TakesData<u8>>
-             <StoreCurrentPosition as TakesData<i32>>
-             <ReturnStoredPosition as TakesData<i32>>
-             <MoveToStoredPosition as TakesData<i32>>
+             <ConvertToAscii as TakesData<i32>>
+             <EchoData as TakesData<i32>>
              <MoveAbsolute as TakesData<i32>>
-             <MoveRelative as TakesData<i32>>
              <MoveAtConstantSpeed as TakesData<i32>>
+             <MoveIndex as TakesData<i32>>
+             <MoveRelative as TakesData<i32>>
+             <MoveToStoredPosition as TakesData<i32>>
+             <ReadAnalogInput as TakesData<i32>>
            and $N others
    = note: required for `(u8, zproto::binary::command::types::Error, i32)` to implement `TxMessage`
 note: required by a bound in `zproto::binary::Port::<'a, B, H>::tx`
