@@ -56,10 +56,10 @@ pub type SendPort<'a, B, Tag = DefaultTag> = Port<'a, B, Tag, SendHandlers<'a>>;
 ///
 /// 1. `B`: the type of [`Backend`] used to send/receive packets.
 ///    * Use the convenience methods [`open_serial`] and [`open_tcp`] to construct
-///    a serial port (`Port<Serial>`) or a TCP port (`Port<TcpStream>`). To
-///    customize the construction of these types, or to construct a port with a
-///    dynamic backend, use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder
-///    types.
+///      a serial port (`Port<Serial>`) or a TCP port (`Port<TcpStream>`). To
+///      customize the construction of these types, or to construct a port with a
+///      dynamic backend, use the [`OpenSerialOptions`] and [`OpenTcpOptions`] builder
+///      types.
 /// 2. `Tag`: an optional type for "tagging" the port.
 ///    * This has a default and can be ignored if you only ever have one port open.
 ///      When working with multiple ports simultaneously, the `Tag` type can be used
@@ -91,10 +91,12 @@ pub struct Port<'a, B, Tag = DefaultTag, H = LocalHandlers<'a>> {
 	/// reported before the port is used for communication again.
 	///
 	/// A port becomes "poisoned" when an error occurs that
+	///
 	///  * cannot be recovered from,
 	///  * panicking is ill advised,
 	///  * and it is safe to delay reporting of the error until the next attempt
 	///    to communicate over the port.
+	///
 	/// For instance, if a [`TimeoutGuard`] cannot restore the original timeout
 	/// in its Drop implementation, rather than panicking (which would almost
 	/// certainly cause the program to abort rather than unwind the stack) it
