@@ -271,10 +271,12 @@ pub struct Port<'a, B, H = LocalHandlers<'a>> {
 	/// reported before the port is used for communication again.
 	///
 	/// A port becomes "poisoned" when an error occurs that
+	///
 	///  * cannot be recovered from,
 	///  * panicking is ill advised,
 	///  * and it is safe to delay reporting of the error until the next attempt
 	///    to communicate over the port.
+	///
 	/// For instance, if a [`TimeoutGuard`] cannot restore the original timeout
 	/// in its Drop implementation, rather than panicking (which would almost
 	/// certainly cause the program to abort rather than unwind the stack) it

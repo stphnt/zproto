@@ -745,7 +745,7 @@ mod test {
 				MaxPacketSize::new(81).unwrap(),
 			)
 			.unwrap();
-			assert_eq!(writer.write_packet(&mut buf).unwrap(), false);
+			assert!(!writer.write_packet(&mut buf).unwrap());
 		}
 	}
 
@@ -753,7 +753,7 @@ mod test {
 	fn test_command_writer_cannot_split() {
 		let mut buf = vec![];
 		let mut writer = CommandWriter::new(&(1, "tools echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ConstId {}, false, true, MaxPacketSize::default()).unwrap();
-		assert_eq!(writer.write_packet(&mut buf).unwrap(), true);
+		assert!(writer.write_packet(&mut buf).unwrap());
 		let _: AsciiCommandSplitError = writer
 			.write_packet(&mut buf)
 			.unwrap_err()

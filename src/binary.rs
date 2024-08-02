@@ -39,9 +39,9 @@
 //! ```
 //!
 //! * Commands that do require data take a form similar to above, `(u8, Command, Data)`,
-//! where `u8` and `Command` are the same and `Data` is some type that implements
-//! [`Data`](traits::Data). This includes types like `i32`, `bool`, [`command`],
-//! and other types.
+//!   where `u8` and `Command` are the same and `Data` is some type that implements
+//!   [`Data`](traits::Data). This includes types like `i32`, `bool`, [`command`],
+//!   and other types.
 //!
 //! ```
 //! # use zproto::{
