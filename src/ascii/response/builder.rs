@@ -136,8 +136,7 @@ impl ResponseBuilder {
 		let has_response = self
 			.items
 			.first()
-			.map(|item| item.is_complete())
-			.unwrap_or(false);
+			.is_some_and(Item::is_complete);
 		if has_response {
 			Some(self.items.remove(0).try_into_complete_response().unwrap())
 		} else {
@@ -150,8 +149,7 @@ impl ResponseBuilder {
 		let has_packet = self
 			.items
 			.first()
-			.map(|item| !item.is_complete())
-			.unwrap_or(false);
+			.is_some_and(|item| !item.is_complete());
 		if has_packet {
 			Some(self.items.remove(0).try_into_packet().unwrap())
 		} else {
