@@ -318,7 +318,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 		// Try to take the next single reserved character (terminations are the
 		// only sequence of reserved characters)
 		if self.packet[start].is_reserved() {
-			let token = ClientToken::Reserved(&self.packet[start..start + 1]);
+			let token = ClientToken::Reserved(&self.packet[start..=start]);
 			if (predicate)(token) {
 				// Consume the preceding whitespace and then our match.
 				self.separator();
