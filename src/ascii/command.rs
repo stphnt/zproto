@@ -455,10 +455,12 @@ impl Target {
 	/// # use zproto::ascii::command::Target;
 	/// assert_eq!(Target::for_all(), Target::new(0, 0));
 	/// ```
+	#[must_use]
 	pub const fn for_all() -> Target {
 		Target(0, 0)
 	}
 	/// Create a target for a specific device.
+	#[must_use]
 	pub const fn for_device(address: u8) -> Target {
 		Target(address, 0)
 	}
@@ -470,6 +472,7 @@ impl Target {
 	/// # use zproto::ascii::command::Target;
 	/// assert_eq!(Target::new(2, 1).with_all_axes(), Target::new(2, 0));
 	/// ```
+	#[must_use]
 	pub const fn with_all_axes(self) -> Target {
 		Target(self.0, 0)
 	}
@@ -481,6 +484,7 @@ impl Target {
 	/// # use zproto::ascii::command::Target;
 	/// assert_eq!(Target::new(2, 1).with_axis(3), Target::new(2, 3));
 	/// ```
+	#[must_use]
 	pub const fn with_axis(self, axis: u8) -> Target {
 		Target(self.0, axis)
 	}
