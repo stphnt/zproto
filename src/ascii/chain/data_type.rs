@@ -157,7 +157,7 @@ impl Display for AsciiBool {
 }
 impl std::fmt::Display for AsciiBool {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", if self.0 { 1 } else { 0 })
+		write!(f, "{}", i32::from(self.0))
 	}
 }
 
