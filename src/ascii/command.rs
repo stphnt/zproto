@@ -403,7 +403,7 @@ impl<'a> CommandWriter<'a> {
 
 		if self.checksum {
 			let checksum = writer.finish_hash();
-			write!(writer, ":{:02X}", checksum)?;
+			write!(writer, ":{checksum:02X}")?;
 		}
 		writer.write_all(b"\n")?;
 		self.packet_index += 1;
