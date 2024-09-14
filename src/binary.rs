@@ -514,8 +514,11 @@ pub struct IoStates(u32);
 impl IoStates {
 	/// Return whether a channel is high.
 	///
-	/// The `channel` index is one-based. This function will panic if `channel`
-	/// is 0 or greater than 32.
+	/// The `channel` index is one-based.
+	///
+	/// # Panics
+	///
+	/// This function will panic if `channel` is 0 or greater than 32.
 	pub fn is_high(&self, channel: usize) -> bool {
 		self.is_high_checked(channel)
 			.expect("`channel` must be in the range (1, 32)")
