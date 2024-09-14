@@ -163,18 +163,18 @@ macro_rules! impl_from_ascii_check_error {
 
 /// Define error enums that contain concrete error types (not other error enums).
 ///
-/// From and TryFrom traits will be implemented for the enum and it's underlying
+/// `From` and `TryFrom` traits will be implemented for the enum and it's underlying
 /// errors. The enum's Display implementation will defer to the underlying errors'
 /// Display implementations.
 ///
-/// Simple implementations of From and TryFrom with other error enums can be
+/// Simple implementations of `From` and `TryFrom` with other error enums can be
 /// added by appending a succinct impl block, which assumes that:
 ///   * it is being implemented for this error enum,
 ///   * each variant has a single tuple value, and can be converted to the value
 ///     in this enum with its own From implementation.
 ///
 /// Note, that this has not been implemented for generic enums. If the
-/// conversions are more complex, implement From and TryFrom directly.
+/// conversions are more complex, implement `From` and `TryFrom` directly.
 ///
 /// ```compile_fail
 /// # // This fails to compile because the macro is not exported.

@@ -182,7 +182,7 @@ pub struct MaxPacketSize(usize);
 impl MaxPacketSize {
 	const MIN_PACKET_SIZE: usize = 80;
 
-	/// Create a new MaxPacketSize if the value is >= 80.
+	/// Create a new `MaxPacketSize` if the value is >= 80.
 	pub const fn new(value: usize) -> Option<Self> {
 		if value >= Self::MIN_PACKET_SIZE {
 			Some(MaxPacketSize(value))

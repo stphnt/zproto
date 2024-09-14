@@ -247,7 +247,7 @@ pub enum AnyResponse {
 }
 
 impl AnyResponse {
-	/// Try to convert a packet into an AnyResponse message.
+	/// Try to convert a packet into an `AnyResponse` message.
 	///
 	/// The conversion will fail if the packet is the wrong kind or if the packet
 	/// is not the start of a message. The packet does not need to complete the
