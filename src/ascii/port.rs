@@ -1618,12 +1618,12 @@ pub(super) enum HeaderCheck {
 }
 
 impl HeaderCheck {
-	fn check(&self, response: AnyResponse) -> Result<AnyResponse, AsciiError> {
+	fn check(self, response: AnyResponse) -> Result<AnyResponse, AsciiError> {
 		use HeaderCheck::*;
 		match self {
 			DoNotCheck => Ok(response),
 			Matches { target, id } => {
-				if !response.target().elicited_by_command_to(*target) || response.id() != *id {
+				if !response.target().elicited_by_command_to(target) || response.id() != id {
 					Err(AsciiUnexpectedResponseError::new(response).into())
 				} else {
 					Ok(response)
@@ -1634,12 +1634,12 @@ impl HeaderCheck {
 				info_id,
 				sentinel_id,
 			} => {
-				if !response.target().elicited_by_command_to(*target) {
+				if !response.target().elicited_by_command_to(target) {
 					return Err(AsciiUnexpectedResponseError::new(response).into());
 				}
 				match response {
-					AnyResponse::Info(ref info) if info.id() == *info_id => Ok(response),
-					AnyResponse::Reply(ref reply) if reply.id() == *sentinel_id => Ok(response),
+					AnyResponse::Info(ref info) if info.id() == info_id => Ok(response),
+					AnyResponse::Reply(ref reply) if reply.id() == sentinel_id => Ok(response),
 					_ => Err(AsciiUnexpectedResponseError::new(response).into()),
 				}
 			}
