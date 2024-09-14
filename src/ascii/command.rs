@@ -382,10 +382,10 @@ impl<'a> CommandWriter<'a> {
 					remaining -= needed_bytes;
 
 					// Move the offset past this word
-					self.offset = words
-						.peek()
-						.map(|(_, word)| word.as_ptr() as usize - self.data.as_ptr() as usize)
-						.unwrap_or_else(|| self.data.len())
+					self.offset = words.peek().map_or_else(
+						|| self.data.len(), // default
+						|(_, word)| word.as_ptr() as usize - self.data.as_ptr() as usize,
+					);
 				} else {
 					// The word doesn't fit, split here
 					self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
