@@ -232,6 +232,17 @@ impl<'a> TryFrom<&'a [u8]> for Tokens<&'a [u8]> {
 	}
 }
 
+impl<'a, T> IntoIterator for &'a Tokens<T>
+where
+	T: AsRef<[u8]>,
+{
+	type IntoIter = TokenIter<'a, T>;
+	type Item = (Token, &'a str);
+	fn into_iter(self) -> Self::IntoIter {
+		self.iter()
+	}
+}
+
 /// An iterator over the tokens in a packet.
 // Support packets of at most 256 characters (which is fine because packets are
 // at most 80 characters).
