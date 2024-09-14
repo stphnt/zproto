@@ -220,7 +220,7 @@ where
 					}
 					// The header check should ensure all other response kinds
 					// are errors.
-					_ => unreachable!(),
+					AnyResponse::Alert(_) => unreachable!(),
 				}
 			}
 			Err(e) => {
