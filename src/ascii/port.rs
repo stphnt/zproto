@@ -817,7 +817,7 @@ where
 		if buf.is_empty() || *buf.last().unwrap() != crate::ascii::packet::LINE_FEED {
 			return Err(AsciiPacketMissingEndError::new(buf).into());
 		}
-		result.map(move |_| buf)
+		result.map(move |()| buf)
 	}
 
 	/// Receive a response [`Packet`]
