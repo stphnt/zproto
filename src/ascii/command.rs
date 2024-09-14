@@ -283,8 +283,8 @@ impl<'a> CommandWriter<'a> {
 	) -> io::Result<usize> {
 		use std::io::Write as _;
 
-		let device_char_count = ascii_char_count(self.target.device());
-		let axis_char_count = ascii_char_count(self.target.axis());
+		let device_char_count = ascii_char_count(self.target.device() as usize);
+		let axis_char_count = ascii_char_count(self.target.axis() as usize);
 		write!(writer, "/")?;
 		let mut bytes_written = 1; // '/'
 
@@ -301,7 +301,8 @@ impl<'a> CommandWriter<'a> {
 					self.target.axis(),
 					id
 				)?;
-				bytes_written += device_char_count + axis_char_count + ascii_char_count(id) + 2;
+				bytes_written +=
+					device_char_count + axis_char_count + ascii_char_count(id as usize) + 2;
 				// 2 spaces
 			}
 			None => {
@@ -349,7 +350,7 @@ impl<'a> CommandWriter<'a> {
 			if self.packet_index != 0 {
 				// This is a continuation packet so add the preamble
 				write!(writer, "cont {} ", self.packet_index)?;
-				bytes_written += 6 + ascii_char_count(self.packet_index as u8);
+				bytes_written += 6 + ascii_char_count(self.packet_index);
 			}
 
 			// Only add the data that will fit in the packet
@@ -412,14 +413,13 @@ impl<'a> CommandWriter<'a> {
 }
 
 /// Calculates the number of ASCII digits that are required to print `num`.
-fn ascii_char_count(num: u8) -> usize {
-	if num < 10 {
-		1
-	} else if num < 100 {
-		2
-	} else {
-		3
+fn ascii_char_count(mut num: usize) -> usize {
+	let mut count = 1;
+	while num >= 10 {
+		count += 1;
+		num /= 10;
 	}
+	count
 }
 
 /// The device address and axis number a command/response was sent to/from.
@@ -766,5 +766,39 @@ mod test {
 		assert_eq!(MaxPacketSize::default().as_usize(), 80);
 		assert!(MaxPacketSize::new(79).is_none());
 		assert!(MaxPacketSize::new(80).is_some());
+	}
+
+	#[test]
+	fn ascii_char_count() {
+		let cases = [
+			// (input, expected count)
+			(0, 1),
+			(1, 1),
+			(2, 1),
+			(3, 1),
+			(4, 1),
+			(5, 1),
+			(6, 1),
+			(7, 1),
+			(8, 1),
+			(9, 1),
+			(10, 2),
+			(99, 2),
+			(100, 3),
+			(999, 3),
+			(1000, 4),
+			(9999, 4),
+			(10000, 5),
+			(100000, 6),
+			(1000000, 7),
+			(10000000, 8),
+			(100000000, 9),
+			(usize::MAX, 20),
+		];
+		for (input, expected_count) in cases {
+			eprintln!("case {input}");
+			let actual_count = super::ascii_char_count(input);
+			assert_eq!(actual_count, expected_count);
+		}
 	}
 }
