@@ -101,7 +101,7 @@ impl Status {
 }
 
 impl std::fmt::Display for Status {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Status::Busy => write!(f, "{}", Status::BUSY_STR),
 			Status::Idle => write!(f, "{}", Status::IDLE_STR),
@@ -194,7 +194,7 @@ impl<'a> std::convert::TryFrom<&'a str> for Warning {
 }
 
 impl std::fmt::Display for Warning {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", std::str::from_utf8(&self.0).unwrap())
 	}
 }
@@ -226,7 +226,7 @@ struct Header {
 }
 
 impl std::fmt::Display for Header {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{:02} {}", self.address, self.axis)?;
 		if let Some(id) = self.id {
 			write!(f, " {id:02}")?;
@@ -317,7 +317,7 @@ impl std::convert::From<Alert> for AnyResponse {
 }
 
 impl std::fmt::Display for AnyResponse {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			AnyResponse::Reply(reply) => reply.fmt(f),
 			AnyResponse::Info(info) => info.fmt(f),
@@ -365,7 +365,7 @@ pub enum Kind {
 }
 
 impl std::fmt::Display for Kind {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Kind::Reply => write!(f, "Reply"),
 			Kind::Info => write!(f, "Info"),

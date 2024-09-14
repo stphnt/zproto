@@ -70,7 +70,7 @@ impl std::convert::TryFrom<AnyResponse> for Info {
 }
 
 impl std::fmt::Display for Info {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", char::from(packet::INFO_MARKER))?;
 		Header {
 			address: self.target().device(),

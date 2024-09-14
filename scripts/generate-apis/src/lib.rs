@@ -22,7 +22,7 @@ impl Version {
 }
 
 impl std::fmt::Display for Version {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}.{:0>2}", self.major, self.minor)
 	}
 }
@@ -43,7 +43,7 @@ impl PartialOrd<(u8, u8)> for Version {
 #[derive(Debug, Copy, Clone)]
 pub struct VersionSourceDisplay(Version);
 impl std::fmt::Display for VersionSourceDisplay {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}_{:0>2}", self.0.major, self.0.minor)
 	}
 }

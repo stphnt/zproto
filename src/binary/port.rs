@@ -953,7 +953,7 @@ where
 	pub fn timeout_guard(
 		&mut self,
 		timeout: Option<Duration>,
-	) -> Result<TimeoutGuard<B, Self>, io::Error> {
+	) -> Result<TimeoutGuard<'_, B, Self>, io::Error> {
 		self.check_poisoned()?;
 		TimeoutGuard::new(self, timeout)
 	}

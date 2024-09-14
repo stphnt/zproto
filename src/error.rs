@@ -55,7 +55,7 @@ macro_rules! impl_error_display {
         impl$(<$($t : $bound),+>)? std::error::Error for $name {}
 
         impl$(<$($t : $bound),+>)? std::fmt::Display for $name {
-            fn fmt(&$self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn fmt(&$self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 writeln!(
                     f,
                     $display
@@ -229,7 +229,7 @@ macro_rules! error_enum {
 
         // Defer the display to the inner error type
         impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     $(
                         $name::$variant(e) => e.fmt(f)
@@ -315,7 +315,7 @@ macro_rules! error_enum {
 
         // Defer the display to the inner error type
         impl<$type: $bound> std::fmt::Display for $name<$type> {
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     $(
                         $name::$variant(e) => e.fmt(f)

@@ -64,14 +64,14 @@ pub trait Command: private::Sealed {
 	/// Get the command's target.
 	fn target(&self) -> Target;
 	/// Get the command's data.
-	fn data(&self) -> Cow<[u8]>;
+	fn data(&self) -> Cow<'_, [u8]>;
 }
 
 impl Command for str {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_bytes().into()
 	}
 }
@@ -80,7 +80,7 @@ impl Command for [u8] {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.into()
 	}
 }
@@ -89,7 +89,7 @@ impl<const N: usize> Command for [u8; N] {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_slice().into()
 	}
 }
@@ -98,7 +98,7 @@ impl Command for String {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_bytes().into()
 	}
 }
@@ -107,7 +107,7 @@ impl Command for Vec<u8> {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_slice().into()
 	}
 }
@@ -120,7 +120,7 @@ where
 	fn target(&self) -> Target {
 		self.0.into()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.1.as_ref().into()
 	}
 }
@@ -132,7 +132,7 @@ where
 	fn target(&self) -> Target {
 		Target::for_device(self.0).with_axis(self.1)
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.2.as_ref().into()
 	}
 }
@@ -144,7 +144,7 @@ where
 	fn target(&self) -> Target {
 		(**self).target()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		(**self).data()
 	}
 }
@@ -156,7 +156,7 @@ where
 	fn target(&self) -> Target {
 		(**self).target()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		(**self).data()
 	}
 }
@@ -168,7 +168,7 @@ where
 	fn target(&self) -> Target {
 		(**self).target()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		(**self).data()
 	}
 }
