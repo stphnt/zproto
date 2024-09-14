@@ -543,7 +543,7 @@ where
 		if let Some(callback) = self.handlers.packet() {
 			(callback)(
 				&buffer,
-				Message::from_bytes(&buffer, id.is_some()),
+				Message::from_bytes(buffer, id.is_some()),
 				Direction::Tx,
 			);
 		}
@@ -572,7 +572,7 @@ where
 				.unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
 			&buf
 		);
-		let response = Message::from_bytes(&buf, self.id.is_enabled());
+		let response = Message::from_bytes(buf, self.id.is_enabled());
 
 		if let Some(callback) = self.handlers.packet() {
 			(callback)(&buf, response, Direction::Recv);
@@ -1245,17 +1245,17 @@ mod test {
 			vec![
 				(
 					[0, 1, 0, 0, 0, 1].to_vec(),
-					Message::from_bytes(&[0, 1, 0, 0, 0, 1], true),
+					Message::from_bytes([0, 1, 0, 0, 0, 1], true),
 					Direction::Tx
 				),
 				(
 					[1, 1, 0, 0, 0, 1].to_vec(),
-					Message::from_bytes(&[1, 1, 0, 0, 0, 1], true),
+					Message::from_bytes([1, 1, 0, 0, 0, 1], true),
 					Direction::Recv
 				),
 				(
 					[2, 1, 0, 0, 0, 1].to_vec(),
-					Message::from_bytes(&[2, 1, 0, 0, 0, 1], true),
+					Message::from_bytes([2, 1, 0, 0, 0, 1], true),
 					Direction::Recv
 				),
 			]

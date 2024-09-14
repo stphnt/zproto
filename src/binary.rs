@@ -332,7 +332,7 @@ impl Message<u8> {
 	/// Parse an array of 6 bytes into a [`Message`].
 	///
 	/// Set `id` to `true` if the response is expected to contain a message ID.
-	pub(crate) const fn from_bytes(bytes: &[u8; 6], id: bool) -> Message<u8> {
+	pub(crate) const fn from_bytes(bytes: [u8; 6], id: bool) -> Message<u8> {
 		Message {
 			target: bytes[0],
 			command: bytes[1],
@@ -594,13 +594,13 @@ mod test {
 
 		// Incorrect command value results in an error.
 		let err = Message::<SetHomeSpeed>::try_from_untyped(Message::from_bytes(
-			&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1],
+			[3, untyped::SET_ACCELERATION, 0, 0, 0, 1],
 			false,
 		))
 		.unwrap_err();
 		assert_eq!(
 			Message::from(err),
-			Message::from_bytes(&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
+			Message::from_bytes([3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
 		);
 	}
 
@@ -610,7 +610,7 @@ mod test {
 
 		// Parsing a message with an ID works properly.
 		let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
-			&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+			[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
 			true,
 		))
 		.unwrap();
@@ -626,7 +626,7 @@ mod test {
 
 		// Parsing a message without an ID works properly.
 		let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
-			&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+			[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
 			false,
 		))
 		.unwrap();
