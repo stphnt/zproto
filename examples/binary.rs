@@ -1,3 +1,5 @@
+//! Example script for using Zaber's Binary protocol via zproto.
+
 use simple_logger::SimpleLogger;
 use zproto::binary::{command::*, Port};
 
