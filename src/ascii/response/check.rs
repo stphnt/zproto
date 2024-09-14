@@ -248,13 +248,13 @@ pub fn warning_in<R: ResponseWithWarning, L: WarningList>(warnings: L) -> impl C
 /// level, i.e., `--`, `N*`, or `W*`.
 pub fn warning_below_fault<R: ResponseWithWarning>() -> impl Check<R> {
 	|response: R| {
-		if !response.warning().is_fault() {
-			Ok(response)
-		} else {
+		if response.warning().is_fault() {
 			Err(
 				AsciiCheckWarningError::new("expected warning below fault (F) level", response)
 					.into(),
 			)
+		} else {
+			Ok(response)
 		}
 	}
 }

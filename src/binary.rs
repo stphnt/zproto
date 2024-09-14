@@ -377,10 +377,10 @@ pub struct Version(i32);
 impl Version {
 	/// Create a new version
 	pub fn new(major: i32, minor: i32) -> Result<Self, std::num::TryFromIntError> {
-		if minor % 100 != minor {
-			Err(u8::try_from(-1).unwrap_err())
-		} else {
+		if minor % 100 == minor {
 			Ok(Version(major * 100 + minor % 100))
+		} else {
+			Err(u8::try_from(-1).unwrap_err())
 		}
 	}
 

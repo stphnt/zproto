@@ -1011,10 +1011,10 @@ where
 
 /// Check for an unexpected message ID in the response.
 fn check_unexpected_id(response: Message, id: Option<u8>) -> Result<(), BinaryUnexpectedIdError> {
-	if response.id() != id {
-		Err(BinaryUnexpectedIdError::new(response))
-	} else {
+	if response.id() == id {
 		Ok(())
+	} else {
+		Err(BinaryUnexpectedIdError::new(response))
 	}
 }
 
