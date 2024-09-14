@@ -996,11 +996,11 @@ fn check_unexpected_elicited_command<M>(
 where
 	M: traits::TxMessage + traits::ElicitsResponse,
 {
-	use traits::ExpectedCommandResult::*;
+	use traits::ExpectedCommandResult as ECR;
 	match sent.expected_command() {
-		AnyAcceptable => {}
-		AnyUnexpected => return Err(BinaryUnexpectedCommandError::new(response)),
-		Exactly(value) => {
+		ECR::AnyAcceptable => {}
+		ECR::AnyUnexpected => return Err(BinaryUnexpectedCommandError::new(response)),
+		ECR::Exactly(value) => {
 			if traits::Command::command(&value) != response.command() {
 				return Err(BinaryUnexpectedCommandError::new(response));
 			}

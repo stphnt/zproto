@@ -1619,17 +1619,17 @@ pub(super) enum HeaderCheck {
 
 impl HeaderCheck {
 	fn check(self, response: AnyResponse) -> Result<AnyResponse, AsciiError> {
-		use HeaderCheck::*;
+		use HeaderCheck as HC;
 		match self {
-			DoNotCheck => Ok(response),
-			Matches { target, id } => {
+			HC::DoNotCheck => Ok(response),
+			HC::Matches { target, id } => {
 				if !response.target().elicited_by_command_to(target) || response.id() != id {
 					Err(AsciiUnexpectedResponseError::new(response).into())
 				} else {
 					Ok(response)
 				}
 			}
-			InfoSentinelReplyMatches {
+			HC::InfoSentinelReplyMatches {
 				target,
 				info_id,
 				sentinel_id,
