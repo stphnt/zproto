@@ -1101,7 +1101,7 @@ where
 		let mut responses = Vec::new();
 		let checker: &dyn check::Check<R> = &checker;
 		for result in self.internal_response_n_iter(n, HeaderCheck::DoNotCheck) {
-			responses.push(result?.check(checker)?)
+			responses.push(result?.check(checker)?);
 		}
 		Ok(responses)
 	}
@@ -1597,7 +1597,7 @@ impl<'a, B: Backend, Tag, H> crate::timeout_guard::Port<B> for Port<'a, B, Tag, 
 		&mut self.backend
 	}
 	fn poison(&mut self, e: io::Error) {
-		self.poison = Some(e)
+		self.poison = Some(e);
 	}
 }
 

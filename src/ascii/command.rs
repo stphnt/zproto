@@ -310,7 +310,7 @@ impl<'a> CommandWriter<'a> {
 					bytes_written += device_char_count + axis_char_count + 1; // 1 space
 				} else if self.target.device() != 0 {
 					write!(writer, "{}", self.target.device())?;
-					bytes_written += device_char_count
+					bytes_written += device_char_count;
 				}
 			}
 		};

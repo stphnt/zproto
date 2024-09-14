@@ -737,7 +737,7 @@ impl<T: WarningList> WarningList for &T {
 		(*self).contains(warning)
 	}
 	fn write_fmt_to_str(&self, s: &mut String) {
-		(*self).write_fmt_to_str(s)
+		(*self).write_fmt_to_str(s);
 	}
 }
 

@@ -965,7 +965,7 @@ impl<'a, B: Backend, H> crate::timeout_guard::Port<B> for Port<'a, B, H> {
 	}
 
 	fn poison(&mut self, error: io::Error) {
-		self.poison = Some(error)
+		self.poison = Some(error);
 	}
 }
 

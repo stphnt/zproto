@@ -77,7 +77,7 @@ where
 {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
 		for byte in buf {
-			self.hasher.update(*byte)
+			self.hasher.update(*byte);
 		}
 		self.writer.write(buf)
 	}
