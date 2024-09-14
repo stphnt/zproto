@@ -133,10 +133,7 @@ impl ResponseBuilder {
 		// packets or they happened to come earlier), but we want to return the
 		// response message that was first received. This also simplifies how
 		// we look for completed responses.
-		let has_response = self
-			.items
-			.first()
-			.is_some_and(Item::is_complete);
+		let has_response = self.items.first().is_some_and(Item::is_complete);
 		if has_response {
 			Some(self.items.remove(0).try_into_complete_response().unwrap())
 		} else {
@@ -146,10 +143,7 @@ impl ResponseBuilder {
 
 	// Get the first packet in the incomplete response, if it is in fact incomplete.
 	pub fn get_incomplete_response_packet(&mut self) -> Option<Packet> {
-		let has_packet = self
-			.items
-			.first()
-			.is_some_and(|item| !item.is_complete());
+		let has_packet = self.items.first().is_some_and(|item| !item.is_complete());
 		if has_packet {
 			Some(self.items.remove(0).try_into_packet().unwrap())
 		} else {
