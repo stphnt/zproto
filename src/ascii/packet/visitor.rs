@@ -311,9 +311,8 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 				self.separator();
 				self.index += count;
 				return Ok(Some(token));
-			} else {
-				return Ok(None);
 			}
+			return Ok(None);
 		}
 
 		// Try to take the next single reserved character (terminations are the
@@ -325,9 +324,8 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 				self.separator();
 				self.index += 1;
 				return Ok(Some(token));
-			} else {
-				return Ok(None);
 			}
+			return Ok(None);
 		}
 
 		// Take the next word, which we know must exist
