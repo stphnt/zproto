@@ -111,9 +111,8 @@ impl ResponseBuilder {
 		} else {
 			// This conversion could fail if, for some very strange reason, we
 			// received a command or we made a logic error when parsing the packet.
-			let response = match AnyResponse::try_from_packet(&packet) {
-				Ok(response) => response,
-				Err(_) => return Err(AsciiUnexpectedPacketError::new(packet)),
+			let Ok(response) = AnyResponse::try_from_packet(&packet) else {
+				return Err(AsciiUnexpectedPacketError::new(packet));
 			};
 			self.items.push(Item {
 				packet: if packet.more_packets() {
