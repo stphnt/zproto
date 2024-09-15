@@ -7,6 +7,8 @@ mod options;
 mod test;
 
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
+#[allow(clippy::wildcard_imports)]
+use crate::error::*;
 use crate::{
 	ascii::{
 		chain::Chain,
@@ -19,7 +21,6 @@ use crate::{
 			Alert, AnyResponse, Info, Reply, Response, ResponseBuilder, Status,
 		},
 	},
-	error::*,
 	routine::{IntoRoutine, Routine},
 	timeout_guard::TimeoutGuard,
 };

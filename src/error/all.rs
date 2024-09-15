@@ -1,5 +1,6 @@
 //! Error types for both ASCII and Binary protocol.
 
+#[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::ascii::response::{AnyResponse, SpecificResponse};
 

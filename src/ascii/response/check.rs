@@ -51,6 +51,7 @@ use crate::ascii::response::{
 	AnyResponse, Flag, Kind, Reply, Response, ResponseWithStatus, ResponseWithWarning,
 	SpecificResponse, Status, Target, Warning,
 };
+#[allow(clippy::wildcard_imports)]
 use crate::error::*;
 
 /// A trait for checking the contents of a response.
@@ -122,6 +123,7 @@ where
 }
 
 mod private {
+	#[allow(clippy::wildcard_imports)]
 	use super::*;
 	pub trait Sealed<R: Response> {}
 

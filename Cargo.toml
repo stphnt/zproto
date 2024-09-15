@@ -118,7 +118,6 @@ pedantic = "deny"
 # Pedantic group overrides
 module_name_repetitions = { level = "allow", priority = 1 }
 must_use_candidate = { level = "allow", priority = 1 } # too many
-wildcard_imports = { level = "allow", priority = 1 } # we use wildcard imports judiciously
 missing_errors_doc = { level = "allow", priority = 1 }
 missing_panics_doc = { level = "allow", priority = 1 }
 needless_pass_by_value = { level = "allow", priority = 1 }

@@ -560,6 +560,7 @@ impl traits::Data for IoStates {
 
 #[cfg(test)]
 mod test {
+	#[allow(clippy::wildcard_imports)]
 	use super::*;
 
 	#[test]
