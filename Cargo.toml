@@ -122,7 +122,6 @@ wildcard_imports = { level = "allow", priority = 1 } # we use wildcard imports j
 missing_errors_doc = { level = "allow", priority = 1 }
 missing_panics_doc = { level = "allow", priority = 1 }
 needless_pass_by_value = { level = "allow", priority = 1 }
-too_many_lines = { level = "allow", priority = 1 }
 
 [lints.rust]
 # groups
