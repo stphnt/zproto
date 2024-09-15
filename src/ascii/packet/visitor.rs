@@ -5,7 +5,9 @@
 //!
 //! The [`Client`] and [`Visitor`] traits are not intended for the public
 //! interface, but used by dedicated parsing functions for each type.
-use super::*;
+use super::{
+	AsciiExt as _, ALERT_MARKER, COMMAND_MARKER, INFO_MARKER, MORE_PACKETS_MARKER, REPLY_MARKER,
+};
 use crate::ascii::response::{Flag, Kind, Status, Warning};
 
 /// The `cont` keyword.
