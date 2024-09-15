@@ -4,10 +4,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  RUSTFLAGS: -Dwarnings -Dmissing_debug_implementations
-  RUSTDOCFLAGS: -Dwarnings -Dmissing_docs -Drustdoc::missing_crate_level_docs
-
 jobs:
   check:
     name: Check

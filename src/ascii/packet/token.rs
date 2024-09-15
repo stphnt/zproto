@@ -147,6 +147,10 @@ impl<'a, T> Visitor<'a> for Tokens<T>
 where
 	T: From<&'a [u8]>,
 {
+	// The maximum word size in Zaber's ASCII protocol is < 256, so the length
+	// of any single token will fit within a u8 without truncation.
+	#![allow(clippy::cast_possible_truncation)]
+
 	type Output = Self;
 
 	fn separator(&mut self, bytes: &[u8]) {

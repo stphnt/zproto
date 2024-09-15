@@ -428,6 +428,9 @@ impl PartialEq<Version> for f32 {
 
 impl From<Version> for f32 {
 	fn from(other: Version) -> Self {
+		// The major and minor versions are always going to be small enough
+		// that we don't need to worry about precision loss.
+		#![allow(clippy::cast_precision_loss)]
 		other.major() as f32 + other.minor() as f32 / 100f32
 	}
 }
@@ -547,6 +550,10 @@ impl traits::Data for IoStates {
 	where
 		Self: Sized,
 	{
+		// Data in a binary packet is always signed, so parse it as such first.
+		// It will always be a positive value so there is not concern about loss
+		// when converting it to a u32.
+		#[allow(clippy::cast_sign_loss)]
 		Ok(IoStates(i32::try_from_data(buffer)? as u32))
 	}
 }

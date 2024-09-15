@@ -72,6 +72,8 @@ impl<'a, Tag> std::iter::Iterator for IterAxes<'a, Tag> {
 	type Item = Axis<'a, Tag>;
 
 	fn next(&mut self) -> Option<Self::Item> {
+		#![allow(clippy::cast_possible_truncation)]
+		assert!(self.next_axis_index < u8::MAX as usize - 1);
 		let axis_number = self
 			.info
 			.devices
