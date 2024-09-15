@@ -139,10 +139,6 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 
 	/// Parse the packet and return the output of the visitor.
 	pub fn parse(mut self) -> Result<V::Output, ParseError> {
-		use AsciiExt as _;
-		use PacketKind as PK;
-
-		// Start parsing
 		self.visitor.start_visit(self.packet);
 
 		// Error on any leading whitespace, to guarantee that the subsequent
@@ -152,7 +148,35 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 			return Err(ParseError::MissingOrInvalidKind);
 		}
 
-		// Parse the kind of packet
+		let kind = self.parse_kind()?;
+		let content_start_index = self.index;
+		self.parse_header(kind)?;
+		self.parse_body(kind)?;
+		let content_end_index = self.parse_footer()?;
+
+		// Parse the termination
+		let termination = self
+			.token_if(
+				|token| matches!(token, ClientToken::Reserved(bytes) if bytes.iter().all(u8::is_packet_end)),
+			)?
+			.map(ClientToken::into_bytes)
+			.ok_or(ParseError::MissingOrInvalidTermination)?;
+		self.visitor.termination(termination);
+
+		let content_end_index = content_end_index.unwrap_or(self.index - termination.len());
+		self.visitor
+			.hashed_content(&self.packet[content_start_index..content_end_index]);
+
+		// Make sure there isn't anything else
+		if !self.rest().is_empty() {
+			return Err(ParseError::ExtraData);
+		}
+		Ok(self.visitor.finish_visit())
+	}
+
+	/// Parse the message start character and return the kind of message it is for.
+	fn parse_kind(&mut self) -> Result<PacketKind, ParseError> {
+		use PacketKind as PK;
 		let kind;
 		if let Some(bytes) = self.reserved(&[COMMAND_MARKER])? {
 			kind = PK::Command;
@@ -169,9 +193,11 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 		} else {
 			return Err(ParseError::MissingOrInvalidKind);
 		}
-		let content_start_index = self.index;
+		Ok(kind)
+	}
 
-		// Parse the header
+	/// Parse the message header up to the body.
+	fn parse_header(&mut self, kind: PacketKind) -> Result<(), ParseError> {
 		if let Some(digits) = self.digits()? {
 			let address = std::str::from_utf8(digits).unwrap().parse().unwrap();
 			self.visitor.device_address(address, digits);
@@ -190,10 +216,13 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 		} else if kind.is_response() {
 			return Err(ParseError::MissingOrInvalidAddress);
 		}
+		Ok(())
+	}
 
-		// Parse the body, which is different for each packet type.
+	/// Parse the message body up to the footer.
+	fn parse_body(&mut self, kind: PacketKind) -> Result<(), ParseError> {
 		match kind {
-			PK::Command => {
+			PacketKind::Command => {
 				if let Some(word) = self.word(CONT)? {
 					self.visitor.cont(word);
 
@@ -205,14 +234,14 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 				}
 				self.parse_data()?;
 			}
-			PK::Info => {
+			PacketKind::Info => {
 				if let Some(word) = self.word(CONT)? {
 					self.visitor.cont(word);
 				}
 				self.parse_data()?;
 			}
-			PK::Reply | PK::Alert => {
-				if kind == PK::Reply {
+			PacketKind::Reply | PacketKind::Alert => {
+				if kind == PacketKind::Reply {
 					// Parse flag
 					if let Some(word) = self.word(Flag::OK_STR.as_bytes())? {
 						self.visitor.flag(Flag::Ok, word);
@@ -245,8 +274,13 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 				self.parse_data()?;
 			}
 		}
+		Ok(())
+	}
 
-		// Parse the footer
+	/// Parse the message footer, excluding the termination.
+	///
+	/// Returns the index of the end of the content, if it was encountered.
+	fn parse_footer(&mut self) -> Result<Option<usize>, ParseError> {
 		let mut content_end_index = None;
 		if let Some(word) = self.reserved(&[MORE_PACKETS_MARKER])? {
 			self.visitor.more_packets_marker(word);
@@ -263,25 +297,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 				.map_err(|_| ParseError::MissingOrInvalidChecksum)?;
 			self.visitor.checksum(checksum, word);
 		}
-
-		// Parse the termination
-		let termination = self
-			.token_if(
-				|token| matches!(token, ClientToken::Reserved(bytes) if bytes.iter().all(u8::is_packet_end)),
-			)?
-			.map(ClientToken::into_bytes)
-			.ok_or(ParseError::MissingOrInvalidTermination)?;
-		self.visitor.termination(termination);
-
-		let content_end_index = content_end_index.unwrap_or(self.index - termination.len());
-		self.visitor
-			.hashed_content(&self.packet[content_start_index..content_end_index]);
-
-		// Make sure there isn't anything else
-		if !self.rest().is_empty() {
-			return Err(ParseError::ExtraData);
-		}
-		Ok(self.visitor.finish_visit())
+		Ok(content_end_index)
 	}
 
 	/// Consume a token if `predicate` returns `true`.
