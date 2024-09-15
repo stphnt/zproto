@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::io;
 
 mod private {
-	use super::*;
+	use super::Target;
 	pub trait Sealed {}
 
 	impl Sealed for str {}

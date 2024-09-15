@@ -10,7 +10,7 @@ pub(crate) use builder::ResponseBuilder;
 pub use info::*;
 pub use reply::*;
 
-use crate::error::*;
+use crate::error::AsciiCheckError;
 
 use crate::ascii::{command::Target, packet};
 
