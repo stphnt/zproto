@@ -153,7 +153,7 @@ where
 /// An iterator that will read info message until a reply from a prior command is
 /// received.
 ///
-/// See [Port::command_reply_infos_iter](super::Port::command_reply_infos_iter) for details.
+/// See [`Port::command_reply_infos_iter`](super::Port::command_reply_infos_iter) for details.
 pub struct InfosUntilSentinel<'i, 'p, B, Tag, H> {
 	port: &'i mut Port<'p, B, Tag, H>,
 	header_check: HeaderCheck,
@@ -220,7 +220,7 @@ where
 					}
 					// The header check should ensure all other response kinds
 					// are errors.
-					_ => unreachable!(),
+					AnyResponse::Alert(_) => unreachable!(),
 				}
 			}
 			Err(e) => {

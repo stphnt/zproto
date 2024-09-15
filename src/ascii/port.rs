@@ -817,7 +817,7 @@ where
 		if buf.is_empty() || *buf.last().unwrap() != crate::ascii::packet::LINE_FEED {
 			return Err(AsciiPacketMissingEndError::new(buf).into());
 		}
-		result.map(move |_| buf)
+		result.map(move |()| buf)
 	}
 
 	/// Receive a response [`Packet`]
@@ -1101,7 +1101,7 @@ where
 		let mut responses = Vec::new();
 		let checker: &dyn check::Check<R> = &checker;
 		for result in self.internal_response_n_iter(n, HeaderCheck::DoNotCheck) {
-			responses.push(result?.check(checker)?)
+			responses.push(result?.check(checker)?);
 		}
 		Ok(responses)
 	}
@@ -1328,7 +1328,7 @@ where
 	pub fn timeout_guard(
 		&mut self,
 		timeout: Option<Duration>,
-	) -> Result<TimeoutGuard<B, Self>, io::Error> {
+	) -> Result<TimeoutGuard<'_, B, Self>, io::Error> {
 		self.check_poisoned()?;
 
 		TimeoutGuard::new(self, timeout)
@@ -1597,7 +1597,7 @@ impl<'a, B: Backend, Tag, H> crate::timeout_guard::Port<B> for Port<'a, B, Tag, 
 		&mut self.backend
 	}
 	fn poison(&mut self, e: io::Error) {
-		self.poison = Some(e)
+		self.poison = Some(e);
 	}
 }
 
@@ -1618,28 +1618,28 @@ pub(super) enum HeaderCheck {
 }
 
 impl HeaderCheck {
-	fn check(&self, response: AnyResponse) -> Result<AnyResponse, AsciiError> {
-		use HeaderCheck::*;
+	fn check(self, response: AnyResponse) -> Result<AnyResponse, AsciiError> {
+		use HeaderCheck as HC;
 		match self {
-			DoNotCheck => Ok(response),
-			Matches { target, id } => {
-				if !response.target().elicited_by_command_to(*target) || response.id() != *id {
+			HC::DoNotCheck => Ok(response),
+			HC::Matches { target, id } => {
+				if !response.target().elicited_by_command_to(target) || response.id() != id {
 					Err(AsciiUnexpectedResponseError::new(response).into())
 				} else {
 					Ok(response)
 				}
 			}
-			InfoSentinelReplyMatches {
+			HC::InfoSentinelReplyMatches {
 				target,
 				info_id,
 				sentinel_id,
 			} => {
-				if !response.target().elicited_by_command_to(*target) {
+				if !response.target().elicited_by_command_to(target) {
 					return Err(AsciiUnexpectedResponseError::new(response).into());
 				}
 				match response {
-					AnyResponse::Info(ref info) if info.id() == *info_id => Ok(response),
-					AnyResponse::Reply(ref reply) if reply.id() == *sentinel_id => Ok(response),
+					AnyResponse::Info(ref info) if info.id() == info_id => Ok(response),
+					AnyResponse::Reply(ref reply) if reply.id() == sentinel_id => Ok(response),
 					_ => Err(AsciiUnexpectedResponseError::new(response).into()),
 				}
 			}

@@ -76,7 +76,7 @@ impl std::convert::TryFrom<AnyResponse> for Alert {
 }
 
 impl std::fmt::Display for Alert {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", char::from(packet::ALERT_MARKER))?;
 		Header {
 			address: self.target().device(),

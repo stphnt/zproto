@@ -6,6 +6,10 @@
 
 #![cfg_attr(all(doc, feature = "doc_cfg"), feature(doc_cfg))]
 
+// This lint is denied here rather than in the Cargo.toml because we don't want it applied
+// to the example scripts as well (where it always fails).
+#![cfg_attr(not(test), deny(unused_crate_dependencies))]
+
 #[cfg(feature = "ascii")]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "ascii")))]
 pub mod ascii;

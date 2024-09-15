@@ -1,3 +1,5 @@
+//! Example script for using Zaber's ASCII protocol via zproto.
+
 use simple_logger::SimpleLogger;
 use zproto::ascii::{
 	response::{check, Warning},

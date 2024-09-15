@@ -50,7 +50,7 @@ impl ChainInfo {
 				address,
 				DeviceInfo {
 					address,
-					axes: Vec::from_iter((0..axis_count).map(|_| AxisInfo {})),
+					axes: (0..axis_count).map(|_| AxisInfo {}).collect(),
 				},
 			);
 		}

@@ -34,7 +34,7 @@ impl Data for bool {
 	type Error = std::num::TryFromIntError;
 
 	fn fill_data(&self, buffer: &mut [u8]) {
-		(*self as i32).fill_data(buffer);
+		i32::from(*self).fill_data(buffer);
 	}
 	fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error> {
 		// `bool` doesn't implement `TryFrom` for any integer type (there is
@@ -52,7 +52,7 @@ impl Data for u8 {
 	type Error = <Self as TryFrom<i32>>::Error;
 
 	fn fill_data(&self, buffer: &mut [u8]) {
-		(*self as i32).fill_data(buffer);
+		i32::from(*self).fill_data(buffer);
 	}
 	fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error> {
 		Self::try_from(i32::from_le_bytes(buffer))
@@ -62,7 +62,7 @@ impl Data for i8 {
 	type Error = <Self as TryFrom<i32>>::Error;
 
 	fn fill_data(&self, buffer: &mut [u8]) {
-		(*self as i32).fill_data(buffer);
+		i32::from(*self).fill_data(buffer);
 	}
 	fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error> {
 		Self::try_from(i32::from_le_bytes(buffer))
@@ -72,7 +72,7 @@ impl Data for u16 {
 	type Error = <Self as TryFrom<i32>>::Error;
 
 	fn fill_data(&self, buffer: &mut [u8]) {
-		(*self as i32).fill_data(buffer);
+		i32::from(*self).fill_data(buffer);
 	}
 	fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error> {
 		Self::try_from(i32::from_le_bytes(buffer))
@@ -82,7 +82,7 @@ impl Data for i16 {
 	type Error = <Self as TryFrom<i32>>::Error;
 
 	fn fill_data(&self, buffer: &mut [u8]) {
-		(*self as i32).fill_data(buffer);
+		i32::from(*self).fill_data(buffer);
 	}
 	fn try_from_data(buffer: [u8; 4]) -> Result<Self, Self::Error> {
 		Self::try_from(i32::from_le_bytes(buffer))

@@ -12,7 +12,7 @@ pub(crate) struct Lrc {
 impl Lrc {
 	/// Update the Lrc with the specified byte.
 	pub fn update(&mut self, byte: u8) {
-		self.sum = (self.sum + byte as u32) & 0xFF;
+		self.sum = (self.sum + u32::from(byte)) & 0xFF;
 	}
 
 	/// Clear the hasher's state. This returns the hasher to the state after
@@ -32,7 +32,7 @@ impl Lrc {
 
 	/// Verify if the hash matches the input.
 	pub fn verify(input: &[u8], hash: u32) -> bool {
-		let sum: u32 = input.iter().fold(0u32, |sum, b| *b as u32 + sum);
+		let sum: u32 = input.iter().fold(0u32, |sum, b| u32::from(*b) + sum);
 		0 == ((sum + hash) & 0xFF)
 	}
 }
@@ -77,7 +77,7 @@ where
 {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
 		for byte in buf {
-			self.hasher.update(*byte)
+			self.hasher.update(*byte);
 		}
 		self.writer.write(buf)
 	}

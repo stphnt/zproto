@@ -20,7 +20,7 @@ impl Flag {
 }
 
 impl std::fmt::Display for Flag {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Flag::Ok => write!(f, "{}", Flag::OK_STR),
 			Flag::Rj => write!(f, "{}", Flag::RJ_STR),
@@ -109,7 +109,7 @@ impl std::convert::TryFrom<AnyResponse> for Reply {
 }
 
 impl std::fmt::Display for Reply {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", char::from(packet::REPLY_MARKER))?;
 		Header {
 			address: self.target().device(),

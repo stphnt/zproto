@@ -147,6 +147,10 @@ impl<'a, T> Visitor<'a> for Tokens<T>
 where
 	T: From<&'a [u8]>,
 {
+	// The maximum word size in Zaber's ASCII protocol is < 256, so the length
+	// of any single token will fit within a u8 without truncation.
+	#![allow(clippy::cast_possible_truncation)]
+
 	type Output = Self;
 
 	fn separator(&mut self, bytes: &[u8]) {
@@ -229,6 +233,17 @@ impl<'a> TryFrom<&'a [u8]> for Tokens<&'a [u8]> {
 		client
 			.parse()
 			.map_err(|_| AsciiPacketMalformedError::new(value))
+	}
+}
+
+impl<'a, T> IntoIterator for &'a Tokens<T>
+where
+	T: AsRef<[u8]>,
+{
+	type IntoIter = TokenIter<'a, T>;
+	type Item = (Token, &'a str);
+	fn into_iter(self) -> Self::IntoIter {
+		self.iter()
 	}
 }
 

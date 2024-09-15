@@ -121,15 +121,6 @@ impl<'a, Tag> std::iter::IntoIterator for &'a Chain<Tag> {
 	}
 }
 
-impl<'a, Tag> std::iter::IntoIterator for &'a mut Chain<Tag> {
-	type Item = Device<'a, Tag>;
-	type IntoIter = IterDevices<'a, Tag>;
-
-	fn into_iter(self) -> Self::IntoIter {
-		IterDevices::new(&self.info)
-	}
-}
-
 impl<Tag> Chain<Tag> {
 	/// Create a new [`Chain`] using the default options.
 	///
@@ -234,15 +225,6 @@ impl<'a, Tag> std::iter::IntoIterator for Device<'a, Tag> {
 }
 
 impl<'a, Tag> std::iter::IntoIterator for &Device<'a, Tag> {
-	type Item = Axis<'a, Tag>;
-	type IntoIter = IterAxes<'a, Tag>;
-
-	fn into_iter(self) -> Self::IntoIter {
-		IterAxes::new(self.info, self.address)
-	}
-}
-
-impl<'a, Tag> std::iter::IntoIterator for &mut Device<'a, Tag> {
 	type Item = Axis<'a, Tag>;
 	type IntoIter = IterAxes<'a, Tag>;
 

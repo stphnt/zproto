@@ -332,7 +332,7 @@ impl Message<u8> {
 	/// Parse an array of 6 bytes into a [`Message`].
 	///
 	/// Set `id` to `true` if the response is expected to contain a message ID.
-	pub(crate) const fn from_bytes(bytes: &[u8; 6], id: bool) -> Message<u8> {
+	pub(crate) const fn from_bytes(bytes: [u8; 6], id: bool) -> Message<u8> {
 		Message {
 			target: bytes[0],
 			command: bytes[1],
@@ -346,7 +346,7 @@ impl<C> std::fmt::Display for Message<C>
 where
 	C: traits::Command,
 {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(
 			f,
 			"[{}, {}, {}",
@@ -377,10 +377,10 @@ pub struct Version(i32);
 impl Version {
 	/// Create a new version
 	pub fn new(major: i32, minor: i32) -> Result<Self, std::num::TryFromIntError> {
-		if minor % 100 != minor {
-			Err(u8::try_from(-1).unwrap_err())
-		} else {
+		if minor % 100 == minor {
 			Ok(Version(major * 100 + minor % 100))
+		} else {
+			Err(u8::try_from(-1).unwrap_err())
 		}
 	}
 
@@ -428,6 +428,9 @@ impl PartialEq<Version> for f32 {
 
 impl From<Version> for f32 {
 	fn from(other: Version) -> Self {
+		// The major and minor versions are always going to be small enough
+		// that we don't need to worry about precision loss.
+		#![allow(clippy::cast_precision_loss)]
 		other.major() as f32 + other.minor() as f32 / 100f32
 	}
 }
@@ -514,8 +517,11 @@ pub struct IoStates(u32);
 impl IoStates {
 	/// Return whether a channel is high.
 	///
-	/// The `channel` index is one-based. This function will panic if `channel`
-	/// is 0 or greater than 32.
+	/// The `channel` index is one-based.
+	///
+	/// # Panics
+	///
+	/// This function will panic if `channel` is 0 or greater than 32.
 	pub fn is_high(&self, channel: usize) -> bool {
 		self.is_high_checked(channel)
 			.expect("`channel` must be in the range (1, 32)")
@@ -544,6 +550,10 @@ impl traits::Data for IoStates {
 	where
 		Self: Sized,
 	{
+		// Data in a binary packet is always signed, so parse it as such first.
+		// It will always be a positive value so there is not concern about loss
+		// when converting it to a u32.
+		#[allow(clippy::cast_sign_loss)]
 		Ok(IoStates(i32::try_from_data(buffer)? as u32))
 	}
 }
@@ -594,13 +604,13 @@ mod test {
 
 		// Incorrect command value results in an error.
 		let err = Message::<SetHomeSpeed>::try_from_untyped(Message::from_bytes(
-			&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1],
+			[3, untyped::SET_ACCELERATION, 0, 0, 0, 1],
 			false,
 		))
 		.unwrap_err();
 		assert_eq!(
 			Message::from(err),
-			Message::from_bytes(&[3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
+			Message::from_bytes([3, untyped::SET_ACCELERATION, 0, 0, 0, 1], false)
 		);
 	}
 
@@ -610,7 +620,7 @@ mod test {
 
 		// Parsing a message with an ID works properly.
 		let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
-			&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+			[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
 			true,
 		))
 		.unwrap();
@@ -626,7 +636,7 @@ mod test {
 
 		// Parsing a message without an ID works properly.
 		let message: Message<SetHomeSpeed> = Message::try_from_untyped(Message::from_bytes(
-			&[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
+			[3, untyped::SET_HOME_SPEED, 2, 0, 0, 1],
 			false,
 		))
 		.unwrap();

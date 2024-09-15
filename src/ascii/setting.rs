@@ -15,7 +15,7 @@ macro_rules! define_settings {
         )+
     ) => {
         $(
-        $(#[$metadata])+
+        $(#[$metadata])*
         #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $visibility struct $setting;
         impl $setting {

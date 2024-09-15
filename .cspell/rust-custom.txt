@@ -1,10 +1,12 @@
 # cspell-tools: keep-case no-split
 argh
+clippy
 hexdigit
 idents
 peekable
 repr
 rusqlite
 rustc
+rustdoc
 serialport
 trybuild

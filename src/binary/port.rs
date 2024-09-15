@@ -543,7 +543,7 @@ where
 		if let Some(callback) = self.handlers.packet() {
 			(callback)(
 				&buffer,
-				Message::from_bytes(&buffer, id.is_some()),
+				Message::from_bytes(buffer, id.is_some()),
 				Direction::Tx,
 			);
 		}
@@ -572,7 +572,7 @@ where
 				.unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
 			&buf
 		);
-		let response = Message::from_bytes(&buf, self.id.is_enabled());
+		let response = Message::from_bytes(buf, self.id.is_enabled());
 
 		if let Some(callback) = self.handlers.packet() {
 			(callback)(&buf, response, Direction::Recv);
@@ -953,7 +953,7 @@ where
 	pub fn timeout_guard(
 		&mut self,
 		timeout: Option<Duration>,
-	) -> Result<TimeoutGuard<B, Self>, io::Error> {
+	) -> Result<TimeoutGuard<'_, B, Self>, io::Error> {
 		self.check_poisoned()?;
 		TimeoutGuard::new(self, timeout)
 	}
@@ -965,7 +965,7 @@ impl<'a, B: Backend, H> crate::timeout_guard::Port<B> for Port<'a, B, H> {
 	}
 
 	fn poison(&mut self, error: io::Error) {
-		self.poison = Some(error)
+		self.poison = Some(error);
 	}
 }
 
@@ -996,11 +996,11 @@ fn check_unexpected_elicited_command<M>(
 where
 	M: traits::TxMessage + traits::ElicitsResponse,
 {
-	use traits::ExpectedCommandResult::*;
+	use traits::ExpectedCommandResult as ECR;
 	match sent.expected_command() {
-		AnyAcceptable => {}
-		AnyUnexpected => return Err(BinaryUnexpectedCommandError::new(response)),
-		Exactly(value) => {
+		ECR::AnyAcceptable => {}
+		ECR::AnyUnexpected => return Err(BinaryUnexpectedCommandError::new(response)),
+		ECR::Exactly(value) => {
 			if traits::Command::command(&value) != response.command() {
 				return Err(BinaryUnexpectedCommandError::new(response));
 			}
@@ -1011,10 +1011,10 @@ where
 
 /// Check for an unexpected message ID in the response.
 fn check_unexpected_id(response: Message, id: Option<u8>) -> Result<(), BinaryUnexpectedIdError> {
-	if response.id() != id {
-		Err(BinaryUnexpectedIdError::new(response))
-	} else {
+	if response.id() == id {
 		Ok(())
+	} else {
+		Err(BinaryUnexpectedIdError::new(response))
 	}
 }
 
@@ -1245,17 +1245,17 @@ mod test {
 			vec![
 				(
 					[0, 1, 0, 0, 0, 1].to_vec(),
-					Message::from_bytes(&[0, 1, 0, 0, 0, 1], true),
+					Message::from_bytes([0, 1, 0, 0, 0, 1], true),
 					Direction::Tx
 				),
 				(
 					[1, 1, 0, 0, 0, 1].to_vec(),
-					Message::from_bytes(&[1, 1, 0, 0, 0, 1], true),
+					Message::from_bytes([1, 1, 0, 0, 0, 1], true),
 					Direction::Recv
 				),
 				(
 					[2, 1, 0, 0, 0, 1].to_vec(),
-					Message::from_bytes(&[2, 1, 0, 0, 0, 1], true),
+					Message::from_bytes([2, 1, 0, 0, 0, 1], true),
 					Direction::Recv
 				),
 			]

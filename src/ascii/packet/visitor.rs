@@ -267,7 +267,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 		// Parse the termination
 		let termination = self
 			.token_if(
-				|token| matches!(token, ClientToken::Reserved(bytes) if bytes.iter().all(|c| c.is_packet_end())),
+				|token| matches!(token, ClientToken::Reserved(bytes) if bytes.iter().all(u8::is_packet_end)),
 			)?
 			.map(ClientToken::into_bytes)
 			.ok_or(ParseError::MissingOrInvalidTermination)?;
@@ -311,23 +311,21 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 				self.separator();
 				self.index += count;
 				return Ok(Some(token));
-			} else {
-				return Ok(None);
 			}
+			return Ok(None);
 		}
 
 		// Try to take the next single reserved character (terminations are the
 		// only sequence of reserved characters)
 		if self.packet[start].is_reserved() {
-			let token = ClientToken::Reserved(&self.packet[start..start + 1]);
+			let token = ClientToken::Reserved(&self.packet[start..=start]);
 			if (predicate)(token) {
 				// Consume the preceding whitespace and then our match.
 				self.separator();
 				self.index += 1;
 				return Ok(Some(token));
-			} else {
-				return Ok(None);
 			}
+			return Ok(None);
 		}
 
 		// Take the next word, which we know must exist
@@ -336,9 +334,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 			.take_while(|c| !c.is_separator() && !c.is_reserved())
 			.count();
 		assert!(count > 0);
-		let valid_ascii = self.packet[start..start + count]
-			.iter()
-			.all(|c| c.is_ascii());
+		let valid_ascii = self.packet[start..start + count].iter().all(u8::is_ascii);
 		if !valid_ascii {
 			return Err(ParseError::NonAscii);
 		}
@@ -382,7 +378,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 	fn digits(&mut self) -> Result<Option<&'a [u8]>, ParseError> {
 		Ok(self
 			.token_if(
-				|token| matches!(token, ClientToken::Word(bytes) if bytes.iter().all(|c| c.is_ascii_digit())),
+				|token| matches!(token, ClientToken::Word(bytes) if bytes.iter().all(u8::is_ascii_digit)),
 			)?
 			.map(ClientToken::into_bytes))
 	}
@@ -391,7 +387,7 @@ impl<'a, V: Visitor<'a>> Client<'a, V> {
 	fn hex_digits(&mut self) -> Result<Option<&'a [u8]>, ParseError> {
 		Ok(self
 			.token_if(
-				|token| matches!(token, ClientToken::Word(bytes) if bytes.iter().all(|c| c.is_ascii_hexdigit())),
+				|token| matches!(token, ClientToken::Word(bytes) if bytes.iter().all(u8::is_ascii_hexdigit)),
 			)?
 			.map(ClientToken::into_bytes))
 	}

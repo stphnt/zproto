@@ -64,14 +64,14 @@ pub trait Command: private::Sealed {
 	/// Get the command's target.
 	fn target(&self) -> Target;
 	/// Get the command's data.
-	fn data(&self) -> Cow<[u8]>;
+	fn data(&self) -> Cow<'_, [u8]>;
 }
 
 impl Command for str {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_bytes().into()
 	}
 }
@@ -80,7 +80,7 @@ impl Command for [u8] {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.into()
 	}
 }
@@ -89,7 +89,7 @@ impl<const N: usize> Command for [u8; N] {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_slice().into()
 	}
 }
@@ -98,7 +98,7 @@ impl Command for String {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_bytes().into()
 	}
 }
@@ -107,7 +107,7 @@ impl Command for Vec<u8> {
 	fn target(&self) -> Target {
 		Target::for_all()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.as_slice().into()
 	}
 }
@@ -120,7 +120,7 @@ where
 	fn target(&self) -> Target {
 		self.0.into()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.1.as_ref().into()
 	}
 }
@@ -132,7 +132,7 @@ where
 	fn target(&self) -> Target {
 		Target::for_device(self.0).with_axis(self.1)
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		self.2.as_ref().into()
 	}
 }
@@ -144,7 +144,7 @@ where
 	fn target(&self) -> Target {
 		(**self).target()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		(**self).data()
 	}
 }
@@ -156,7 +156,7 @@ where
 	fn target(&self) -> Target {
 		(**self).target()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		(**self).data()
 	}
 }
@@ -168,7 +168,7 @@ where
 	fn target(&self) -> Target {
 		(**self).target()
 	}
-	fn data(&self) -> Cow<[u8]> {
+	fn data(&self) -> Cow<'_, [u8]> {
 		(**self).data()
 	}
 }
@@ -182,7 +182,7 @@ pub struct MaxPacketSize(usize);
 impl MaxPacketSize {
 	const MIN_PACKET_SIZE: usize = 80;
 
-	/// Create a new MaxPacketSize if the value is >= 80.
+	/// Create a new `MaxPacketSize` if the value is >= 80.
 	pub const fn new(value: usize) -> Option<Self> {
 		if value >= Self::MIN_PACKET_SIZE {
 			Some(MaxPacketSize(value))
@@ -283,8 +283,8 @@ impl<'a> CommandWriter<'a> {
 	) -> io::Result<usize> {
 		use std::io::Write as _;
 
-		let device_char_count = ascii_char_count(self.target.device());
-		let axis_char_count = ascii_char_count(self.target.axis());
+		let device_char_count = ascii_char_count(self.target.device() as usize);
+		let axis_char_count = ascii_char_count(self.target.axis() as usize);
 		write!(writer, "/")?;
 		let mut bytes_written = 1; // '/'
 
@@ -301,7 +301,8 @@ impl<'a> CommandWriter<'a> {
 					self.target.axis(),
 					id
 				)?;
-				bytes_written += device_char_count + axis_char_count + ascii_char_count(id) + 2;
+				bytes_written +=
+					device_char_count + axis_char_count + ascii_char_count(id as usize) + 2;
 				// 2 spaces
 			}
 			None => {
@@ -310,7 +311,7 @@ impl<'a> CommandWriter<'a> {
 					bytes_written += device_char_count + axis_char_count + 1; // 1 space
 				} else if self.target.device() != 0 {
 					write!(writer, "{}", self.target.device())?;
-					bytes_written += device_char_count
+					bytes_written += device_char_count;
 				}
 			}
 		};
@@ -349,7 +350,7 @@ impl<'a> CommandWriter<'a> {
 			if self.packet_index != 0 {
 				// This is a continuation packet so add the preamble
 				write!(writer, "cont {} ", self.packet_index)?;
-				bytes_written += 6 + ascii_char_count(self.packet_index as u8);
+				bytes_written += 6 + ascii_char_count(self.packet_index);
 			}
 
 			// Only add the data that will fit in the packet
@@ -382,10 +383,10 @@ impl<'a> CommandWriter<'a> {
 					remaining -= needed_bytes;
 
 					// Move the offset past this word
-					self.offset = words
-						.peek()
-						.map(|(_, word)| word.as_ptr() as usize - self.data.as_ptr() as usize)
-						.unwrap_or_else(|| self.data.len())
+					self.offset = words.peek().map_or_else(
+						|| self.data.len(), // default
+						|(_, word)| word.as_ptr() as usize - self.data.as_ptr() as usize,
+					);
 				} else {
 					// The word doesn't fit, split here
 					self.offset = word.as_ptr() as usize - self.data.as_ptr() as usize;
@@ -403,7 +404,7 @@ impl<'a> CommandWriter<'a> {
 
 		if self.checksum {
 			let checksum = writer.finish_hash();
-			write!(writer, ":{:02X}", checksum)?;
+			write!(writer, ":{checksum:02X}")?;
 		}
 		writer.write_all(b"\n")?;
 		self.packet_index += 1;
@@ -412,14 +413,13 @@ impl<'a> CommandWriter<'a> {
 }
 
 /// Calculates the number of ASCII digits that are required to print `num`.
-fn ascii_char_count(num: u8) -> usize {
-	if num < 10 {
-		1
-	} else if num < 100 {
-		2
-	} else {
-		3
+fn ascii_char_count(mut num: usize) -> usize {
+	let mut count = 1;
+	while num >= 10 {
+		count += 1;
+		num /= 10;
 	}
+	count
 }
 
 /// The device address and axis number a command/response was sent to/from.
@@ -455,10 +455,12 @@ impl Target {
 	/// # use zproto::ascii::command::Target;
 	/// assert_eq!(Target::for_all(), Target::new(0, 0));
 	/// ```
+	#[must_use]
 	pub const fn for_all() -> Target {
 		Target(0, 0)
 	}
 	/// Create a target for a specific device.
+	#[must_use]
 	pub const fn for_device(address: u8) -> Target {
 		Target(address, 0)
 	}
@@ -470,6 +472,7 @@ impl Target {
 	/// # use zproto::ascii::command::Target;
 	/// assert_eq!(Target::new(2, 1).with_all_axes(), Target::new(2, 0));
 	/// ```
+	#[must_use]
 	pub const fn with_all_axes(self) -> Target {
 		Target(self.0, 0)
 	}
@@ -481,6 +484,7 @@ impl Target {
 	/// # use zproto::ascii::command::Target;
 	/// assert_eq!(Target::new(2, 1).with_axis(3), Target::new(2, 3));
 	/// ```
+	#[must_use]
 	pub const fn with_axis(self, axis: u8) -> Target {
 		Target(self.0, axis)
 	}
@@ -766,5 +770,39 @@ mod test {
 		assert_eq!(MaxPacketSize::default().as_usize(), 80);
 		assert!(MaxPacketSize::new(79).is_none());
 		assert!(MaxPacketSize::new(80).is_some());
+	}
+
+	#[test]
+	fn ascii_char_count() {
+		let cases = [
+			// (input, expected count)
+			(0, 1),
+			(1, 1),
+			(2, 1),
+			(3, 1),
+			(4, 1),
+			(5, 1),
+			(6, 1),
+			(7, 1),
+			(8, 1),
+			(9, 1),
+			(10, 2),
+			(99, 2),
+			(100, 3),
+			(999, 3),
+			(1000, 4),
+			(9999, 4),
+			(10000, 5),
+			(100000, 6),
+			(1000000, 7),
+			(10000000, 8),
+			(100000000, 9),
+			(usize::MAX, 20),
+		];
+		for (input, expected_count) in cases {
+			eprintln!("case {input}");
+			let actual_count = super::ascii_char_count(input);
+			assert_eq!(actual_count, expected_count);
+		}
 	}
 }
