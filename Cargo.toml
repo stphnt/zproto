@@ -138,6 +138,8 @@ unit-bindings = "deny"
 unsafe-op-in-unsafe-fn = "deny"
 unused-lifetimes = "deny"
 
+unexpected_cfgs = { level = "deny", check-cfg = ['cfg(unstable)'] }
+
 [lints.rustdoc]
 missing-crate-level-docs = "deny"
 unescaped-backticks = "deny"
