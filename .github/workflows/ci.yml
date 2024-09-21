@@ -11,7 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install libudev
-        if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install libudev-dev
