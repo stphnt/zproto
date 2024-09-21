@@ -18,6 +18,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-features
 
+  check-unstable:
+    name: Check (Unstable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libudev
+        run: |
+          sudo apt update
+          sudo apt install libudev-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: RUSTFLAGS="--cfg unstable" cargo check --all-features
+
   test:
     name: Test Suite
     runs-on: ${{ matrix.os }}
@@ -34,6 +47,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --features=ascii,binary --workspace --verbose
+
+  test-unstable:
+    name: Test Suite (Unstable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libudev
+        run: |
+          sudo apt update
+          sudo apt install libudev-dev
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - run: RUSTFLAGS="--cfg unstable" cargo +nightly test --all-features --workspace --verbose
 
   fmt:
     name: Rustfmt
@@ -61,6 +87,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-features
 
+  clippy-unstable:
+    name: Clippy (Unstable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libudev
+        run: |
+          sudo apt update
+          sudo apt install libudev-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: RUSTFLAGS="--cfg unstable" cargo clippy --all-features
+
   spelling:
     name: Spell Check
     runs-on: ubuntu-latest
@@ -85,3 +126,18 @@ jobs:
           components: rust-docs
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --no-deps --all-features
+
+  doc-unstable:
+    name: Rustdoc (Unstable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libudev
+        run: |
+          sudo apt update
+          sudo apt install libudev-dev
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-docs
+      - uses: Swatinem/rust-cache@v2
+      - run: RUSTDOCFLAGS="--cfg unstable" cargo doc --no-deps --all-features
