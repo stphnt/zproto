@@ -179,6 +179,8 @@
 //! [packet]: Port::set_packet_handler
 //! [unexpected alert]: Port::set_unexpected_alert_handler
 
+#[cfg(unstable)]
+#[cfg_attr(all(doc, unstable), doc(cfg(unstable)))]
 pub mod chain;
 pub(crate) mod checksum;
 pub mod command;
@@ -186,6 +188,8 @@ mod id;
 pub mod packet;
 pub mod port;
 pub mod response;
+#[cfg(unstable)]
+#[cfg_attr(all(doc, unstable), doc(cfg(unstable)))]
 pub mod setting;
 
 pub use port::Port;

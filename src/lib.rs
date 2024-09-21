@@ -18,6 +18,8 @@ pub mod backend;
 pub mod binary;
 pub mod convert;
 pub mod error;
+#[cfg(unstable)]
+#[cfg_attr(all(doc, unstable), doc(cfg(unstable)))]
 pub mod routine;
 pub mod timeout_guard;
 

@@ -1,6 +1,7 @@
 # cspell-tools: keep-case no-split
 argh
 clippy
+cfgs
 hexdigit
 idents
 peekable

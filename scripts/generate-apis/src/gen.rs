@@ -121,13 +121,13 @@ pub fn generate_mod_inc(
 		if *version == latest_version {
 			writeln!(
 				file,
-				"\t#[cfg(any(feature = \"v{}\", feature = \"v_latest\"))]",
+				"\t#[cfg(any(feature = \"unstable_v{}\", feature = \"unstable_v_latest\"))]",
 				version.source_display()
 			)?;
 		} else {
 			writeln!(
 				file,
-				"\t#[cfg(feature = \"v{}\")]",
+				"\t#[cfg(feature = \"unstable_v{}\")]",
 				version.source_display()
 			)?;
 		}
@@ -138,8 +138,8 @@ pub fn generate_mod_inc(
 	for version in versions {
 		writeln!(
 			file,
-			r#"#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v{0}")))]
-#[cfg(feature = "v{0}")]
+			r#"#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v{0}")))]
+#[cfg(feature = "unstable_v{0}")]
 pub use private::v{0} as v{0};"#,
 			version.source_display()
 		)?;
@@ -154,8 +154,8 @@ pub use private::v{0} as v{0};"#,
 /// This alias is updated as new firmware versions are released and is excluded from
 /// all semver guarantees (i.e. changing it does not necessitate a major version bump).
 ///
-#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "v_latest")))]
-#[cfg(feature = "v_latest")]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v_latest")))]
+#[cfg(feature = "unstable_v_latest")]
 pub use private::v{} as v_latest;"#,
 		latest_version.source_display()
 	)?;
@@ -179,7 +179,7 @@ pub fn update_cargo_toml(versions: &[Version], dir_path: impl AsRef<Path>) -> an
 	};
 	for version in versions {
 		features
-			.entry(&format!("v{}", version.source_display()))
+			.entry(&format!("unstable_v{}", version.source_display()))
 			.or_insert(value(Array::default()))
 			.as_value_mut()
 			.unwrap()
@@ -187,18 +187,18 @@ pub fn update_cargo_toml(versions: &[Version], dir_path: impl AsRef<Path>) -> an
 			.unwrap()
 			.decor_mut()
 			.set_suffix(format!(
-				" # Enable APIs related to firmware version {version}"
+				" # Enable APIs related to firmware version {version} (requires the '--cfg unstable' rustc flag)"
 			));
 	}
 	features
-		.entry("v_latest")
+		.entry("unstable_v_latest")
 		.or_insert(value(Array::default()))
 		.as_value_mut()
 		.unwrap()
 		.as_array_mut()
 		.unwrap()
 		.decor_mut()
-		.set_suffix(" # Enable APIs related to the latest firmware version");
+		.set_suffix(" # Enable APIs related to the latest firmware version (requires the '--cfg unstable' rustc flag)");
 
 	features.sort_values_by(|key_a, _, key_b, _| {
 		use std::cmp::Ordering;
