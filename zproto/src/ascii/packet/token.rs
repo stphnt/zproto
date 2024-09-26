@@ -99,9 +99,9 @@ impl Tokens<Box<[u8]>> {
 }
 
 impl<'a> Tokens<&'a [u8]> {
-	/// Try to parse the packet's bytes and create an instance of `Packet` that references `packet`.
+	/// Try to parse the packet's bytes and create an instance of `Tokens` that references `packet`.
 	///
-	/// This avoids an extra memory allocation but means the `Packet` cannot outlive the bytes it references.
+	/// This avoids an extra memory allocation but means the `Tokens` cannot outlive the bytes it references.
 	pub fn new_ref(packet: &'a [u8]) -> Result<Self, AsciiPacketMalformedError> {
 		Tokens::try_from(packet)
 	}
