@@ -331,14 +331,14 @@ mod test {
 		let device = chain.device(1).unwrap();
 		let device_settings = device.settings();
 		{
-			port.backend_mut().append_data(b"@01 0 OK IDLE FZ 23\r\n");
+			port.backend_mut().push(b"@01 0 OK IDLE FZ 23\r\n");
 		}
 		let value = device_settings.get(DeviceSetting).run(&mut port).unwrap();
 		assert_eq!(value, 23u8);
 
 		let axis_settings = device.axis(1).unwrap().settings();
 		{
-			port.backend_mut().append_data(b"@01 1 OK IDLE FZ 34\r\n");
+			port.backend_mut().push(b"@01 1 OK IDLE FZ 34\r\n");
 		}
 		let value = axis_settings.get(AxisSetting).run(&mut port).unwrap();
 		assert_eq!(value, 34u32);

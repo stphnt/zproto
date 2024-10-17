@@ -121,8 +121,8 @@ impl Backend for Serial {
 ///
 /// It immediately discards all data written to it without any validation.
 /// To emulate responses received from a device, the raw bytes must be manually added via
-/// [`Mock::append_data`]. To test behaviour in the face of errors, there are dedicated
-/// methods for defining errors the mock will return.
+/// [`Mock::push`]. To test behaviour in the face of errors, there are dedicated methods
+/// for defining errors the mock will return.
 #[derive(Debug)]
 #[cfg(any(test, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
@@ -154,14 +154,14 @@ impl Mock {
 			ignored_read_timeout: Some(Duration::ZERO),
 		}
 	}
-	/// Append data to the read buffer.
+	/// Push data to the read buffer.
 	///
 	/// The data is not validated in any way.
-	pub fn append_data<T: AsRef<[u8]>>(&mut self, bytes: T) {
+	pub fn push<T: AsRef<[u8]>>(&mut self, bytes: T) {
 		self.buffer.get_mut().extend_from_slice(bytes.as_ref());
 	}
 	/// Clear the read buffer.
-	pub fn clear_buffer(&mut self) {
+	pub fn clear(&mut self) {
 		self.buffer.get_mut().clear();
 		self.buffer.set_position(0);
 	}

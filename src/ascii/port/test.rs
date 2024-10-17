@@ -24,9 +24,9 @@ macro_rules! check_cases {
         $port:ident, ok case $($response_bytes:literal),+ via $method:expr, $($rest:tt)*
     ) => {
         // Make sure there are no other responses left over from other test cases
-        $port.backend.clear_buffer();
+        $port.backend.clear();
         $(
-            $port.backend.append_data($response_bytes);
+            $port.backend.push($response_bytes);
         )+
         let m: fn(&mut Port<'_, _, _>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
         match (m)(&mut $port) {
@@ -43,9 +43,9 @@ macro_rules! check_cases {
     (
         $port:ident, err case $($response_bytes:literal),+ via $method:expr => $err_type:ident, $($rest:tt)*
     ) => {
-        $port.backend.clear_buffer();
+        $port.backend.clear();
         $(
-            $port.backend.append_data($response_bytes);
+            $port.backend.push($response_bytes);
         )+
         let m: fn(&mut Port<'_, _, _>) -> Result<_, _> = $method; // Give the compiler the necessary type hints
         match (m)(&mut $port) {
@@ -70,16 +70,16 @@ macro_rules! check_cases {
 #[test]
 fn command_reply_ok() {
 	let mut port = Port::open_mock();
-	port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
+	port.backend.push(b"@01 0 OK IDLE -- 0\r\n");
 	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.target(), (1, 0).into());
 
 	// Multi-packet Reply
 	{
 		let backend = &mut port.backend;
-		backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
-		backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
-		backend.append_data(b"#01 0 cont part3\r\n");
+		backend.push(b"@01 0 OK IDLE -- part1\\\r\n");
+		backend.push(b"#01 0 cont part2a part2b\\\r\n");
+		backend.push(b"#01 0 cont part3\r\n");
 	}
 	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.data(), "part1 part2a part2b part3");
@@ -90,21 +90,21 @@ fn command_reply_fail() {
 	let mut port = Port::open_mock();
 
 	// Incorrect kind
-	port.backend.append_data(b"!01 0 IDLE FF 0\r\n");
+	port.backend.push(b"!01 0 IDLE FF 0\r\n");
 	let err = port.command_reply("").unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedResponse(_)), "{err:?}");
 
 	// Incorrect target
-	port.backend.append_data(b"!02 0 IDLE FF 0\r\n");
+	port.backend.push(b"!02 0 IDLE FF 0\r\n");
 	let err = port.command_reply((1, "")).unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
 
 	// Unexpected Alert interleaved in reply packets.
 	{
 		let backend = &mut port.backend;
-		backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
-		backend.append_data(b"!02 0 IDLE -- 0\r\n");
-		backend.append_data(b"#01 0 cont part2\r\n");
+		backend.push(b"@01 0 OK IDLE -- part1\\\r\n");
+		backend.push(b"!02 0 IDLE -- 0\r\n");
+		backend.push(b"#01 0 cont part2\r\n");
 	}
 	let err = port.command_reply((1, "")).unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedResponse(_)));
@@ -112,9 +112,9 @@ fn command_reply_fail() {
 	// Unexpected and incomplete Alert interleaved in reply packets.
 	{
 		let backend = &mut port.backend;
-		backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
-		backend.append_data(b"!02 0 IDLE -- something\\\r\n");
-		backend.append_data(b"#01 0 cont part2\r\n");
+		backend.push(b"@01 0 OK IDLE -- part1\\\r\n");
+		backend.push(b"!02 0 IDLE -- something\\\r\n");
+		backend.push(b"#01 0 cont part2\r\n");
 	}
 	let err = port.command_reply((1, "")).unwrap_err();
 	assert!(matches!(err, AsciiError::UnexpectedPacket(_)));
@@ -130,8 +130,8 @@ fn command_reply_unexpected_alert() {
 		Ok(()) // Consume any alert
 	});
 
-	port.backend.append_data(b"!01 0 IDLE --\r\n");
-	port.backend.append_data(b"@01 0 OK IDLE -- 0\r\n");
+	port.backend.push(b"!01 0 IDLE --\r\n");
+	port.backend.push(b"@01 0 OK IDLE -- 0\r\n");
 	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.target(), (1, 0).into());
 	assert_eq!(alert_count.get(), 1);
@@ -139,11 +139,11 @@ fn command_reply_unexpected_alert() {
 	// Multi-packet Reply
 	{
 		let backend = &mut port.backend;
-		backend.append_data(b"@01 0 OK IDLE -- part1\\\r\n");
-		backend.append_data(b"#01 0 cont part2a part2b\\\r\n");
-		backend.append_data(b"!02 1 IDLE --\r\n");
-		backend.append_data(b"!02 1 IDLE --\r\n");
-		backend.append_data(b"#01 0 cont part3\r\n");
+		backend.push(b"@01 0 OK IDLE -- part1\\\r\n");
+		backend.push(b"#01 0 cont part2a part2b\\\r\n");
+		backend.push(b"!02 1 IDLE --\r\n");
+		backend.push(b"!02 1 IDLE --\r\n");
+		backend.push(b"#01 0 cont part3\r\n");
 	}
 	let reply = port.command_reply("").unwrap().flag_ok().unwrap();
 	assert_eq!(reply.data(), "part1 part2a part2b part3");
@@ -155,18 +155,18 @@ fn command_reply_n_ok() {
 	let mut port = Port::open_mock();
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let _ = port.command_reply_n("", 2, check::strict()).unwrap();
 
 	// Interleaved multi-packet replies
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 1part1\\\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 2part1\\\r\n");
-		buf.append_data(b"#02 0 cont 2part2\r\n");
-		buf.append_data(b"#01 0 cont 1part2\r\n");
+		buf.push(b"@01 0 OK IDLE -- 1part1\\\r\n");
+		buf.push(b"@02 0 OK IDLE -- 2part1\\\r\n");
+		buf.push(b"#02 0 cont 2part2\r\n");
+		buf.push(b"#01 0 cont 1part2\r\n");
 	}
 	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
@@ -180,8 +180,8 @@ fn command_reply_n_fail() {
 	// Timeout waiting for non-existent message.
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let err = port.command_reply_n("", 3, check::strict()).unwrap_err();
 	assert!(err.is_timeout());
@@ -189,8 +189,8 @@ fn command_reply_n_fail() {
 	// Timeout waiting for non-existent packet.
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\\\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\\\r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let err = port.command_reply_n("", 2, check::strict()).unwrap_err();
 	assert!(err.is_timeout());
@@ -208,9 +208,9 @@ fn command_reply_n_unexpected_alert() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"!03 0 IDLE --\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"!03 0 IDLE --\r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let _ = port.command_reply_n("", 2, check::strict()).unwrap();
 	assert_eq!(alert_count.get(), 1);
@@ -218,13 +218,13 @@ fn command_reply_n_unexpected_alert() {
 	// Interleaved multi-packet replies
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 1part1\\\r\n");
-		buf.append_data(b"!03 0 IDLE --\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 2part1\\\r\n");
-		buf.append_data(b"!04 0 IDLE --\r\n");
-		buf.append_data(b"#02 0 cont 2part2\r\n");
-		buf.append_data(b"#01 0 cont 1part2\r\n");
-		buf.append_data(b"!05 0 IDLE --\r\n"); // Shouldn't be read
+		buf.push(b"@01 0 OK IDLE -- 1part1\\\r\n");
+		buf.push(b"!03 0 IDLE --\r\n");
+		buf.push(b"@02 0 OK IDLE -- 2part1\\\r\n");
+		buf.push(b"!04 0 IDLE --\r\n");
+		buf.push(b"#02 0 cont 2part2\r\n");
+		buf.push(b"#01 0 cont 1part2\r\n");
+		buf.push(b"!05 0 IDLE --\r\n"); // Shouldn't be read
 	}
 	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
@@ -237,8 +237,8 @@ fn command_replies_until_timeout_ok() {
 	let mut port = Port::open_mock();
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
@@ -253,10 +253,10 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 	let mut port = Port::open_mock();
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
-		buf.append_data(b"#01 0 cont part 1b\r\n");
-		buf.append_data(b"#02 0 cont part 2b\r\n");
+		buf.push(b"@01 0 OK IDLE -- part 1a\\\r\n");
+		buf.push(b"@02 0 OK IDLE -- part 2a\\\r\n");
+		buf.push(b"#01 0 cont part 1b\r\n");
+		buf.push(b"#02 0 cont part 2b\r\n");
 	}
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
@@ -266,10 +266,10 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
-		buf.append_data(b"#02 0 cont part 2b\r\n");
-		buf.append_data(b"#01 0 cont part 1b\r\n");
+		buf.push(b"@01 0 OK IDLE -- part 1a\\\r\n");
+		buf.push(b"@02 0 OK IDLE -- part 2a\\\r\n");
+		buf.push(b"#02 0 cont part 2b\r\n");
+		buf.push(b"#01 0 cont part 1b\r\n");
 	}
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
@@ -280,10 +280,10 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
-		buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
-		buf.append_data(b"#02 0 cont part 2b\r\n");
-		buf.append_data(b"#01 0 cont part 1b\r\n");
+		buf.push(b"@02 0 OK IDLE -- part 2a\\\r\n");
+		buf.push(b"@01 0 OK IDLE -- part 1a\\\r\n");
+		buf.push(b"#02 0 cont part 2b\r\n");
+		buf.push(b"#01 0 cont part 1b\r\n");
 	}
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
@@ -301,9 +301,9 @@ fn command_replies_until_timeout_fail() {
 	let mut port = Port::open_mock();
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 1 OK IDLE -- 0\r\n");
-		buf.append_data(b"@02 2 OK IDLE -- 0\r\n"); // Wrong axis number
-		buf.append_data(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
+		buf.push(b"@01 1 OK IDLE -- 0\r\n");
+		buf.push(b"@02 2 OK IDLE -- 0\r\n"); // Wrong axis number
+		buf.push(b"!03 1 IDLE -- 0\r\n"); // Wrong kind
 	}
 	let err = port
 		.command_replies_until_timeout(((0, 1), "get pos"), check::strict()) // To all first axes
@@ -323,10 +323,10 @@ fn command_replies_until_timeout_unexpected_alert() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"!03 0 IDLE --\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"!04 0 IDLE --\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"!03 0 IDLE --\r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"!04 0 IDLE --\r\n");
 	}
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
@@ -349,13 +349,13 @@ fn command_replies_mixed_cont_until_timeout_unexpected_alert() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- part 1a\\\r\n");
-		buf.append_data(b"!03 0 IDLE --\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- part 2a\\\r\n");
-		buf.append_data(b"#01 0 cont part 1b\r\n");
-		buf.append_data(b"!04 0 IDLE --\r\n");
-		buf.append_data(b"#02 0 cont part 2b\r\n");
-		buf.append_data(b"!05 0 IDLE --\r\n");
+		buf.push(b"@01 0 OK IDLE -- part 1a\\\r\n");
+		buf.push(b"!03 0 IDLE --\r\n");
+		buf.push(b"@02 0 OK IDLE -- part 2a\\\r\n");
+		buf.push(b"#01 0 cont part 1b\r\n");
+		buf.push(b"!04 0 IDLE --\r\n");
+		buf.push(b"#02 0 cont part 2b\r\n");
+		buf.push(b"!05 0 IDLE --\r\n");
 	}
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
@@ -377,12 +377,12 @@ fn command_reply_infos_unexpected_alert() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"#01 0 foo\r\n");
-		buf.append_data(b"#01 0 bar\r\n");
-		buf.append_data(b"!03 0 IDLE --\r\n");
-		buf.append_data(b"#01 1 baz\r\n");
-		buf.append_data(b"@01 0 1 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"#01 0 foo\r\n");
+		buf.push(b"#01 0 bar\r\n");
+		buf.push(b"!03 0 IDLE --\r\n");
+		buf.push(b"#01 1 baz\r\n");
+		buf.push(b"@01 0 1 OK IDLE -- 0\r\n");
 	}
 	let (_reply, infos) = port.command_reply_infos("", check::strict()).unwrap();
 	assert_eq!(infos.len(), 3);
@@ -395,8 +395,8 @@ fn response_until_timeout_ok() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
@@ -405,10 +405,10 @@ fn response_until_timeout_ok() {
 	// Multi-packet info messages
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"#01 0 part 1a\\\r\n");
-		buf.append_data(b"#02 0 part 2a\\\r\n");
-		buf.append_data(b"#01 0 cont part 1b\r\n");
-		buf.append_data(b"#02 0 cont part 2b\r\n");
+		buf.push(b"#01 0 part 1a\\\r\n");
+		buf.push(b"#02 0 part 2a\\\r\n");
+		buf.push(b"#01 0 cont part 1b\r\n");
+		buf.push(b"#02 0 cont part 2b\r\n");
 	}
 	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
 	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
@@ -422,9 +422,9 @@ fn response_until_timeout_fail() {
 	// Received an alert part way should not read following messages.
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"!02 1 IDLE -- \r\n");
-		buf.append_data(b"@02 0 OK IDLE -- 0\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"!02 1 IDLE -- \r\n");
+		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let err = port
 		.responses_until_timeout::<Reply, _>(check::strict())
@@ -436,8 +436,8 @@ fn response_until_timeout_fail() {
 	// Invalid continuation packet
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"@01 0 OK IDLE -- 0\r\n");
-		buf.append_data(b"#01 0 cont something\r\n");
+		buf.push(b"@01 0 OK IDLE -- 0\r\n");
+		buf.push(b"#01 0 cont something\r\n");
 	}
 	let err = port
 		.responses_until_timeout::<Reply, _>(check::strict())
@@ -461,7 +461,7 @@ fn explicit_alert_response_does_not_trigger_unexpected_alert_callback() {
 
 	{
 		let buf = &mut port.backend;
-		buf.append_data(b"!01 0 IDLE --\r\n");
+		buf.push(b"!01 0 IDLE --\r\n");
 	}
 	let _ = port.response::<Alert>().unwrap();
 	assert_eq!(alert_count.get(), 0);
@@ -579,9 +579,9 @@ fn read_packet_bytes() {
 	];
 	let mut port = Port::open_mock();
 	for case in test_cases {
-		port.backend.clear_buffer();
+		port.backend.clear();
 		for packet in case.input {
-			port.backend.append_data(packet);
+			port.backend.push(packet);
 		}
 		let actual = port.read_packet_bytes();
 		match &case.expected {
@@ -620,7 +620,7 @@ fn set_packet_handler() {
 	{
 		let buf = &mut port.backend;
 		for response in &responses {
-			buf.append_data(*response);
+			buf.push(*response);
 		}
 	}
 	port.set_packet_handler(|data, dir| {
