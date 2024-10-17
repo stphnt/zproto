@@ -124,8 +124,9 @@ impl Backend for Serial {
 ///   * It can be filled with data for reading.
 ///   * Specific errors can be inserted for calls to `read`, `write`, `flush`,
 ///     and `set_read_timeout`.
-#[cfg(test)]
 #[derive(Debug)]
+#[cfg(any(test, feature = "mock"))]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 pub struct Mock {
 	/// The buffer data is read from
 	buffer: io::Cursor<Vec<u8>>,
@@ -141,7 +142,7 @@ pub struct Mock {
 	ignored_read_timeout: Option<Duration>,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl Mock {
 	/// Create a new Mock backend.
 	pub fn new() -> Self {
@@ -187,14 +188,14 @@ impl Mock {
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl Default for Mock {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl Backend for Mock {
 	fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
 		if let Some(err) = self.set_read_timeout_error.take() {
@@ -214,7 +215,7 @@ impl Backend for Mock {
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl io::Read for Mock {
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 		if let Some(err) = self.read_error.take() {
@@ -234,7 +235,7 @@ impl io::Read for Mock {
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl io::Write for Mock {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
 		if let Some(err) = self.write_error.take() {
@@ -258,7 +259,7 @@ mod private {
 
 	impl Sealed for super::Serial {}
 	impl Sealed for std::net::TcpStream {}
-	#[cfg(test)]
+	#[cfg(any(test, feature = "mock"))]
 	impl Sealed for super::Mock {}
 	impl<C: super::Backend + ?Sized> Sealed for Box<C> {}
 	impl<C: super::Backend + ?Sized> Sealed for &mut C {}
