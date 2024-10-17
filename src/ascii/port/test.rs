@@ -2,7 +2,6 @@ use std::cell::Cell;
 
 use crate::{
 	ascii::{
-		command::MaxPacketSize,
 		response::{
 			check::{self, unchecked},
 			Alert, AnyResponse, Info, Reply,
@@ -12,13 +11,6 @@ use crate::{
 	backend::Mock,
 	error::*,
 };
-
-impl<'a> Port<'a, Mock> {
-	/// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
-	pub fn open_mock() -> Port<'a, Mock> {
-		Port::from_backend(Mock::new(), false, false, MaxPacketSize::default())
-	}
-}
 
 /// Generate code to check the behaviour of different port methods.
 ///

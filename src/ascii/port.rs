@@ -6,6 +6,8 @@ mod options;
 #[cfg(test)]
 mod test;
 
+#[cfg(any(test, feature = "mock"))]
+use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 #[allow(clippy::wildcard_imports)]
 use crate::error::*;
@@ -174,6 +176,20 @@ impl<'a> Port<'a, TcpStream> {
 	/// Get an [`OpenTcpOptions`] to customize how a TCP port is opened.
 	pub fn open_tcp_options() -> OpenTcpOptions {
 		OpenTcpOptions::default()
+	}
+}
+
+#[cfg(any(test, feature = "mock"))]
+impl<'a> Port<'a, Mock> {
+	/// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
+	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
+	pub fn open_mock() -> Port<'a, Mock> {
+		Port::from_backend(
+			Mock::new(),
+			false,
+			false,
+			crate::ascii::command::MaxPacketSize::default(),
+		)
 	}
 }
 
