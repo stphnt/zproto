@@ -187,6 +187,19 @@ impl<'a> Port<'a, Mock> {
 	/// Unlike other `Port::open*` functions, Message IDs and checksums are disabled by default to allow for easier testing.
 	///
 	/// See the [`Mock`]'s documentation for more details on its behaviour.
+	///
+	/// # Example
+	///
+	/// ```
+	/// # use zproto::ascii::Port;
+	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = Port::open_mock();
+	/// port.backend_mut().push(b"@01 1 OK IDLE -- 1234\r\n");
+	/// let reply = port.command_reply((1, 1, "get pos"))?.flag_ok()?;
+	/// assert_eq!(reply.data().parse::<i32>().unwrap(), 1234);
+	/// # Ok(())
+	/// # }
+	/// ```
 	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 	pub fn open_mock() -> Port<'a, Mock> {
 		Port::from_backend(

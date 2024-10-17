@@ -351,6 +351,20 @@ impl<'a> Port<'a, Mock> {
 	/// This is useful for writing unit/integration tests when an actual device is not available.
 	///
 	/// See the [`Mock`]'s documentation for more details on its behaviour.
+	///
+	/// # Example
+	///
+	/// ```
+	/// # use zproto::binary::Port;
+	/// use zproto::binary::command::HOME;
+	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = Port::open_mock();
+	/// port.backend_mut().push([1, 1, 0, 0, 0, 0]);
+	/// let reply = port.tx_recv((0, HOME)).unwrap();
+	/// assert_eq!(reply.command(), HOME);
+	/// # Ok(())
+	/// # }
+	/// ```
 	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 	pub fn open_mock() -> Port<'a, Mock> {
 		Port::from_backend(Mock::new())
