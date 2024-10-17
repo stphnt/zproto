@@ -119,11 +119,10 @@ impl Backend for Serial {
 
 /// A mock backend for use in testing.
 ///
-/// It has the following features:
-///   * It ignores all data written to it.
-///   * It can be filled with data for reading.
-///   * Specific errors can be inserted for calls to `read`, `write`, `flush`,
-///     and `set_read_timeout`.
+/// It immediately discards all data written to it without any validation.
+/// To emulate responses received from a device, the raw bytes must be manually added via
+/// [`Mock::append_data`]. To test behaviour in the face of errors, there are dedicated
+/// methods for defining errors the mock will return.
 #[derive(Debug)]
 #[cfg(any(test, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
@@ -136,7 +135,7 @@ pub struct Mock {
 	write_error: Option<io::Error>,
 	/// The error to surface on the next flush, if any. It is only surfaced once.
 	flush_error: Option<io::Error>,
-	/// The error to surface on the next set_read_timeout, if any. It is only surfaced once.
+	/// The error to surface on the next `set_read_timeout`, if any. It is only surfaced once.
 	set_read_timeout_error: Option<io::Error>,
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
@@ -144,7 +143,7 @@ pub struct Mock {
 
 #[cfg(any(test, feature = "mock"))]
 impl Mock {
-	/// Create a new Mock backend.
+	/// Create a new [`Mock`] backend.
 	pub fn new() -> Self {
 		Mock {
 			buffer: io::Cursor::new(Vec::new()),
@@ -166,23 +165,31 @@ impl Mock {
 		self.buffer.get_mut().clear();
 		self.buffer.set_position(0);
 	}
-	/// Whether the mock has any data available or not
+	/// Whether the mock has any data available or not.
 	pub fn is_empty(&self) -> bool {
 		self.buffer.position() as usize >= self.buffer.get_ref().len()
 	}
-	/// Set the error for the next `read`, if any.
-	pub fn read_error(&mut self, err: Option<io::Error>) {
+	/// Set the error to be returned when [`Mock::read`](std::io::Read::read) is next called, if any.
+	///
+	/// The error is returned only once.
+	pub fn set_read_error(&mut self, err: Option<io::Error>) {
 		self.read_error = err;
 	}
-	/// Set the error for the next `write`, if any.
-	pub fn write_error(&mut self, err: Option<io::Error>) {
+	/// Set the error to be returned when [`Mock::write`](std::io::Write::write) is next called, if any.
+	///
+	/// The error is returned only once.
+	pub fn set_write_error(&mut self, err: Option<io::Error>) {
 		self.write_error = err;
 	}
-	/// Set the error for the next `flush`, if any.
-	pub fn flush_error(&mut self, err: Option<io::Error>) {
+	/// Set the error to be returned when [`Mock::flush`](std::io::Write::flush) is next called, if any.
+	///
+	/// The error is returned only once.
+	pub fn set_flush_error(&mut self, err: Option<io::Error>) {
 		self.flush_error = err;
 	}
-	/// Set the error for the next `set_read_timeout`, if any.
+	/// Set the error to be returned when [`Mock::set_read_timeout`] is next called, if any.
+	///
+	/// The error is returned only once.
 	pub fn set_read_timeout_error(&mut self, err: Option<io::Error>) {
 		self.set_read_timeout_error = err;
 	}
