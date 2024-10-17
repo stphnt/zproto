@@ -181,7 +181,12 @@ impl<'a> Port<'a, TcpStream> {
 
 #[cfg(any(test, feature = "mock"))]
 impl<'a> Port<'a, Mock> {
-	/// Open a mock Port. Message Id and checksums are disabled by default for easier testing.
+	/// Open a Port with a [`Mock`] [`Backend`].
+	///
+	/// This is useful for writing unit/integration tests when an actual device is not available.
+	/// Unlike other `Port::open*` functions, Message IDs and checksums are disabled by default to allow for easier testing.
+	///
+	/// See the [`Mock`]'s documentation for more details on its behaviour.
 	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 	pub fn open_mock() -> Port<'a, Mock> {
 		Port::from_backend(
