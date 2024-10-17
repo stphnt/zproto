@@ -167,7 +167,7 @@ impl Mock {
 	}
 	/// Whether the mock has any data available or not.
 	pub fn is_empty(&self) -> bool {
-		self.buffer.position() as usize >= self.buffer.get_ref().len()
+		self.buffer.position() >= self.buffer.get_ref().len() as u64
 	}
 	/// Set the error to be returned when [`Mock::read`](std::io::Read::read) is next called, if any.
 	///
@@ -218,7 +218,7 @@ impl Backend for Mock {
 	}
 
 	fn name(&self) -> Option<String> {
-		Some(format!("<mock 0x{:x}>", self as *const Mock as usize))
+		Some(format!("<mock 0x{:x}>", std::ptr::from_ref(self) as usize))
 	}
 }
 
