@@ -144,7 +144,7 @@ pub struct Mock {
 #[cfg(any(test, feature = "mock"))]
 impl Mock {
 	/// Create a new [`Mock`] backend.
-	pub fn new() -> Self {
+	pub(crate) fn new() -> Self {
 		Mock {
 			buffer: io::Cursor::new(Vec::new()),
 			read_error: None,
@@ -192,13 +192,6 @@ impl Mock {
 	/// The error is returned only once.
 	pub fn set_read_timeout_error(&mut self, err: Option<io::Error>) {
 		self.set_read_timeout_error = err;
-	}
-}
-
-#[cfg(any(test, feature = "mock"))]
-impl Default for Mock {
-	fn default() -> Self {
-		Self::new()
 	}
 }
 
