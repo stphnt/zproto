@@ -139,19 +139,22 @@ pub struct Mock {
 	set_read_timeout_error: Option<io::Error>,
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
+	/// The callback used to generate replies.
+	reply_callback: fn(&[u8]) -> Vec<u8>,
 }
 
 #[cfg(any(test, feature = "mock"))]
 impl Mock {
 	/// Create a new [`Mock`] backend.
 	pub(crate) fn new() -> Self {
-		Mock {
+		Self {
 			buffer: io::Cursor::new(Vec::new()),
 			read_error: None,
 			write_error: None,
 			flush_error: None,
 			set_read_timeout_error: None,
 			ignored_read_timeout: Some(Duration::ZERO),
+			reply_callback: |_| b"".to_vec(),
 		}
 	}
 	/// Push data to the read buffer.
@@ -192,6 +195,11 @@ impl Mock {
 	/// The error is returned only once.
 	pub fn set_read_timeout_error(&mut self, err: Option<io::Error>) {
 		self.set_read_timeout_error = err;
+	}
+
+	/// Set the callback function to generate custom replies.
+	pub fn set_reply_callback(&mut self, callback: fn(&[u8]) -> Vec<u8>) {
+		self.reply_callback = callback;
 	}
 }
 
@@ -238,11 +246,9 @@ impl io::Read for Mock {
 #[cfg(any(test, feature = "mock"))]
 impl io::Write for Mock {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-		if let Some(err) = self.write_error.take() {
-			Err(err)
-		} else {
-			Ok(buf.len())
-		}
+		let reply = (self.reply_callback)(buf);
+		self.buffer.get_mut().extend_from_slice(&reply[..]);
+		Ok(buf.len())
 	}
 
 	fn flush(&mut self) -> io::Result<()> {
