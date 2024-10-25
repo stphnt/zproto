@@ -293,9 +293,9 @@ pub(crate) mod test {
 		{
 			let backend = port.backend_mut();
 			for address in 1..=num_devices {
-				backend.push(
-					format!("@{address:0>2} 0 OK IDLE -- {num_axes_per_device}\r\n").as_bytes(),
-				);
+				backend.push(format!(
+					"@{address:0>2} 0 OK IDLE -- {num_axes_per_device}\r\n"
+				));
 			}
 		}
 		let chain = port.chain().unwrap();
