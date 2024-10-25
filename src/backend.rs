@@ -154,7 +154,7 @@ impl Mock {
 			flush_error: None,
 			set_read_timeout_error: None,
 			ignored_read_timeout: Some(Duration::ZERO),
-			reply_callback: |buf, _| buf.extend_from_slice(b""),
+			reply_callback: |_, _| (),
 		}
 	}
 	/// Push data to the read buffer.
