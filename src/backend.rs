@@ -140,7 +140,7 @@ pub struct Mock {
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
 	/// The callback used to generate replies.
-	reply_callback: fn(&[u8]) -> Vec<u8>,
+	reply_callback: fn(&mut Vec<u8>, &[u8]),
 }
 
 #[cfg(any(test, feature = "mock"))]
@@ -154,7 +154,7 @@ impl Mock {
 			flush_error: None,
 			set_read_timeout_error: None,
 			ignored_read_timeout: Some(Duration::ZERO),
-			reply_callback: |_| b"".to_vec(),
+            reply_callback: |buf, _| buf.extend_from_slice(b""),
 		}
 	}
 	/// Push data to the read buffer.
@@ -198,7 +198,18 @@ impl Mock {
 	}
 
 	/// Set the callback function to generate custom replies.
-	pub fn set_reply_callback(&mut self, callback: fn(&[u8]) -> Vec<u8>) {
+    ///
+    /// The first argument is the message buffer for replies, the second one the message itself.
+    /// ```
+    /// port.set_reply_callback(|buf, msg|
+    ///     buf.extend_from_slice(match msg {
+    ///         b"/1 io get ai 1\n" => b"@01 0 OK BUSY -- 5.5\r\n",
+    ///         b"/get pos\n" => b"@01 0 OK BUSY -- 20\r\n@02 0 OK BUSY -- 10.1\r\n",
+    ///         _ => panic!("unexpected messsage"),
+    ///     })
+    /// );
+    /// ```
+	pub fn set_reply_callback(&mut self, callback: fn(&mut Vec<u8>, &[u8])) {
 		self.reply_callback = callback;
 	}
 }
@@ -246,9 +257,12 @@ impl io::Read for Mock {
 #[cfg(any(test, feature = "mock"))]
 impl io::Write for Mock {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-		let reply = (self.reply_callback)(buf);
-		self.buffer.get_mut().extend_from_slice(&reply[..]);
-		Ok(buf.len())
+        if let Some(err) = self.write_error.take() {
+            Err(err)
+        } else {
+            (self.reply_callback)(self.buffer.get_mut(), buf);
+            Ok(buf.len())
+        }
 	}
 
 	fn flush(&mut self) -> io::Result<()> {
