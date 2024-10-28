@@ -211,7 +211,7 @@ impl Mock {
 	///     buf.extend_from_slice(match msg {
 	///         b"/1 io get ai 1\n" => b"@01 0 OK BUSY -- 5.5\r\n",
 	///         b"/get pos\n" => b"@01 0 OK BUSY -- 20\r\n@02 0 OK BUSY -- 10.1\r\n",
-	///         _ => panic!("unexpected messsage"),
+	///         _ => panic!("unexpected message"),
 	///     })
 	/// );
 	/// let reply = port.command_reply((1,"io get ai 1"))?.flag_ok()?;
