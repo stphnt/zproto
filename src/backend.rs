@@ -139,19 +139,22 @@ pub struct Mock {
 	set_read_timeout_error: Option<io::Error>,
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
+	/// The callback used to generate replies.
+	reply_callback: fn(&mut Vec<u8>, &[u8]),
 }
 
 #[cfg(any(test, feature = "mock"))]
 impl Mock {
 	/// Create a new [`Mock`] backend.
 	pub(crate) fn new() -> Self {
-		Mock {
+		Self {
 			buffer: io::Cursor::new(Vec::new()),
 			read_error: None,
 			write_error: None,
 			flush_error: None,
 			set_read_timeout_error: None,
 			ignored_read_timeout: Some(Duration::ZERO),
+			reply_callback: |_, _| (),
 		}
 	}
 	/// Push data to the read buffer.
@@ -192,6 +195,32 @@ impl Mock {
 	/// The error is returned only once.
 	pub fn set_read_timeout_error(&mut self, err: Option<io::Error>) {
 		self.set_read_timeout_error = err;
+	}
+
+	/// Set the callback function to generate custom replies.
+	///
+	/// The first argument is the message buffer for replies, the second the message itself.
+	///
+	/// # Example
+	///
+	/// ```
+	/// # use zproto::ascii::Port;
+	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = Port::open_mock();
+	/// port.backend_mut().set_reply_callback(|buf, msg|
+	///     buf.extend_from_slice(match msg {
+	///         b"/1 io get ai 1\n" => b"@01 0 OK BUSY -- 5.5\r\n",
+	///         b"/get pos\n" => b"@01 0 OK BUSY -- 20\r\n@02 0 OK BUSY -- 10.1\r\n",
+	///         _ => panic!("unexpected message"),
+	///     })
+	/// );
+	/// let reply = port.command_reply((1,"io get ai 1"))?.flag_ok()?;
+	/// assert_eq!(reply.data().parse::<f64>().unwrap(), 5.5);
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn set_reply_callback(&mut self, callback: fn(&mut Vec<u8>, &[u8])) {
+		self.reply_callback = callback;
 	}
 }
 
@@ -241,6 +270,7 @@ impl io::Write for Mock {
 		if let Some(err) = self.write_error.take() {
 			Err(err)
 		} else {
+			(self.reply_callback)(self.buffer.get_mut(), buf);
 			Ok(buf.len())
 		}
 	}
