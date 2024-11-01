@@ -140,7 +140,7 @@ pub struct Mock {
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
 	/// The callback used to generate replies.
-	reply_callback: fn(&mut Vec<u8>, &[u8]),
+	reply_callback: fn(&[u8], &mut dyn io::Write),
 }
 
 #[cfg(any(test, feature = "mock"))]
@@ -207,19 +207,19 @@ impl Mock {
 	/// # use zproto::ascii::Port;
 	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_mock();
-	/// port.backend_mut().set_reply_callback(|buf, msg|
-	///     buf.extend_from_slice(match msg {
-	///         b"/1 io get ai 1\n" => b"@01 0 OK BUSY -- 5.5\r\n",
-	///         b"/get pos\n" => b"@01 0 OK BUSY -- 20\r\n@02 0 OK BUSY -- 10.1\r\n",
+	/// port.backend_mut().set_reply_callback(|message, reply_buffer| {
+	///     match message {
+	///         b"/1 io get ai 1\n" => write!(reply_buffer, "@01 0 OK BUSY -- 5.5\r\n"),
+	///         b"/get pos\n" => write!(reply_buffer, "@01 0 OK BUSY -- 20\r\n@02 0 OK BUSY -- 10.1\r\n"),
 	///         _ => panic!("unexpected message"),
-	///     })
-	/// );
+	///     }.unwrap()
+	/// });
 	/// let reply = port.command_reply((1,"io get ai 1"))?.flag_ok()?;
 	/// assert_eq!(reply.data().parse::<f64>().unwrap(), 5.5);
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn set_reply_callback(&mut self, callback: fn(&mut Vec<u8>, &[u8])) {
+	pub fn set_reply_callback(&mut self, callback: fn(&[u8], &mut dyn io::Write)) {
 		self.reply_callback = callback;
 	}
 }
@@ -270,7 +270,7 @@ impl io::Write for Mock {
 		if let Some(err) = self.write_error.take() {
 			Err(err)
 		} else {
-			(self.reply_callback)(self.buffer.get_mut(), buf);
+			(self.reply_callback)(buf, self.buffer.get_mut());
 			Ok(buf.len())
 		}
 	}
