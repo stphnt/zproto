@@ -119,10 +119,13 @@ impl Backend for Serial {
 
 /// A mock backend for use in testing.
 ///
-/// It immediately discards all data written to it without any validation.
-/// To emulate responses received from a device, the raw bytes must be manually added via
-/// [`Mock::push`]. To test behaviour in the face of errors, there are dedicated methods
-/// for defining errors the mock will return.
+/// By default, the backend discards all data written to it without any validation.
+/// However, the [`Mock::set_write_callback`] can be used to change this behaviour and to
+/// dynamically generate custom responses from devices. Alternatively, responses can be
+/// emulated by manually adding their raw bytes via [`Mock::push`].
+///
+/// To test behaviour in the face of errors, there are dedicated methods for defining
+/// errors the mock will return.
 #[derive(Debug)]
 #[cfg(any(test, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
