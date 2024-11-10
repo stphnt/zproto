@@ -293,9 +293,9 @@ pub(crate) mod test {
 		{
 			let backend = port.backend_mut();
 			for address in 1..=num_devices {
-				backend.append_data(
-					format!("@{address:0>2} 0 OK IDLE -- {num_axes_per_device}\r\n").as_bytes(),
-				);
+				backend.push(format!(
+					"@{address:0>2} 0 OK IDLE -- {num_axes_per_device}\r\n"
+				));
 			}
 		}
 		let chain = port.chain().unwrap();
@@ -317,7 +317,7 @@ pub(crate) mod test {
 	fn duplicate_addresses() {
 		let mut port = Port::open_mock();
 		port.backend_mut()
-			.append_data(b"@02 0 OK IDLE F0 1\r\n@01 0 OK IDLE WR 3\r\n@02 0 OK IDLE -- 2\r\n");
+			.push(b"@02 0 OK IDLE F0 1\r\n@01 0 OK IDLE WR 3\r\n@02 0 OK IDLE -- 2\r\n");
 		assert!(matches!(
 			Chain::new(&mut port),
 			Err(AsciiError::DuplicateAddress(DuplicateAddressError {

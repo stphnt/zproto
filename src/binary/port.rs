@@ -1,6 +1,6 @@
 //! A port for sending and receiving Zaber Binary protocol messages.
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 use crate::backend::Mock;
 use crate::{
 	backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
@@ -344,9 +344,28 @@ impl<'a> Port<'a, TcpStream> {
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl<'a> Port<'a, Mock> {
-	/// Open a mock port.
+	/// Open a Port with a [`Mock`] [`Backend`].
+	///
+	/// This is useful for writing unit/integration tests when an actual device is not available.
+	///
+	/// See the [`Mock`]'s documentation for more details on its behaviour.
+	///
+	/// # Example
+	///
+	/// ```
+	/// # use zproto::binary::Port;
+	/// use zproto::binary::command::HOME;
+	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = Port::open_mock();
+	/// port.backend_mut().push([1, 1, 0, 0, 0, 0]);
+	/// let reply = port.tx_recv((0, HOME)).unwrap();
+	/// assert_eq!(reply.command(), HOME);
+	/// # Ok(())
+	/// # }
+	/// ```
+	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 	pub fn open_mock() -> Port<'a, Mock> {
 		Port::from_backend(Mock::new())
 	}
@@ -1052,7 +1071,7 @@ mod test {
 	#[test]
 	fn tx_recv_ok() {
 		let mut port = Port::open_mock();
-		port.backend.append_data([1, 1, 0, 0, 0, 0]);
+		port.backend.push([1, 1, 0, 0, 0, 0]);
 		let reply = port.tx_recv((0, HOME)).unwrap();
 		assert_eq!(reply.command(), HOME);
 		assert_eq!(reply.target(), 1);
@@ -1067,7 +1086,7 @@ mod test {
 
 		// Unexpected command in response
 		port.backend
-			.append_data([1, untyped::MANUAL_MOVE_TRACKING, 0, 0, 0, 0]);
+			.push([1, untyped::MANUAL_MOVE_TRACKING, 0, 0, 0, 0]);
 		let err = port.tx_recv((0, HOME)).unwrap_err();
 		if let BinaryError::UnexpectedCommand(err) = err {
 			assert_eq!(err.as_ref().command(), untyped::MANUAL_MOVE_TRACKING);
@@ -1076,7 +1095,7 @@ mod test {
 		}
 
 		// Unexpected target in reply
-		port.backend.append_data([1, untyped::HOME, 0, 0, 0, 0]);
+		port.backend.push([1, untyped::HOME, 0, 0, 0, 0]);
 		let err = port.tx_recv((2, HOME)).unwrap_err();
 		if let BinaryError::UnexpectedTarget(err) = err {
 			assert_eq!(err.as_ref().command(), untyped::HOME);
@@ -1086,7 +1105,7 @@ mod test {
 
 		// Command failure
 		port.backend
-			.append_data([1, untyped::ERROR, binary_code::CANNOT_HOME as u8, 0, 0, 0]);
+			.push([1, untyped::ERROR, binary_code::CANNOT_HOME as u8, 0, 0, 0]);
 		let err = port.tx_recv((1, HOME)).unwrap_err();
 		if let BinaryError::CommandFailure(err) = err {
 			assert_eq!(err.code(), binary_code::CANNOT_HOME);
@@ -1096,8 +1115,7 @@ mod test {
 		}
 
 		// Unexpected message ID
-		port.backend
-			.append_data([1, untyped::MOVE_ABSOLUTE, 5, 0, 0, 2]);
+		port.backend.push([1, untyped::MOVE_ABSOLUTE, 5, 0, 0, 2]);
 		port.id = MessageId::Enabled(0);
 		let err = port.tx_recv((1, MOVE_ABSOLUTE, 5)).unwrap_err();
 		if let BinaryError::UnexpectedId(err) = err {
@@ -1111,7 +1129,7 @@ mod test {
 	fn tx_recv_n_ok() {
 		let mut port = Port::open_mock();
 
-		port.backend.append_data([1, 1, 0, 0, 0, 0]);
+		port.backend.push([1, 1, 0, 0, 0, 0]);
 		let replies = port.tx_recv_n((0, HOME), 1).unwrap();
 		assert_eq!(replies.len(), 1);
 		let reply = replies[0];
@@ -1119,8 +1137,8 @@ mod test {
 		assert_eq!(reply.target(), 1);
 		assert_eq!(reply.data().unwrap(), 0);
 
-		port.backend.append_data([1, 1, 0, 0, 0, 0]);
-		port.backend.append_data([2, 1, 0, 0, 0, 0]);
+		port.backend.push([1, 1, 0, 0, 0, 0]);
+		port.backend.push([2, 1, 0, 0, 0, 0]);
 		let replies = port.tx_recv_n((0, HOME), 2).unwrap();
 		assert_eq!(replies.len(), 2);
 		for (i, reply) in replies.iter().enumerate() {
@@ -1138,12 +1156,12 @@ mod test {
 		let mut port = Port::open_mock();
 
 		// Timeout waiting for second message
-		port.backend.append_data([1, 1, 0, 0, 0, 0]);
+		port.backend.push([1, 1, 0, 0, 0, 0]);
 		assert!(port.tx_recv_n((0, HOME), 2).unwrap_err().is_timeout());
 
 		// Unexpected command in second message
-		port.backend.append_data([1, untyped::HOME, 0, 0, 0, 0]);
-		port.backend.append_data([2, untyped::RESET, 0, 0, 0, 0]);
+		port.backend.push([1, untyped::HOME, 0, 0, 0, 0]);
+		port.backend.push([2, untyped::RESET, 0, 0, 0, 0]);
 		let err = port.tx_recv_n((0, HOME), 2).unwrap_err();
 		if let BinaryError::UnexpectedCommand(err) = err {
 			assert_eq!(Message::from(err).command(), untyped::RESET);
@@ -1152,8 +1170,8 @@ mod test {
 		}
 
 		// Unexpected target in second message
-		port.backend.append_data([1, untyped::HOME, 0, 0, 0, 0]);
-		port.backend.append_data([2, untyped::HOME, 0, 0, 0, 0]);
+		port.backend.push([1, untyped::HOME, 0, 0, 0, 0]);
+		port.backend.push([2, untyped::HOME, 0, 0, 0, 0]);
 		let err = port.tx_recv_n((1, HOME), 2).unwrap_err();
 		if let BinaryError::UnexpectedTarget(err) = err {
 			assert_eq!(Message::from(err).target(), 2);
@@ -1163,9 +1181,9 @@ mod test {
 
 		// Unexpected message ID in second message
 		port.backend
-			.append_data([2, untyped::SET_TARGET_SPEED, 0, 0, 0, 1]);
+			.push([2, untyped::SET_TARGET_SPEED, 0, 0, 0, 1]);
 		port.backend
-			.append_data([3, untyped::SET_TARGET_SPEED, 0, 0, 0, 55]);
+			.push([3, untyped::SET_TARGET_SPEED, 0, 0, 0, 55]);
 		port.id = MessageId::Enabled(0);
 		let err = port.tx_recv_n((0, SET_TARGET_SPEED, 1), 2).unwrap_err();
 		if let BinaryError::UnexpectedId(err) = err {
@@ -1176,8 +1194,8 @@ mod test {
 
 		// Command failure in second message.
 		port.id.disable();
-		port.backend.append_data([1, 1, 0, 0, 0, 0]);
-		port.backend.append_data([2, 255, 5, 0, 0, 0]);
+		port.backend.push([1, 1, 0, 0, 0, 0]);
+		port.backend.push([2, 255, 5, 0, 0, 0]);
 		let err = port.tx_recv_n((0, HOME), 2).unwrap_err();
 		if let BinaryError::CommandFailure(err) = err {
 			assert_eq!(err.code(), 5);
@@ -1190,7 +1208,7 @@ mod test {
 	fn tx_recv_until_timeout_ok() {
 		let mut port = Port::open_mock();
 
-		port.backend.append_data([1, 1, 0, 0, 0, 0]);
+		port.backend.push([1, 1, 0, 0, 0, 0]);
 		let replies = port.tx_recv_until_timeout((0, HOME)).unwrap();
 		assert_eq!(replies.len(), 1);
 		let reply = replies[0];
@@ -1198,8 +1216,8 @@ mod test {
 		assert_eq!(reply.target(), 1);
 		assert_eq!(reply.data().unwrap(), 0);
 
-		port.backend.append_data([1, 1, 0, 0, 0, 0]);
-		port.backend.append_data([2, 1, 0, 0, 0, 0]);
+		port.backend.push([1, 1, 0, 0, 0, 0]);
+		port.backend.push([2, 1, 0, 0, 0, 0]);
 		let replies = port.tx_recv_until_timeout((0, HOME)).unwrap();
 		assert_eq!(replies.len(), 2);
 		for (i, reply) in replies.iter().enumerate() {
@@ -1216,7 +1234,7 @@ mod test {
 		assert!(!port.message_ids());
 		// Enable message IDs
 		port.backend
-			.append_data([1, command::untyped::SET_MESSAGE_ID_MODE, 0, 0, 0, 0]);
+			.push([1, command::untyped::SET_MESSAGE_ID_MODE, 0, 0, 0, 0]);
 		let last_state = port.set_message_ids(true).unwrap();
 		assert!(!last_state);
 		assert!(port.message_ids());
@@ -1236,8 +1254,8 @@ mod test {
 			}
 		});
 
-		port.backend.append_data([1, 1, 0, 0, 0, 1]);
-		port.backend.append_data([2, 1, 0, 0, 0, 1]);
+		port.backend.push([1, 1, 0, 0, 0, 1]);
+		port.backend.push([2, 1, 0, 0, 0, 1]);
 		let _ = port.tx_recv_until_timeout((0, HOME)).unwrap();
 
 		assert_eq!(

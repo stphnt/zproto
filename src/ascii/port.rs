@@ -6,6 +6,8 @@ mod options;
 #[cfg(test)]
 mod test;
 
+#[cfg(any(test, feature = "mock"))]
+use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 #[allow(clippy::wildcard_imports)]
 use crate::error::*;
@@ -174,6 +176,38 @@ impl<'a> Port<'a, TcpStream> {
 	/// Get an [`OpenTcpOptions`] to customize how a TCP port is opened.
 	pub fn open_tcp_options() -> OpenTcpOptions {
 		OpenTcpOptions::default()
+	}
+}
+
+#[cfg(any(test, feature = "mock"))]
+impl<'a> Port<'a, Mock> {
+	/// Open a Port with a [`Mock`] [`Backend`].
+	///
+	/// This is useful for writing unit/integration tests when an actual device is not available.
+	/// Unlike other `Port::open*` functions, Message IDs and checksums are disabled by default to allow for easier testing.
+	///
+	/// See the [`Mock`]'s documentation for more details on its behaviour.
+	///
+	/// # Example
+	///
+	/// ```
+	/// # use zproto::ascii::Port;
+	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = Port::open_mock();
+	/// port.backend_mut().push(b"@01 1 OK IDLE -- 1234\r\n");
+	/// let reply = port.command_reply((1, 1, "get pos"))?.flag_ok()?;
+	/// assert_eq!(reply.data().parse::<i32>().unwrap(), 1234);
+	/// # Ok(())
+	/// # }
+	/// ```
+	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
+	pub fn open_mock() -> Port<'a, Mock> {
+		Port::from_backend(
+			Mock::new(),
+			false,
+			false,
+			crate::ascii::command::MaxPacketSize::default(),
+		)
 	}
 }
 

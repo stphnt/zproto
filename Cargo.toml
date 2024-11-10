@@ -29,6 +29,7 @@ members = ["scripts/generate-apis"]
 default = ["ascii", "binary"]
 ascii = [] # Include the ASCII protocol
 binary = [] # Include the Binary protocol
+mock = [] # Include the Mock backend, for use in consuming crate tests
 
 unstable_v6_14 = [] # Enable APIs related to firmware version 6.14 (requires the '--cfg unstable' rustc flag)
 unstable_v6_15 = [] # Enable APIs related to firmware version 6.15 (requires the '--cfg unstable' rustc flag)

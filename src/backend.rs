@@ -119,13 +119,16 @@ impl Backend for Serial {
 
 /// A mock backend for use in testing.
 ///
-/// It has the following features:
-///   * It ignores all data written to it.
-///   * It can be filled with data for reading.
-///   * Specific errors can be inserted for calls to `read`, `write`, `flush`,
-///     and `set_read_timeout`.
-#[cfg(test)]
+/// By default, the backend discards all data written to it without any validation.
+/// However, the [`Mock::set_write_callback`] can be used to change this behaviour and to
+/// dynamically generate custom responses from devices. Alternatively, responses can be
+/// emulated by manually adding their raw bytes via [`Mock::push`].
+///
+/// To test behaviour in the face of errors, there are dedicated methods for defining
+/// errors the mock will return.
 #[derive(Debug)]
+#[cfg(any(test, feature = "mock"))]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 pub struct Mock {
 	/// The buffer data is read from
 	buffer: io::Cursor<Vec<u8>>,
@@ -135,66 +138,100 @@ pub struct Mock {
 	write_error: Option<io::Error>,
 	/// The error to surface on the next flush, if any. It is only surfaced once.
 	flush_error: Option<io::Error>,
-	/// The error to surface on the next set_read_timeout, if any. It is only surfaced once.
+	/// The error to surface on the next `set_read_timeout`, if any. It is only surfaced once.
 	set_read_timeout_error: Option<io::Error>,
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
+	/// The function called when `write` is called. See [`Mock::set_write_callback`] for details.
+	write_callback: fn(&[u8], &mut dyn io::Write),
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl Mock {
-	/// Create a new Mock backend.
-	pub fn new() -> Self {
-		Mock {
+	/// Create a new [`Mock`] backend.
+	pub(crate) fn new() -> Self {
+		Self {
 			buffer: io::Cursor::new(Vec::new()),
 			read_error: None,
 			write_error: None,
 			flush_error: None,
 			set_read_timeout_error: None,
 			ignored_read_timeout: Some(Duration::ZERO),
+			write_callback: |_, _| (),
 		}
 	}
-	/// Append data to the read buffer.
+	/// Push data to the read buffer.
 	///
 	/// The data is not validated in any way.
-	pub fn append_data<T: AsRef<[u8]>>(&mut self, bytes: T) {
+	pub fn push<T: AsRef<[u8]>>(&mut self, bytes: T) {
 		self.buffer.get_mut().extend_from_slice(bytes.as_ref());
 	}
 	/// Clear the read buffer.
-	pub fn clear_buffer(&mut self) {
+	pub fn clear(&mut self) {
 		self.buffer.get_mut().clear();
 		self.buffer.set_position(0);
 	}
-	/// Whether the mock has any data available or not
+	/// Whether the mock has any data available or not.
 	pub fn is_empty(&self) -> bool {
-		self.buffer.position() as usize >= self.buffer.get_ref().len()
+		self.buffer.position() >= self.buffer.get_ref().len() as u64
 	}
-	/// Set the error for the next `read`, if any.
-	pub fn read_error(&mut self, err: Option<io::Error>) {
+	/// Set the error to be returned when [`Mock::read`](std::io::Read::read) is next called, if any.
+	///
+	/// The error is returned only once.
+	pub fn set_read_error(&mut self, err: Option<io::Error>) {
 		self.read_error = err;
 	}
-	/// Set the error for the next `write`, if any.
-	pub fn write_error(&mut self, err: Option<io::Error>) {
+	/// Set the error to be returned when [`Mock::write`](std::io::Write::write) is next called, if any.
+	///
+	/// The error is returned only once.
+	pub fn set_write_error(&mut self, err: Option<io::Error>) {
 		self.write_error = err;
 	}
-	/// Set the error for the next `flush`, if any.
-	pub fn flush_error(&mut self, err: Option<io::Error>) {
+	/// Set the error to be returned when [`Mock::flush`](std::io::Write::flush) is next called, if any.
+	///
+	/// The error is returned only once.
+	pub fn set_flush_error(&mut self, err: Option<io::Error>) {
 		self.flush_error = err;
 	}
-	/// Set the error for the next `set_read_timeout`, if any.
+	/// Set the error to be returned when [`Mock::set_read_timeout`] is next called, if any.
+	///
+	/// The error is returned only once.
 	pub fn set_read_timeout_error(&mut self, err: Option<io::Error>) {
 		self.set_read_timeout_error = err;
 	}
-}
 
-#[cfg(test)]
-impl Default for Mock {
-	fn default() -> Self {
-		Self::new()
+	/// Set the function to call when bytes are written to the backend.
+	///
+	/// The callback is passed two arguments: a reference to the written bytes and a mutable
+	/// reference to the mock's read buffer. Any emulated responses to the command's bytes should
+	/// be written to the read buffer.
+	///
+	/// By default, the [`Mock`] ignores all data written to it.
+	///
+	/// # Example
+	///
+	/// ```
+	/// # use zproto::ascii::Port;
+	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = Port::open_mock();
+	/// port.backend_mut().set_write_callback(|message, reply_buffer| {
+	///     match message {
+	///         b"/1 io get ai 1\n" => write!(reply_buffer, "@01 0 OK BUSY -- 5.5\r\n"),
+	///         b"/get pos\n" => write!(reply_buffer, "@01 0 OK BUSY -- 20\r\n@02 0 OK BUSY -- 10.1\r\n"),
+	///         _ => panic!("unexpected message"),
+	///     }.unwrap()
+	/// });
+	/// let reply = port.command_reply((1,"io get ai 1"))?.flag_ok()?;
+	/// assert_eq!(reply.data().parse::<f64>().unwrap(), 5.5);
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub fn set_write_callback(&mut self, callback: fn(&[u8], &mut dyn io::Write)) {
+		self.write_callback = callback;
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl Backend for Mock {
 	fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
 		if let Some(err) = self.set_read_timeout_error.take() {
@@ -210,11 +247,11 @@ impl Backend for Mock {
 	}
 
 	fn name(&self) -> Option<String> {
-		Some(format!("<mock 0x{:x}>", self as *const Mock as usize))
+		Some(format!("<mock 0x{:x}>", std::ptr::from_ref(self) as usize))
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl io::Read for Mock {
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 		if let Some(err) = self.read_error.take() {
@@ -234,12 +271,13 @@ impl io::Read for Mock {
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 impl io::Write for Mock {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
 		if let Some(err) = self.write_error.take() {
 			Err(err)
 		} else {
+			(self.write_callback)(buf, self.buffer.get_mut());
 			Ok(buf.len())
 		}
 	}
@@ -258,7 +296,7 @@ mod private {
 
 	impl Sealed for super::Serial {}
 	impl Sealed for std::net::TcpStream {}
-	#[cfg(test)]
+	#[cfg(any(test, feature = "mock"))]
 	impl Sealed for super::Mock {}
 	impl<C: super::Backend + ?Sized> Sealed for Box<C> {}
 	impl<C: super::Backend + ?Sized> Sealed for &mut C {}
