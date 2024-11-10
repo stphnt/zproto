@@ -139,8 +139,8 @@ pub struct Mock {
 	set_read_timeout_error: Option<io::Error>,
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
-	/// The callback used to generate replies.
-	reply_callback: fn(&[u8], &mut dyn io::Write),
+	/// The function called when `write` is called. See [`Mock::set_write_callback`] for details.
+	write_callback: fn(&[u8], &mut dyn io::Write),
 }
 
 #[cfg(any(test, feature = "mock"))]
@@ -154,7 +154,7 @@ impl Mock {
 			flush_error: None,
 			set_read_timeout_error: None,
 			ignored_read_timeout: Some(Duration::ZERO),
-			reply_callback: |_, _| (),
+			write_callback: |_, _| (),
 		}
 	}
 	/// Push data to the read buffer.
@@ -197,9 +197,13 @@ impl Mock {
 		self.set_read_timeout_error = err;
 	}
 
-	/// Set the callback function to generate custom replies.
+	/// Set the function to call when bytes are written to the backend.
 	///
-	/// The first argument is the message buffer for replies, the second the message itself.
+	/// The callback is passed two arguments: a reference to the written bytes and a mutable
+	/// reference to the mock's read buffer. Any emulated responses to the command's bytes should
+	/// be written to the read buffer.
+	///
+	/// By default, the [`Mock`] ignores all data written to it.
 	///
 	/// # Example
 	///
@@ -207,7 +211,7 @@ impl Mock {
 	/// # use zproto::ascii::Port;
 	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_mock();
-	/// port.backend_mut().set_reply_callback(|message, reply_buffer| {
+	/// port.backend_mut().set_write_callback(|message, reply_buffer| {
 	///     match message {
 	///         b"/1 io get ai 1\n" => write!(reply_buffer, "@01 0 OK BUSY -- 5.5\r\n"),
 	///         b"/get pos\n" => write!(reply_buffer, "@01 0 OK BUSY -- 20\r\n@02 0 OK BUSY -- 10.1\r\n"),
@@ -219,8 +223,8 @@ impl Mock {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn set_reply_callback(&mut self, callback: fn(&[u8], &mut dyn io::Write)) {
-		self.reply_callback = callback;
+	pub fn set_write_callback(&mut self, callback: fn(&[u8], &mut dyn io::Write)) {
+		self.write_callback = callback;
 	}
 }
 
@@ -270,7 +274,7 @@ impl io::Write for Mock {
 		if let Some(err) = self.write_error.take() {
 			Err(err)
 		} else {
-			(self.reply_callback)(buf, self.buffer.get_mut());
+			(self.write_callback)(buf, self.buffer.get_mut());
 			Ok(buf.len())
 		}
 	}
