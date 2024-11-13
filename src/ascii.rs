@@ -69,21 +69,6 @@
 //! # }
 //! ```
 //!
-//! ## Reading Data
-//!
-//! Reading data from a response is as simple as calling [`data()`]
-//! on the response and then using Rust's standard [`parse()`](https://doc.rust-lang.org/std/primitive.str.html#method.parse)
-//! method to convert the string to your desired data type.
-//!
-//! ```rust
-//! # use zproto::{ascii::Port, backend::Backend, error::Error};
-//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
-//! let reply = port.command_reply("get device.id")?.flag_ok()?;
-//! let device_id: u32 = reply.data().parse()?;
-//! # Ok(())
-//! # }
-//! ```
-//!
 //! ## Checking Responses
 //!
 //! The library requires users to be explicit about checking the contents of responses.
@@ -105,6 +90,20 @@
 //! # }
 //! ```
 //!
+//! ## Reading Data
+//!
+//! Reading data from a response is as simple as calling [`data()`]
+//! on the response and then using Rust's standard [`parse()`](https://doc.rust-lang.org/std/primitive.str.html#method.parse)
+//! method to convert the string to your desired data type.
+//!
+//! ```rust
+//! # use zproto::{ascii::Port, backend::Backend, error::Error};
+//! # fn wrapper<B: Backend>(mut port: Port<B>) -> Result<(), Box<dyn std::error::Error>> {
+//! let reply = port.command_reply("get device.id")?.flag_ok()?;
+//! let device_id: u32 = reply.data().parse()?;
+//! # Ok(())
+//! # }
+//! ```
 //!
 //! ## Other `Port` Methods
 //!
