@@ -7,6 +7,7 @@
 ### Added
 
 * The `backend::Mock` has been added for mocking communication with a Zaber product in unit tests. Create one via `Port::open_mock()`. It is only available if the `mock` feature is enabled, which is disabled by default.
+* `Port::open_serial_options()` and `Port::open_tcp_options()` convenience methods for creating `OptionSerialOptions` and `OpenTcpOptions`.
 
 ### Changed
 
