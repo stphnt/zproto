@@ -219,7 +219,7 @@ where
 	H::UnexpectedAlertHandler: FnMut(Alert) -> Result<(), Alert> + 'a,
 {
 	/// Create a `Port` from a [`Backend`] type.
-	fn from_backend(
+	pub fn from_backend(
 		backend: B,
 		generate_id: bool,
 		generate_checksum: bool,

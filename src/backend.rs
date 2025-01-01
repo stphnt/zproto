@@ -17,7 +17,7 @@ use sp::TTYPort as ExternSerial;
 pub(crate) const UNKNOWN_BACKEND_NAME: &str = "<unknown backend>";
 
 /// Types that allow reading and writing bytes with a connected device.
-pub trait Backend: io::Read + io::Write + private::Sealed {
+pub trait Backend: io::Read + io::Write {
 	/// Set the read timeout.
 	///
 	/// If timeout is `None`, reads will block indefinitely.
@@ -292,6 +292,7 @@ impl io::Write for Mock {
 }
 
 mod private {
+    #[allow(dead_code)]
 	pub trait Sealed {}
 
 	impl Sealed for super::Serial {}
