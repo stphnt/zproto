@@ -290,15 +290,3 @@ impl io::Write for Mock {
 		}
 	}
 }
-
-mod private {
-    #[allow(dead_code)]
-	pub trait Sealed {}
-
-	impl Sealed for super::Serial {}
-	impl Sealed for std::net::TcpStream {}
-	#[cfg(any(test, feature = "mock"))]
-	impl Sealed for super::Mock {}
-	impl<C: super::Backend + ?Sized> Sealed for Box<C> {}
-	impl<C: super::Backend + ?Sized> Sealed for &mut C {}
-}
