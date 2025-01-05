@@ -126,7 +126,6 @@ impl Backend for Serial {
 ///
 /// To test behaviour in the face of errors, there are dedicated methods for defining
 /// errors the mock will return.
-#[derive(Debug)]
 #[cfg(any(test, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 pub struct Mock {
@@ -143,7 +142,9 @@ pub struct Mock {
 	/// The read timeout, which is ignored.
 	ignored_read_timeout: Option<Duration>,
 	/// The function called when `write` is called. See [`Mock::set_write_callback`] for details.
-	write_callback: fn(&[u8], &mut dyn io::Write),
+	// This is only used here so making a type alias, as clippy suggests, is pointless.
+	#[allow(clippy::type_complexity)]
+	write_callback: Box<dyn FnMut(&[u8], &mut dyn io::Write)>,
 }
 
 #[cfg(any(test, feature = "mock"))]
@@ -157,7 +158,7 @@ impl Mock {
 			flush_error: None,
 			set_read_timeout_error: None,
 			ignored_read_timeout: Some(Duration::ZERO),
-			write_callback: |_, _| (),
+			write_callback: Box::new(|_, _| ()),
 		}
 	}
 	/// Push data to the read buffer.
@@ -226,8 +227,18 @@ impl Mock {
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn set_write_callback(&mut self, callback: fn(&[u8], &mut dyn io::Write)) {
-		self.write_callback = callback;
+	pub fn set_write_callback(
+		&mut self,
+		callback: impl FnMut(&[u8], &mut dyn io::Write) + 'static,
+	) {
+		self.write_callback = Box::new(callback);
+	}
+}
+
+#[cfg(any(test, feature = "mock"))]
+impl std::fmt::Debug for Mock {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Mock").finish_non_exhaustive()
 	}
 }
 
@@ -315,5 +326,11 @@ mod test {
 		fn fn_pointer_callback(_message: &[u8], _buffer: &mut dyn io::Write) {}
 		mock.set_write_callback(fn_pointer_callback);
 		mock.set_write_callback(|_: &[u8], _: &mut dyn io::Write| {});
+
+		// Closures with captured data
+		let mut state = std::collections::HashSet::new();
+		mock.set_write_callback(move |message: &[u8], _buffer: &mut dyn io::Write| {
+			state.insert(message.to_vec());
+		});
 	}
 }
