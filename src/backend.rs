@@ -301,3 +301,19 @@ mod private {
 	impl<C: super::Backend + ?Sized> Sealed for Box<C> {}
 	impl<C: super::Backend + ?Sized> Sealed for &mut C {}
 }
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	/// Ensure all the different kinds of mock callbacks are accepted.
+	#[test]
+	fn mock_set_write_callback() {
+		let mut mock = Mock::new();
+
+		// fn pointers
+		fn fn_pointer_callback(_message: &[u8], _buffer: &mut dyn io::Write) {}
+		mock.set_write_callback(fn_pointer_callback);
+		mock.set_write_callback(|_: &[u8], _: &mut dyn io::Write| {});
+	}
+}
