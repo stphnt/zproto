@@ -89,7 +89,7 @@ impl<'a, Tag> DeviceSettings<'a, Tag> {
 	}
 }
 
-impl<'a, S, Tag> Settings<'a, S, Tag> {
+impl<S, Tag> Settings<'_, S, Tag> {
 	/// Get the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".

@@ -17,9 +17,9 @@ mod private {
 	/// Marks a trait a sealed.
 	pub trait Sealed {}
 	#[cfg(feature = "ascii")]
-	impl<'a, B, H, Tag> Sealed for crate::ascii::Port<'a, B, H, Tag> {}
+	impl<B, H, Tag> Sealed for crate::ascii::Port<'_, B, H, Tag> {}
 	#[cfg(feature = "binary")]
-	impl<'a, B, H> Sealed for crate::binary::Port<'a, B, H> {}
+	impl<B, H> Sealed for crate::binary::Port<'_, B, H> {}
 }
 
 /// An [RAII guard](https://rust-unofficial.github.io/patterns/patterns/behavioural/RAII.html)
@@ -54,7 +54,7 @@ impl<'a, B: Backend, P: Port<B>> TimeoutGuard<'a, B, P> {
 	}
 }
 
-impl<'a, B: Backend, P: Port<B>> std::ops::Deref for TimeoutGuard<'a, B, P> {
+impl<B: Backend, P: Port<B>> std::ops::Deref for TimeoutGuard<'_, B, P> {
 	type Target = P;
 	/// Get a shared reference to the underlying port.
 	fn deref(&self) -> &Self::Target {
@@ -62,14 +62,14 @@ impl<'a, B: Backend, P: Port<B>> std::ops::Deref for TimeoutGuard<'a, B, P> {
 	}
 }
 
-impl<'a, B: Backend, P: Port<B>> std::ops::DerefMut for TimeoutGuard<'a, B, P> {
+impl<B: Backend, P: Port<B>> std::ops::DerefMut for TimeoutGuard<'_, B, P> {
 	/// Get an exclusive reference to the underlying port.
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		self.port
 	}
 }
 
-impl<'a, B: Backend, P: Port<B>> std::ops::Drop for TimeoutGuard<'a, B, P> {
+impl<B: Backend, P: Port<B>> std::ops::Drop for TimeoutGuard<'_, B, P> {
 	fn drop(&mut self) {
 		if let Err(err) = self
 			.port

@@ -23,7 +23,7 @@ impl<'a, Tag> IterDevices<'a, Tag> {
 	}
 }
 
-impl<'a, Tag> std::fmt::Debug for IterDevices<'a, Tag> {
+impl<Tag> std::fmt::Debug for IterDevices<'_, Tag> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("IterDevices").finish_non_exhaustive()
 	}
@@ -94,7 +94,7 @@ impl<'a, Tag> std::iter::Iterator for IterAxes<'a, Tag> {
 	}
 }
 
-impl<'a, Tag> std::fmt::Debug for IterAxes<'a, Tag> {
+impl<Tag> std::fmt::Debug for IterAxes<'_, Tag> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("IterAxes")
 			.field("address", &self.address)
