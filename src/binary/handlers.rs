@@ -49,7 +49,7 @@ impl<'a> Handlers for LocalHandlers<'a> {
 		&mut self.packet
 	}
 }
-impl<'a> private::Sealed for LocalHandlers<'a> {}
+impl private::Sealed for LocalHandlers<'_> {}
 
 /// A collection of event handlers that can be sent to other threads (i.e. they implement `Send`).
 #[derive(Default)]
@@ -69,7 +69,7 @@ impl<'a> Handlers for SendHandlers<'a> {
 		&mut self.packet
 	}
 }
-impl<'a> private::Sealed for SendHandlers<'a> {}
+impl private::Sealed for SendHandlers<'_> {}
 
 /// Any type that defines callbacks for a [`Port`].
 pub trait Handlers: Default + private::Sealed {

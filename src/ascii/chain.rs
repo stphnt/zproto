@@ -205,7 +205,7 @@ impl<'a, Tag> Device<'a, Tag> {
 	}
 }
 
-impl<'a, Tag> Clone for Device<'a, Tag> {
+impl<Tag> Clone for Device<'_, Tag> {
 	fn clone(&self) -> Self {
 		Device {
 			info: self.info,
@@ -245,7 +245,7 @@ pub struct Axis<'a, Tag> {
 	tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, Tag> Clone for Axis<'a, Tag> {
+impl<Tag> Clone for Axis<'_, Tag> {
 	fn clone(&self) -> Self {
 		Axis {
 			info: self.info,

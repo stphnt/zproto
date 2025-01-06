@@ -83,7 +83,7 @@ impl<'a> Handlers for LocalHandlers<'a> {
 	}
 }
 
-impl<'a> private::Sealed for LocalHandlers<'a> {}
+impl private::Sealed for LocalHandlers<'_> {}
 
 /// Collection of event handlers that can be sent to other threads (i.e. they implement `Send`).
 #[derive(Default)]
@@ -109,7 +109,7 @@ impl<'a> Handlers for SendHandlers<'a> {
 	}
 }
 
-impl<'a> private::Sealed for SendHandlers<'a> {}
+impl private::Sealed for SendHandlers<'_> {}
 
 /// Any type that defines event handlers for a [`Port`].
 pub trait Handlers: Default + private::Sealed {

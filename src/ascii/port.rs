@@ -119,7 +119,7 @@ pub struct Port<'a, B, Tag = DefaultTag, H = LocalHandlers<'a>> {
 	lifetime: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a, B: Backend, Tag, H> std::fmt::Debug for Port<'a, B, Tag, H> {
+impl<B: Backend, Tag, H> std::fmt::Debug for Port<'_, B, Tag, H> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Port")
 			.field("name", &self.backend.name())
@@ -1637,7 +1637,7 @@ where
 	}
 }
 
-impl<'a, B: Backend, Tag, H> crate::timeout_guard::Port<B> for Port<'a, B, Tag, H> {
+impl<B: Backend, Tag, H> crate::timeout_guard::Port<B> for Port<'_, B, Tag, H> {
 	fn backend_mut(&mut self) -> &mut B {
 		&mut self.backend
 	}

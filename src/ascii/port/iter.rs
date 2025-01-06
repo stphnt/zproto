@@ -23,7 +23,7 @@ pub struct NResponses<'i, 'p, B, R, Tag, H> {
 	_marker: std::marker::PhantomData<(B, R)>,
 }
 
-impl<'i, 'p, B, R, Tag, H> std::fmt::Debug for NResponses<'i, 'p, B, R, Tag, H> {
+impl<B, R, Tag, H> std::fmt::Debug for NResponses<'_, '_, B, R, Tag, H> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("NResponses").finish_non_exhaustive()
 	}
@@ -53,7 +53,7 @@ where
 	}
 }
 
-impl<'i, 'p, B, R, Tag, H> Iterator for NResponses<'i, 'p, B, R, Tag, H>
+impl<'p, B, R, Tag, H> Iterator for NResponses<'_, 'p, B, R, Tag, H>
 where
 	B: Backend,
 	R: Response,
@@ -92,7 +92,7 @@ pub struct ResponsesUntilTimeout<'i, 'p, B, R, Tag, H> {
 	_marker: std::marker::PhantomData<(B, R)>,
 }
 
-impl<'i, 'p, B, R, Tag, H> std::fmt::Debug for ResponsesUntilTimeout<'i, 'p, B, R, Tag, H> {
+impl<B, R, Tag, H> std::fmt::Debug for ResponsesUntilTimeout<'_, '_, B, R, Tag, H> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ResponsesUntilTimeout")
 			.finish_non_exhaustive()
@@ -119,7 +119,7 @@ where
 	}
 }
 
-impl<'i, 'p, B, R, Tag, H> Iterator for ResponsesUntilTimeout<'i, 'p, B, R, Tag, H>
+impl<'p, B, R, Tag, H> Iterator for ResponsesUntilTimeout<'_, 'p, B, R, Tag, H>
 where
 	B: Backend,
 	R: Response,
@@ -160,7 +160,7 @@ pub struct InfosUntilSentinel<'i, 'p, B, Tag, H> {
 	done: bool,
 }
 
-impl<'i, 'p, B, Tag, H> std::fmt::Debug for InfosUntilSentinel<'i, 'p, B, Tag, H> {
+impl<B, Tag, H> std::fmt::Debug for InfosUntilSentinel<'_, '_, B, Tag, H> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("InfosUntilSentinel").finish_non_exhaustive()
 	}
@@ -193,7 +193,7 @@ where
 	}
 }
 
-impl<'i, 'p, B, Tag, H> Iterator for InfosUntilSentinel<'i, 'p, B, Tag, H>
+impl<'p, B, Tag, H> Iterator for InfosUntilSentinel<'_, 'p, B, Tag, H>
 where
 	B: Backend,
 	H: Handlers,
@@ -241,13 +241,13 @@ pub struct Poll<'i, 'p, B, C, Tag, H> {
 	pub(super) command: C,
 }
 
-impl<'i, 'p, B, C, Tag, H> std::fmt::Debug for Poll<'i, 'p, B, C, Tag, H> {
+impl<B, C, Tag, H> std::fmt::Debug for Poll<'_, '_, B, C, Tag, H> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Poll").finish_non_exhaustive()
 	}
 }
 
-impl<'i, 'p, B, C, Tag, H> Iterator for Poll<'i, 'p, B, C, Tag, H>
+impl<'p, B, C, Tag, H> Iterator for Poll<'_, 'p, B, C, Tag, H>
 where
 	B: Backend,
 	C: Command,
