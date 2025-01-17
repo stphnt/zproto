@@ -6,7 +6,7 @@ mod options;
 #[cfg(test)]
 mod test;
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 #[allow(clippy::wildcard_imports)]
