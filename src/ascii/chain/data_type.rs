@@ -53,14 +53,20 @@ impl DataType for bool {
 	type Borrowed = bool;
 	type Owned = bool;
 	type Parser = AsciiBool;
-	type Displayer<'a> = AsciiBool where Self: 'a;
+	type Displayer<'a>
+		= AsciiBool
+	where
+		Self: 'a;
 }
 
 impl DataType for String {
 	type Borrowed = str;
 	type Owned = String;
 	type Parser = String;
-	type Displayer<'a> = String where Self: 'a;
+	type Displayer<'a>
+		= String
+	where
+		Self: 'a;
 }
 
 /// Any type that can parse value of type `Output` from a word in an ASCII message's data field.
@@ -125,7 +131,10 @@ impl Parse for String {
 
 impl Display for String {
 	type Input = str;
-	type Display<'a> = &'a str where Self::Input: 'a;
+	type Display<'a>
+		= &'a str
+	where
+		Self::Input: 'a;
 	fn display(value: &str) -> Self::Display<'_> {
 		value
 	}
@@ -150,7 +159,10 @@ impl Parse for AsciiBool {
 }
 impl Display for AsciiBool {
 	type Input = bool;
-	type Display<'a> = AsciiBool where Self::Input: 'a;
+	type Display<'a>
+		= AsciiBool
+	where
+		Self::Input: 'a;
 	fn display(value: &bool) -> Self::Display<'_> {
 		AsciiBool(*value)
 	}
