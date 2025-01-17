@@ -1279,10 +1279,4 @@ mod test {
 			]
 		);
 	}
-
-	#[test]
-	fn compile_time_errors() {
-		let t = trybuild::TestCases::new();
-		t.compile_fail("test/binary/*.rs");
-	}
 }

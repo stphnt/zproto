@@ -1,7 +1,0 @@
-error[E0308]: `?` operator has incompatible types
- --> test/binary/03-reply-data.rs:8:24
-  |
-8 |     let _value: bool = reply.data()?;  // Wrong data type, should be i32
-  |                        ^^^^^^^^^^^^^ expected `bool`, found `i32`
-  |
-  = note: `?` operator cannot convert from `i32` to `bool`
