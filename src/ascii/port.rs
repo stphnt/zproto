@@ -6,7 +6,7 @@ mod options;
 #[cfg(test)]
 mod test;
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 use crate::backend::Mock;
 use crate::backend::{Backend, Serial, UNKNOWN_BACKEND_NAME};
 #[allow(clippy::wildcard_imports)]
@@ -31,7 +31,9 @@ use crate::{
 };
 
 use handlers::{Handlers, LocalHandlers, SendHandlers};
-pub use options::*;
+#[cfg(any(test, doc, feature = "mock"))]
+pub use options::OpenMockOptions;
+pub use options::{OpenGeneralOptions, OpenOptions, OpenSerialOptions, OpenTcpOptions};
 use std::{
 	convert::TryFrom,
 	io,
@@ -179,7 +181,8 @@ impl<'a> Port<'a, TcpStream> {
 	}
 }
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 impl<'a> Port<'a, Mock> {
 	/// Open a Port with a [`Mock`] [`Backend`].
 	///
@@ -200,14 +203,13 @@ impl<'a> Port<'a, Mock> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 	pub fn open_mock() -> Port<'a, Mock> {
-		Port::from_backend(
-			Mock::new(),
-			false,
-			false,
-			crate::ascii::command::MaxPacketSize::default(),
-		)
+		OpenMockOptions::new().open()
+	}
+
+	/// Get an [`OpenMockOptions`] to customize how a mock port is opened.
+	pub fn open_mock_options() -> OpenMockOptions {
+		OpenMockOptions::default()
 	}
 }
 
