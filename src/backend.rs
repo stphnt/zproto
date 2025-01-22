@@ -17,7 +17,7 @@ use sp::TTYPort as ExternSerial;
 pub(crate) const UNKNOWN_BACKEND_NAME: &str = "<unknown backend>";
 
 /// Types that allow reading and writing bytes with a connected device.
-pub trait Backend: io::Read + io::Write + private::Sealed {
+pub trait Backend: io::Read + io::Write {
 	/// Set the read timeout.
 	///
 	/// If timeout is `None`, reads will block indefinitely.
@@ -126,7 +126,7 @@ impl Backend for Serial {
 ///
 /// To test behaviour in the face of errors, there are dedicated methods for defining
 /// errors the mock will return.
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 pub struct Mock {
 	/// The buffer data is read from
@@ -147,7 +147,7 @@ pub struct Mock {
 	write_callback: Box<dyn FnMut(&[u8], &mut dyn io::Write)>,
 }
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 impl Mock {
 	/// Create a new [`Mock`] backend.
 	pub(crate) fn new() -> Self {
@@ -235,14 +235,14 @@ impl Mock {
 	}
 }
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 impl std::fmt::Debug for Mock {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Mock").finish_non_exhaustive()
 	}
 }
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 impl Backend for Mock {
 	fn set_read_timeout(&mut self, timeout: Option<Duration>) -> Result<(), io::Error> {
 		if let Some(err) = self.set_read_timeout_error.take() {
@@ -262,7 +262,7 @@ impl Backend for Mock {
 	}
 }
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 impl io::Read for Mock {
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 		if let Some(err) = self.read_error.take() {
@@ -282,7 +282,7 @@ impl io::Read for Mock {
 	}
 }
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 impl io::Write for Mock {
 	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
 		if let Some(err) = self.write_error.take() {
@@ -300,17 +300,6 @@ impl io::Write for Mock {
 			Ok(())
 		}
 	}
-}
-
-mod private {
-	pub trait Sealed {}
-
-	impl Sealed for super::Serial {}
-	impl Sealed for std::net::TcpStream {}
-	#[cfg(any(test, feature = "mock"))]
-	impl Sealed for super::Mock {}
-	impl<C: super::Backend + ?Sized> Sealed for Box<C> {}
-	impl<C: super::Backend + ?Sized> Sealed for &mut C {}
 }
 
 #[cfg(test)]

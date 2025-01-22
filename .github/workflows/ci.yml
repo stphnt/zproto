@@ -46,7 +46,7 @@ jobs:
           sudo apt install libudev-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --features=ascii,binary --workspace --verbose
+      - run: cargo test --features=ascii,binary,mock --workspace --verbose
 
   test-unstable:
     name: Test Suite (Unstable)
