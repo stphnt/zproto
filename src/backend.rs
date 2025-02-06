@@ -212,8 +212,10 @@ impl Mock {
 	/// # Example
 	///
 	/// ```
-	/// # use zproto::ascii::Port;
 	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// # #[cfg(feature = "mock")] // Only test the code if the "mock" feature is enabled
+	/// # {
+	/// # use zproto::ascii::Port;
 	/// let mut port = Port::open_mock();
 	/// port.backend_mut().set_write_callback(|message, reply_buffer| {
 	///     match message {
@@ -224,6 +226,7 @@ impl Mock {
 	/// });
 	/// let reply = port.command_reply((1,"io get ai 1"))?.flag_ok()?;
 	/// assert_eq!(reply.data().parse::<f64>().unwrap(), 5.5);
+	/// # }
 	/// # Ok(())
 	/// # }
 	/// ```
