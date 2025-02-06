@@ -22,11 +22,13 @@ use std::{
 	time::Duration,
 };
 
-/// Options for configuring and opening a serial port.
+/// Options for configuring and opening a [`Port`].
 ///
-/// ## Example
+/// There are a few flavors:
 ///
-/// ```rust
+/// 1. [`OpenSerialOptions`] or `OpenOptions<Serial>`: Opens a [`Port`] over a serial connection.
+///
+/// ```
 /// # use zproto::binary::OpenSerialOptions;
 /// # use std::time::Duration;
 /// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,16 +38,39 @@ use std::{
 /// # Ok(())
 /// # }
 /// ```
+///
+/// 2. [`OpenTcpOptions`] or `OpenOptions<TcpStream>`: Opens a [`Port`] over a TCP connection.
+///
+/// ```
+/// # use zproto::binary::OpenTcpOptions;
+/// # use std::time::Duration;
+/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut port = OpenTcpOptions::new()
+///     .timeout(Some(Duration::from_millis(50)))
+///     .open("192.168.0.1:55550")?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
-pub struct OpenSerialOptions {
-	/// The custom baud rate
-	baud_rate: u32,
+pub struct OpenOptions<T> {
 	/// The custom timeout
 	timeout: Option<Duration>,
+	/// Other parameters used to open a particular backend.
+	extra: T,
 }
 
-impl OpenSerialOptions {
-	/// The default baud rate for the Binary protocol: 9,600.
+impl<T> OpenOptions<T> {
+	/// Set a custom read timeout.
+	///
+	/// If duration is `None`, reads will block indefinitely.
+	pub fn timeout(&mut self, duration: Option<Duration>) -> &mut Self {
+		self.timeout = duration;
+		self
+	}
+}
+
+impl OpenOptions<open_args::Serial> {
+	/// The default baud radte for the Binary protocol: 9,600.
 	pub const DEFAULT_BAUD_RATE: u32 = 9_600;
 
 	/// Create a blank set of options ready for configuration.
@@ -54,23 +79,15 @@ impl OpenSerialOptions {
 	///
 	/// Equivalent to [`default`](OpenSerialOptions::default).
 	pub fn new() -> Self {
-		OpenSerialOptions {
-			baud_rate: OpenSerialOptions::DEFAULT_BAUD_RATE,
+		Self {
+			extra: open_args::Serial{ baud_rate: Self::DEFAULT_BAUD_RATE},
 			timeout: Some(Duration::from_secs(5)),
 		}
 	}
 
 	/// Set a custom baud rate.
 	pub fn baud_rate(&mut self, baud_rate: u32) -> &mut Self {
-		self.baud_rate = baud_rate;
-		self
-	}
-
-	/// Set a custom read timeout.
-	///
-	/// If duration is `None`, reads will block indefinitely.
-	pub fn timeout(&mut self, duration: Option<Duration>) -> &mut Self {
-		self.timeout = duration;
+		self.extra.baud_rate = baud_rate;
 		self
 	}
 
@@ -80,7 +97,7 @@ impl OpenSerialOptions {
 		// baud rate passed to new is ignored. It must be defined using the
 		// baud_rate method below. Use the default baud_rate as it should be a
 		// valid baud rate.
-		sp::new(path, OpenSerialOptions::DEFAULT_BAUD_RATE)
+		sp::new(path, Self::DEFAULT_BAUD_RATE)
 			.data_bits(sp::DataBits::Eight)
 			.parity(sp::Parity::None)
 			.flow_control(sp::FlowControl::None)
@@ -89,7 +106,7 @@ impl OpenSerialOptions {
 			// set the timeout to the largest possible duration if `timeout` is
 			// `None`, which is practically infinite.
 			.timeout(self.timeout.unwrap_or(Duration::MAX))
-			.baud_rate(self.baud_rate)
+			.baud_rate(self.extra.baud_rate)
 			.open_native()
 			.map(Serial)
 			.map_err(Into::into)
@@ -109,52 +126,26 @@ impl OpenSerialOptions {
 	pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend>>, BinaryError> {
 		Ok(Port::from_backend(Box::new(self.open_serial_port(path)?)))
 	}
+
 }
 
-impl Default for OpenSerialOptions {
+impl Default for OpenOptions<open_args::Serial> {
 	fn default() -> Self {
-		OpenSerialOptions::new()
+		Self::new()
 	}
 }
 
-/// Options for configuring and opening a TCP port.
-///
-/// ## Example
-///
-/// ```rust
-/// # use zproto::binary::OpenTcpOptions;
-/// # use std::time::Duration;
-/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut port = OpenTcpOptions::new()
-///     .timeout(Some(Duration::from_millis(50)))
-///     .open("192.168.0.1:55550")?;
-/// # Ok(())
-/// # }
-/// ```
-#[derive(Debug)]
-pub struct OpenTcpOptions {
-	/// The custom timeout
-	timeout: Option<Duration>,
-}
-
-impl OpenTcpOptions {
+impl OpenOptions<open_args::TcpStream> {
 	/// Create a blank set of options ready for configuration.
 	///
 	/// The default read timeout is 5 seconds. Message IDs and checksums are also enabled by default.
 	///
 	/// Equivalent to [`default`](OpenSerialOptions::default).
 	pub fn new() -> Self {
-		OpenTcpOptions {
+		Self {
 			timeout: Some(Duration::from_secs(5)),
+			extra: open_args::TcpStream,
 		}
-	}
-
-	/// Set a custom read timeout.
-	///
-	/// If duration is `None`, reads will block indefinitely.
-	pub fn timeout(&mut self, duration: Option<Duration>) -> &mut Self {
-		self.timeout = duration;
-		self
 	}
 
 	/// Open a [`TcpStream`] configured for the Binary protocol at the specified address.
@@ -183,10 +174,51 @@ impl OpenTcpOptions {
 	}
 }
 
-impl Default for OpenTcpOptions {
+impl Default for OpenOptions<open_args::TcpStream> {
 	fn default() -> Self {
-		OpenTcpOptions::new()
+		Self::new()
 	}
+}
+
+/// Options for configuring and opening a serial port.
+///
+/// ## Example
+///
+/// ```
+/// # use zproto::binary::OpenSerialOptions;
+/// # use std::time::Duration;
+/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut port = OpenSerialOptions::new()
+///     .timeout(Some(Duration::from_millis(50)))
+///     .open("/dev/ttyUSB0")?;
+/// # Ok(())
+/// # }
+/// ```
+pub type OpenSerialOptions = OpenOptions<open_args::Serial>;
+
+/// Options for configuring and opening a TCP port.
+///
+/// ## Example
+///
+/// ```
+/// # use zproto::binary::OpenTcpOptions;
+/// # use std::time::Duration;
+/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut port = OpenTcpOptions::new()
+///     .timeout(Some(Duration::from_millis(50)))
+///     .open("192.168.0.1:55550")?;
+/// # Ok(())
+/// # }
+/// ```
+pub type OpenTcpOptions = OpenOptions<open_args::TcpStream>;
+
+mod open_args {
+	#[derive(Debug)]
+	pub struct Serial {
+		pub baud_rate: u32,
+	}
+	#[derive(Debug)]
+	pub struct TcpStream;
 }
 
 /// The state of message ids on a port.
