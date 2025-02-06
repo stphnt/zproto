@@ -1,6 +1,6 @@
 //! A port for sending and receiving Zaber Binary protocol messages.
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 use crate::backend::Mock;
 use crate::{
 	backend::{Backend, Serial, UNKNOWN_BACKEND_NAME},
@@ -344,7 +344,7 @@ impl<'a> Port<'a, TcpStream> {
 	}
 }
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, doc, feature = "mock"))]
 impl<'a> Port<'a, Mock> {
 	/// Open a Port with a [`Mock`] [`Backend`].
 	///
