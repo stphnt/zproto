@@ -194,12 +194,15 @@ impl<'a> Port<'a, Mock> {
 	/// # Example
 	///
 	/// ```
-	/// # use zproto::ascii::Port;
 	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// # #[cfg(feature = "mock")] // Only test the code if the "mock" feature is enabled
+	/// # {
+	/// # use zproto::ascii::Port;
 	/// let mut port = Port::open_mock();
 	/// port.backend_mut().push(b"@01 1 OK IDLE -- 1234\r\n");
 	/// let reply = port.command_reply((1, 1, "get pos"))?.flag_ok()?;
 	/// assert_eq!(reply.data().parse::<i32>().unwrap(), 1234);
+	/// # }
 	/// # Ok(())
 	/// # }
 	/// ```

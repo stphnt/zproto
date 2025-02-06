@@ -52,10 +52,12 @@ use std::{
 /// 4. [`OpenMockOptions`] or `OpenOptions<Mock>`: Opens a [`Port`] with a [`Mock`] backend.
 ///
 /// ```
+/// # #[cfg(feature="mock")] // Only test the code if the "mock" feature is enabled
+/// # {
+/// #
 /// # use zproto::ascii::port::OpenMockOptions;
-/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut port = OpenMockOptions::new().open();
-/// # Ok(())
+/// #
 /// # }
 /// ```
 ///
@@ -367,13 +369,18 @@ pub type OpenGeneralOptions = OpenOptions<open_data::General>;
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```
+/// # #[cfg(feature = "mock")] // Only test the code if the "mock" feature is enabled.
+/// # {
+/// #
 /// # use zproto::ascii::port::OpenMockOptions;
 /// # use zproto::backend::Mock;
 /// # use std::time::Duration;
 /// let mut port = OpenMockOptions::new()
 ///     .timeout(Some(Duration::from_millis(50)))
 ///     .open();
+/// #
+/// # }
 /// ```
 #[cfg(any(test, doc, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]

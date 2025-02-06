@@ -355,13 +355,16 @@ impl<'a> Port<'a, Mock> {
 	/// # Example
 	///
 	/// ```
+	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+	/// # #[cfg(feature = "mock")] // Only test the code if the "mock" feature is enabled
+	/// # {
 	/// # use zproto::binary::Port;
 	/// use zproto::binary::command::HOME;
-	/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 	/// let mut port = Port::open_mock();
 	/// port.backend_mut().push([1, 1, 0, 0, 0, 0]);
 	/// let reply = port.tx_recv((0, HOME)).unwrap();
 	/// assert_eq!(reply.command(), HOME);
+	/// # }
 	/// # Ok(())
 	/// # }
 	/// ```
