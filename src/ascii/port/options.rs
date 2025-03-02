@@ -120,7 +120,7 @@ impl<T> OpenOptions<T> {
 }
 
 /// Implement the standard `OpenOptions::new` method.
-macro_rules! impl_new {
+macro_rules! impl_std_new {
 	($T:ty) => {
 		/// Create a blank set of options ready for configuration.
 		///
@@ -140,11 +140,24 @@ macro_rules! impl_new {
 	};
 }
 
+/// Implement the `OpenOptions::timeout` method.
+macro_rules! impl_timeout {
+	($T:ty) => {
+		/// Set a custom read timeout.
+		///
+		/// If duration is `None`, reads will block indefinitely.
+		pub fn timeout(&mut self, duration: Option<Duration>) -> &mut Self {
+			self.timeout = duration;
+			self
+		}
+	};
+}
+
 impl OpenOptions<open_data::Serial> {
 	/// The default baud rate for the ASCII protocol: 115,200.
 	pub const DEFAULT_BAUD_RATE: u32 = 115_200;
 
-	impl_new!(open_data::Serial);
+	impl_std_new!(open_data::Serial);
 
 	/// Set a custom baud rate.
 	///
@@ -192,7 +205,7 @@ impl OpenOptions<open_data::Serial> {
 }
 
 impl OpenOptions<open_data::TcpStream> {
-	impl_new!(open_data::TcpStream);
+	impl_std_new!(open_data::TcpStream);
 
 	/// Open a [`TcpStream`] configured for the ASCII protocol at the specified address.
 	fn open_tcp_stream<A: ToSocketAddrs>(&self, address: A) -> io::Result<TcpStream> {
@@ -221,7 +234,7 @@ impl OpenOptions<open_data::TcpStream> {
 }
 
 impl OpenOptions<open_data::General> {
-	impl_new!(open_data::General);
+	impl_std_new!(open_data::General);
 
 	/// Open a [`Port`] using the specified `backend`.
 	pub fn open<'a, B: Backend>(&self, backend: B) -> Port<'a, B> {
