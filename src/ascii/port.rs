@@ -181,6 +181,37 @@ impl<'a> Port<'a, TcpStream> {
 	}
 }
 
+impl<'a, B: Backend> Port<'a, B> {
+	/// Open a port with the specified `backend` using the default options.
+	///
+	/// For [`Serial`] or [`TcpStream`] backends, use [`Port::open_serial`] and [`Port::open_tcp`] instead.
+	/// Those methods make configuring those backends easier.
+	///
+	/// Alternatively, use [`Port::open_general_options`] to customize how the port is opened.
+	///
+	/// ## Example
+	///
+	/// ```rust
+	/// # use zproto::{ascii::Port, backend::Backend};
+	/// # fn wrapper<B: Backend>(my_backend: B) {
+	/// let mut port = Port::open_general(my_backend);
+	/// # }
+	/// # fn wrapper2<B: Backend>(my_backend: B) {
+	/// // Or equivalently
+	/// let mut port = Port::open_general_options().open(my_backend);
+	/// # }
+	/// ```
+	pub fn open_general(backend: B) -> Port<'a, B> {
+		OpenGeneralOptions::default().open(backend)
+	}
+}
+impl Port<'_, ()> {
+	/// Get an [`OpenGeneralOptions`] to customize how the port is opened.
+	pub fn open_general_options() -> OpenGeneralOptions {
+		OpenGeneralOptions::default()
+	}
+}
+
 #[cfg(any(test, doc, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 impl<'a> Port<'a, Mock> {
