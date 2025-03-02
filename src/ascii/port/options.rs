@@ -15,134 +15,54 @@ use std::{
 	time::Duration,
 };
 
-/// Options for configuring and opening a [`Port`].
-///
-/// There are a few flavors:
-///
-/// 1. [`OpenGeneralOptions`] or `OpenOptions<General>`: Opens a [`Port`] with any [`Backend`].
-///
-/// ```
-/// # use zproto::ascii::port::OpenGeneralOptions;
-/// # use zproto::backend::Backend;
-/// # fn wrapper<B: Backend>(my_backend: B) {
-/// let mut port = OpenGeneralOptions::new().open(my_backend);
-/// # }
-/// ```
-///
-/// 2. [`OpenSerialOptions`] or `OpenOptions<Serial>`: Opens a [`Port`] over a serial
-///    connection.
-/// ```
-/// # use zproto::ascii::port::OpenSerialOptions;
-/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut port = OpenSerialOptions::new().open("/dev/ttyUSB0")?;
-/// # Ok(())
-/// # }
-/// ```
-///
-/// 3. [`OpenTcpOptions`] or `OpenOptions<TcpStream>`: Opens a [`Port`] over a TCP connection.
-///
-/// ```
-/// # use zproto::ascii::port::OpenTcpOptions;
-/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut port = OpenTcpOptions::new().open("192.168.0.1:55550")?;
-/// # Ok(())
-/// # }
-/// ```
-///
-/// 4. [`OpenMockOptions`] or `OpenOptions<Mock>`: Opens a [`Port`] with a [`Mock`] backend.
-///
-/// ```
-/// # #[cfg(feature="mock")] // Only test the code if the "mock" feature is enabled
-/// # {
-/// #
-/// # use zproto::ascii::port::OpenMockOptions;
-/// let mut port = OpenMockOptions::new().open();
-/// #
-/// # }
-/// ```
-///
-#[derive(Debug)]
-pub struct OpenOptions<T> {
-	/// The custom timeout
-	timeout: Option<Duration>,
-	/// Whether commands should include message IDs or not.
-	generate_id: bool,
-	/// Whether commands should include a checksum or not.
-	generate_checksum: bool,
-	/// The maximum command packet size.
-	max_packet_size: MaxPacketSize,
-	/// Other parameters used to open a particular backend.
-	extra: T,
-}
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(3);
+const DEFAULT_GENERATE_ID: bool = true;
+const DEFAULT_GENERATE_CHECKSUM: bool = true;
 
-impl<T> OpenOptions<T> {
-	/// Set a custom read timeout.
-	///
-	/// If duration is `None`, reads will block indefinitely. The default is 3 seconds.
-	pub fn timeout(&mut self, duration: Option<Duration>) -> &mut Self {
-		self.timeout = duration;
-		self
-	}
+/// Defines an `Open*Options` type with the common members and all other specified members.
+///
+/// It is expected that each type has a `new()` method.
+macro_rules! define_option {
+	(
+		$(#[$attr:meta])*
+		pub struct $name:ident {
+			$(
+				$member:ident: $type:ty,
+			)*
+			...
+		}
+	) => {
+		$(#[$attr])*
+		#[derive(Debug)]
+		pub struct $name {
+			$(
+				$member: $type,
+			)*
+			/// Whether commands should include message IDs or not.
+			generate_id: bool,
+			/// Whether commands should include a checksum or not.
+			generate_checksum: bool,
+			/// The maximum command packet size.
+			max_packet_size: MaxPacketSize,
+		}
 
-	/// Set whether commands sent on the port should include a checksum or not.
-	///
-	/// The default is `true` (checksums will be included).
-	pub fn checksums(&mut self, checksum: bool) -> &mut Self {
-		self.generate_checksum = checksum;
-		self
-	}
-
-	/// Set whether commands sent on the port should include a message ID or not.
-	///
-	/// The default is `true` (message IDs will be included).
-	pub fn message_ids(&mut self, id: bool) -> &mut Self {
-		self.generate_id = id;
-		self
-	}
-
-	/// Set the maximum command packet size.
-	///
-	/// The default is [`MaxPacketSize::default`].
-	pub fn max_packet_size(&mut self, max_packet_size: MaxPacketSize) -> &mut Self {
-		self.max_packet_size = max_packet_size;
-		self
-	}
-
-	/// Open a [`Port`] with the configured options and the specified `backend`.
-	fn with_backend<'a, B: Backend>(&self, backend: B) -> Port<'a, B> {
-		Port::from_backend(
-			backend,
-			self.generate_id,
-			self.generate_checksum,
-			self.max_packet_size,
-		)
-	}
-}
-
-/// Implement the standard `OpenOptions::new` method.
-macro_rules! impl_std_new {
-	($T:ty) => {
-		/// Create a blank set of options ready for configuration.
-		///
-		/// By default the read timeout is 3 seconds, message IDs and checksums are enabled, and the max
-		/// packet size is [`MaxPacketSize::default`].
-		///
-		/// Equivalent to [`default`](OpenOptions::default).
-		pub fn new() -> Self {
-			Self {
-				timeout: Some(Duration::from_secs(3)),
-				generate_id: true,
-				generate_checksum: true,
-				max_packet_size: MaxPacketSize::default(),
-				extra: <$T>::default(),
+		$(#[$attr])*
+		impl Default for $name {
+			fn default() -> Self {
+				Self::new()
 			}
 		}
 	};
 }
 
-/// Implement the `OpenOptions::timeout` method.
-macro_rules! impl_timeout {
-	($T:ty) => {
+/// Create implementations for the common builder methods for open
+macro_rules! impl_builder_methods {
+	($($token:ident),+) => {
+		$(
+			impl_builder_methods!{@ $token}
+		)+
+	};
+	(@ timeout) => {
 		/// Set a custom read timeout.
 		///
 		/// If duration is `None`, reads will block indefinitely.
@@ -151,20 +71,92 @@ macro_rules! impl_timeout {
 			self
 		}
 	};
+	(@ baud_rate) => {
+		/// Set a custom baud rate.
+		///
+		/// The default is 115,200.
+		pub fn baud_rate(&mut self, baud_rate: u32) -> &mut Self {
+			self.baud_rate = baud_rate;
+			self
+		}
+	};
+	(@ common) => {
+		/// Set whether commands sent on the port should include a checksum or not.
+		///
+		/// The default is `true` (checksums will be included).
+		pub fn checksums(&mut self, checksum: bool) -> &mut Self {
+			self.generate_checksum = checksum;
+			self
+		}
+
+		/// Set whether commands sent on the port should include a message ID or not.
+		///
+		/// The default is `true` (message IDs will be included).
+		pub fn message_ids(&mut self, id: bool) -> &mut Self {
+			self.generate_id = id;
+			self
+		}
+
+		/// Set the maximum command packet size.
+		///
+		/// The default is [`MaxPacketSize::default`].
+		pub fn max_packet_size(&mut self, max_packet_size: MaxPacketSize) -> &mut Self {
+			self.max_packet_size = max_packet_size;
+			self
+		}
+
+		/// Open a [`Port`] with the configured options and the specified `backend`.
+		fn with_backend<'a, B: Backend>(&self, backend: B) -> Port<'a, B> {
+			Port::from_backend(
+				backend,
+				self.generate_id,
+				self.generate_checksum,
+				self.max_packet_size,
+			)
+		}
+	};
 }
 
-impl OpenOptions<open_data::Serial> {
+define_option! {
+	/// Options for configuring and opening a serial port.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::ascii::port::OpenSerialOptions;
+	/// # use std::time::Duration;
+	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = OpenSerialOptions::new()
+	///     .timeout(Some(Duration::from_millis(50)))
+	///     .open("/dev/ttyUSB0")?;
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub struct OpenSerialOptions {
+		timeout: Option<Duration>,
+		baud_rate: u32,
+		...
+	}
+}
+
+impl OpenSerialOptions {
 	/// The default baud rate for the ASCII protocol: 115,200.
 	pub const DEFAULT_BAUD_RATE: u32 = 115_200;
 
-	impl_std_new!(open_data::Serial);
-
-	/// Set a custom baud rate.
+	/// Create a blank set of options ready for configuration.
 	///
-	/// The default is 115,200.
-	pub fn baud_rate(&mut self, baud_rate: u32) -> &mut Self {
-		self.extra.baud_rate = baud_rate;
-		self
+	/// By default the read timeout is 3 seconds, the baud rate is 115,200, message IDs and checksums are enabled, and the max
+	/// packet size is [`MaxPacketSize::default`].
+	///
+	/// Equivalent to [`default`](OpenSerialOptions::default).
+	pub fn new() -> Self {
+		Self {
+			generate_id: DEFAULT_GENERATE_ID,
+			generate_checksum: DEFAULT_GENERATE_CHECKSUM,
+			max_packet_size: MaxPacketSize::default(),
+			timeout: Some(DEFAULT_TIMEOUT),
+			baud_rate: Self::DEFAULT_BAUD_RATE,
+		}
 	}
 
 	/// Open a [`Serial`] port configured for the ASCII protocol at the specified path.
@@ -182,7 +174,7 @@ impl OpenOptions<open_data::Serial> {
 			// set the timeout to the largest possible duration if `timeout` is
 			// `None`, which is practically infinite.
 			.timeout(self.timeout.unwrap_or(Duration::MAX))
-			.baud_rate(self.extra.baud_rate)
+			.baud_rate(self.baud_rate)
 			.open_native()
 			.map(Serial)
 			.map_err(Into::into)
@@ -202,10 +194,46 @@ impl OpenOptions<open_data::Serial> {
 	pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend>>, AsciiError> {
 		Ok(self.with_backend(Box::new(self.open_serial_port(path)?)))
 	}
+
+	impl_builder_methods! {common, baud_rate, timeout}
 }
 
-impl OpenOptions<open_data::TcpStream> {
-	impl_std_new!(open_data::TcpStream);
+define_option! {
+	/// Options for configuring and opening a TCP port.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::ascii::port::OpenTcpOptions;
+	/// # use std::time::Duration;
+	/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = OpenTcpOptions::new()
+	///     .timeout(Some(Duration::from_millis(50)))
+	///     .open("192.168.0.1:55550")?;
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub struct OpenTcpOptions {
+		timeout: Option<Duration>,
+		...
+	}
+}
+
+impl OpenTcpOptions {
+	/// Create a blank set of options ready for configuration.
+	///
+	/// By default the read timeout is 3 seconds, message IDs and checksums are enabled, and the max
+	/// packet size is [`MaxPacketSize::default`].
+	///
+	/// Equivalent to [`default`](OpenTcpOptions::default).
+	pub fn new() -> Self {
+		Self {
+			generate_id: DEFAULT_GENERATE_ID,
+			generate_checksum: DEFAULT_GENERATE_CHECKSUM,
+			max_packet_size: MaxPacketSize::default(),
+			timeout: Some(DEFAULT_TIMEOUT),
+		}
+	}
 
 	/// Open a [`TcpStream`] configured for the ASCII protocol at the specified address.
 	fn open_tcp_stream<A: ToSocketAddrs>(&self, address: A) -> io::Result<TcpStream> {
@@ -231,170 +259,95 @@ impl OpenOptions<open_data::TcpStream> {
 	) -> io::Result<Port<'a, Box<dyn Backend>>> {
 		Ok(self.with_backend(Box::new(self.open_tcp_stream(address)?)))
 	}
+
+	impl_builder_methods! {common, timeout}
 }
 
-impl OpenOptions<open_data::General> {
-	impl_std_new!(open_data::General);
+define_option! {
+	/// Options for configuring and opening a port with any [`Backend`].
+	///
+	/// When the backend is either [`Serial`] or [`TcpStream`], it is better to use the options
+	/// specific to them: [`OpenSerialOptions`] or [`OpenTcpOptions`], respectively. They provide a
+	/// more ergonomic/correct way of opening the port.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # use zproto::ascii::port::OpenGeneralOptions;
+	/// # use zproto::backend::Backend;
+	/// # fn wrapper(my_backend: impl Backend) -> Result<(), Box<dyn std::error::Error>> {
+	/// let mut port = OpenGeneralOptions::new().message_ids(false).open(my_backend);
+	/// # Ok(())
+	/// # }
+	/// ```
+	pub struct OpenGeneralOptions {
+		...
+	}
+}
+
+impl OpenGeneralOptions {
+	/// Create a blank set of options ready for configuration.
+	///
+	/// By message IDs and checksums are enabled, and the max packet size is [`MaxPacketSize::default`].
+	///
+	/// Equivalent to [`default`](OpenGeneralOptions::default).
+	pub fn new() -> Self {
+		Self {
+			generate_id: DEFAULT_GENERATE_ID,
+			generate_checksum: DEFAULT_GENERATE_CHECKSUM,
+			max_packet_size: MaxPacketSize::default(),
+		}
+	}
 
 	/// Open a [`Port`] using the specified `backend`.
 	pub fn open<'a, B: Backend>(&self, backend: B) -> Port<'a, B> {
 		self.with_backend(backend)
 	}
+
+	impl_builder_methods! {common}
+}
+
+define_option! {
+	/// Options for configuring and opening a port with a [`Mock`] backend.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// # #[cfg(feature = "mock")] // Only test the code if the "mock" feature is enabled.
+	/// # {
+	/// # use zproto::ascii::port::OpenMockOptions;
+	/// # use zproto::backend::Mock;
+	/// let mut port = OpenMockOptions::new().message_ids(true).open();
+	/// # }
+	/// ```
+	#[cfg(any(test, doc, feature = "mock"))]
+	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
+	pub struct OpenMockOptions {
+		...
+	}
 }
 
 #[cfg(any(test, doc, feature = "mock"))]
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
-impl OpenOptions<open_data::Mock> {
+impl OpenMockOptions {
 	/// Create a blank set of options ready for configuration.
 	///
-	/// By default the read timeout is 3 seconds and the max packet size is
-	/// [`MaxPacketSize::default`], but message IDs and checksums are disabled.
+	/// By default the max packet size is [`MaxPacketSize::default`], but
+	/// message IDs and checksums are disabled.
 	///
-	/// Equivalent to [`default`](OpenOptions::default).
+	/// Equivalent to [`default`](OpenMockOptions::default).
 	pub fn new() -> Self {
 		Self {
-			timeout: Some(Duration::from_secs(3)),
 			generate_id: false,
 			generate_checksum: false,
 			max_packet_size: MaxPacketSize::default(),
-			extra: open_data::Mock,
 		}
 	}
 
-	/// Open a [`Port`] using the specified `backend`.
+	/// Open a [`Port`] using the [`Mock`] backend.
 	pub fn open<'a>(&self) -> Port<'a, Mock> {
 		self.with_backend(Mock::new())
 	}
+
+	impl_builder_methods! {common}
 }
-
-impl Default for OpenOptions<open_data::Serial> {
-	fn default() -> Self {
-		OpenOptions::<open_data::Serial>::new()
-	}
-}
-
-impl Default for OpenOptions<open_data::TcpStream> {
-	fn default() -> Self {
-		OpenOptions::<open_data::TcpStream>::new()
-	}
-}
-
-impl Default for OpenOptions<open_data::General> {
-	fn default() -> Self {
-		OpenOptions::<open_data::General>::new()
-	}
-}
-
-#[cfg(any(test, doc, feature = "mock"))]
-impl Default for OpenOptions<open_data::Mock> {
-	fn default() -> Self {
-		OpenOptions::<open_data::Mock>::new()
-	}
-}
-
-/// Types defining data required to open different backends.
-///
-/// The types are named after the Backend they are used for opening, where possible.
-///
-/// The module is intentionally private.
-mod open_data {
-	/// Extra data needed to open a [`crate::backend::Serial`] backend.
-	#[derive(Debug)]
-	pub struct Serial {
-		pub(super) baud_rate: u32,
-	}
-
-	impl Default for Serial {
-		fn default() -> Self {
-			Self {
-				baud_rate: super::OpenOptions::<Serial>::DEFAULT_BAUD_RATE,
-			}
-		}
-	}
-
-	/// Extra data a [`std::net::TcpStream`] backend.
-	#[derive(Debug, Default)]
-	pub struct TcpStream;
-
-	/// Extra data needed to open a general backend.
-	#[derive(Debug, Default)]
-	pub struct General;
-
-	/// Extra data needed to open a mock backend.
-	#[derive(Debug, Default)]
-	pub struct Mock;
-}
-
-/// Options for configuring and opening a serial port.
-///
-/// ## Example
-///
-/// ```rust
-/// # use zproto::ascii::port::OpenSerialOptions;
-/// # use std::time::Duration;
-/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut port = OpenSerialOptions::new()
-///     .timeout(Some(Duration::from_millis(50)))
-///     .open("/dev/ttyUSB0")?;
-/// # Ok(())
-/// # }
-/// ```
-pub type OpenSerialOptions = OpenOptions<open_data::Serial>;
-
-/// Options for configuring and opening a TCP port.
-///
-/// ## Example
-///
-/// ```rust
-/// # use zproto::ascii::port::OpenTcpOptions;
-/// # use std::time::Duration;
-/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut port = OpenTcpOptions::new()
-///     .timeout(Some(Duration::from_millis(50)))
-///     .open("192.168.0.1:55550")?;
-/// # Ok(())
-/// # }
-/// ```
-pub type OpenTcpOptions = OpenOptions<open_data::TcpStream>;
-
-/// Options for configuring and opening a port with any [`Backend`].
-///
-/// When the backend is either [`Serial`] or [`TcpStream`], it is better to use the options
-/// specific to them: [`OpenSerialOptions`] or [`OpenTcpOptions`], respectively. They provide a
-/// more ergonomic/correct way of opening the port.
-///
-/// ## Example
-///
-/// ```rust
-/// # use zproto::ascii::port::OpenGeneralOptions;
-/// # use zproto::backend::Backend;
-/// # use std::time::Duration;
-/// # fn wrapper(my_backend: impl Backend) -> Result<(), Box<dyn std::error::Error>> {
-/// let mut port = OpenGeneralOptions::new()
-///     .timeout(Some(Duration::from_millis(50)))
-///     .open(my_backend);
-/// # Ok(())
-/// # }
-/// ```
-pub type OpenGeneralOptions = OpenOptions<open_data::General>;
-
-/// Options for configuring and opening a port with a [`Mock`] backend.
-///
-/// ## Example
-///
-/// ```
-/// # #[cfg(feature = "mock")] // Only test the code if the "mock" feature is enabled.
-/// # {
-/// #
-/// # use zproto::ascii::port::OpenMockOptions;
-/// # use zproto::backend::Mock;
-/// # use std::time::Duration;
-/// let mut port = OpenMockOptions::new()
-///     .timeout(Some(Duration::from_millis(50)))
-///     .open();
-/// #
-/// # }
-/// ```
-#[cfg(any(test, doc, feature = "mock"))]
-#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
-pub type OpenMockOptions = OpenOptions<open_data::Mock>;

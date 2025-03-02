@@ -33,7 +33,7 @@ use crate::{
 use handlers::{Handlers, LocalHandlers, SendHandlers};
 #[cfg(any(test, doc, feature = "mock"))]
 pub use options::OpenMockOptions;
-pub use options::{OpenGeneralOptions, OpenOptions, OpenSerialOptions, OpenTcpOptions};
+pub use options::{OpenGeneralOptions, OpenSerialOptions, OpenTcpOptions};
 use std::{
 	convert::TryFrom,
 	io,
