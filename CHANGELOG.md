@@ -77,5 +77,6 @@
 Prior release notes can be found in [GitHub Releases](https://github.com/stphnt/zproto/releases).
 
 
-[Unreleased]: https://github.com/stphnt/zproto/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/stphnt/zproto/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/stphnt/zproto/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/stphnt/zproto/compare/v0.3.5...v0.4.0
