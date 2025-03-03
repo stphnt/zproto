@@ -13,6 +13,7 @@
 
 * Unsealed the `Backend` trait, allowing for third-party implementations.
 * Update `serialport-rs` dependency to 4.7.0
+* `Mock::set_write_callback()` now takes an `impl FnMut` instead of an `fn`.
 
 ## [0.4.0] - 2024-11-12
 
@@ -77,5 +78,6 @@
 Prior release notes can be found in [GitHub Releases](https://github.com/stphnt/zproto/releases).
 
 
-[Unreleased]: https://github.com/stphnt/zproto/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/stphnt/zproto/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/stphnt/zproto/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/stphnt/zproto/compare/v0.3.5...v0.4.0
