@@ -374,6 +374,19 @@ impl<'a> Port<'a, Mock> {
 	}
 }
 
+impl<'a, B> Port<'a, B>
+where
+	B: Backend,
+{
+	/// Open a port with the specified `backend`.
+	///
+	/// For [`Serial`] or [`TcpStream`] backends, use [`Port::open_serial`] and [`Port::open_tcp`]
+	/// instead. Those methods make configuring those backends easier.
+	pub fn open_general(backend: B) -> Port<'a, B> {
+		Self::from_backend(backend)
+	}
+}
+
 impl<'a, B, H> Port<'a, B, H>
 where
 	B: Backend,
