@@ -142,7 +142,7 @@ impl OpenTcpOptions {
 	///
 	/// The default read timeout is 5 seconds. Message IDs and checksums are also enabled by default.
 	///
-	/// Equivalent to [`default`](OpenSerialOptions::default).
+	/// Equivalent to [`default`](OpenTcpOptions::default).
 	pub fn new() -> Self {
 		OpenTcpOptions {
 			timeout: Some(Duration::from_secs(5)),
