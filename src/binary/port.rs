@@ -76,7 +76,7 @@ impl OpenSerialOptions {
 
 	/// Open a [`Serial`] port configured for the Binary protocol at the specified path.
 	fn open_serial_port(&self, path: &str) -> Result<Serial, BinaryError> {
-		// Due to https://gitlab.com/susurrus/serialport-rs/-/issues/102, the
+		// Due to https://github.com/serialport/serialport-rs/issues/20, the
 		// baud rate passed to new is ignored. It must be defined using the
 		// baud_rate method below. Use the default baud_rate as it should be a
 		// valid baud rate.
