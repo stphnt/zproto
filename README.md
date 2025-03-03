@@ -1,3 +1,6 @@
+[![crates.io](https://img.shields.io/crates/v/zproto?color=green)](https://crates.io/crates/zproto)
+[![Documentation](https://img.shields.io/docsrs/zproto)](https://docs.rs/zproto)
+
 # zproto
 
 A Rust implementation of Zaber's ASCII and Binary Protocols.
