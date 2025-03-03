@@ -142,7 +142,7 @@ impl OpenTcpOptions {
 	///
 	/// The default read timeout is 5 seconds. Message IDs and checksums are also enabled by default.
 	///
-	/// Equivalent to [`default`](OpenSerialOptions::default).
+	/// Equivalent to [`default`](OpenTcpOptions::default).
 	pub fn new() -> Self {
 		OpenTcpOptions {
 			timeout: Some(Duration::from_secs(5)),
@@ -371,6 +371,19 @@ impl<'a> Port<'a, Mock> {
 	#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "mock")))]
 	pub fn open_mock() -> Port<'a, Mock> {
 		Port::from_backend(Mock::new())
+	}
+}
+
+impl<'a, B> Port<'a, B>
+where
+	B: Backend,
+{
+	/// Open a port with the specified `backend`.
+	///
+	/// For [`Serial`] or [`TcpStream`] backends, use [`Port::open_serial`] and [`Port::open_tcp`]
+	/// instead. Those methods make configuring those backends easier.
+	pub fn open_general(backend: B) -> Port<'a, B> {
+		Self::from_backend(backend)
 	}
 }
 
