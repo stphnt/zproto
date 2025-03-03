@@ -13,6 +13,7 @@
 
 * Unsealed the `Backend` trait, allowing for third-party implementations.
 * Update `serialport-rs` dependency to 4.7.0
+* `Mock::set_write_callback()` now takes an `impl FnMut` instead of an `fn`.
 
 ## [0.4.0] - 2024-11-12
 
