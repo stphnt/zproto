@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-03-02
+
+### Added
+
+* Added `Port::open_general()` for opening a port using a general `Backend`.
+* Added `ascii::Port::open_general_options()` and `ascii::Port::open_mock_options()`.
+
+### Changed
+
+* Unsealed the `Backend` trait, allowing for third-party implementations.
+* Update `serialport-rs` dependency to 4.7.0
+
 ## [0.4.0] - 2024-11-12
 
 ### Added
@@ -12,7 +24,7 @@
 ### Changed
 
 * `ascii::Port` methods now mostly return `NotChecked<R>` instead of some response type `R`. The `NotChecked<R>` type wraps a response `R`, which is only accessible by calling one of the type's validation functions.
-* `ascii::Port` is now parameterized with a `Tag` type, which has a default value. In the vase majority of cases it can be ignored. See the `ascii::Port` documentation for more details.
+* `ascii::Port` is now parameterized with a `Tag` type, which has a default value. In the vast majority of cases it can be ignored. See the `ascii::Port` documentation for more details.
 * The `ascii` module now only re-exports the `Port` type. All other types are now organized into submodules, some of which have been renamed.
 
   * `ascii::parse` -> `ascii::packet`
