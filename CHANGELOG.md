@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-03-02
+
+### Added
+
+* Added `Port::open_general()` for opening a port using a general `Backend`.
+* Added `ascii::Port::open_general_options()` and `ascii::Port::open_mock_options()`.
+
+### Changed
+
+* Unsealed the `Backend` trait, allowing for third-party implementations.
+* Update `serialport-rs` dependency to 4.7.0
+
 ## [0.4.0] - 2024-11-12
 
 ### Added
