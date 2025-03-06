@@ -87,6 +87,9 @@ unstable_v7_36 = [] # Enable APIs related to firmware version 7.36 (requires the
 unstable_v7_37 = [] # Enable APIs related to firmware version 7.37 (requires the '--cfg unstable' rustc flag)
 unstable_v7_38 = [] # Enable APIs related to firmware version 7.38 (requires the '--cfg unstable' rustc flag)
 unstable_v7_39 = [] # Enable APIs related to firmware version 7.39 (requires the '--cfg unstable' rustc flag)
+unstable_v7_40 = [] # Enable APIs related to firmware version 7.40 (requires the '--cfg unstable' rustc flag)
+unstable_v7_41 = [] # Enable APIs related to firmware version 7.41 (requires the '--cfg unstable' rustc flag)
+unstable_v7_42 = [] # Enable APIs related to firmware version 7.42 (requires the '--cfg unstable' rustc flag)
 unstable_v_latest = [] # Enable APIs related to the latest firmware version (requires the '--cfg unstable' rustc flag)
 
 

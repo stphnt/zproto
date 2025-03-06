@@ -114,8 +114,14 @@ pub(crate) mod private {
 	pub mod v7_37;
 	#[cfg(feature = "unstable_v7_38")]
 	pub mod v7_38;
-	#[cfg(any(feature = "unstable_v7_39", feature = "unstable_v_latest"))]
+	#[cfg(feature = "unstable_v7_39")]
 	pub mod v7_39;
+	#[cfg(feature = "unstable_v7_40")]
+	pub mod v7_40;
+	#[cfg(feature = "unstable_v7_41")]
+	pub mod v7_41;
+	#[cfg(any(feature = "unstable_v7_42", feature = "unstable_v_latest"))]
+	pub mod v7_42;
 }
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v6_14")))]
 #[cfg(feature = "unstable_v6_14")]
@@ -285,6 +291,15 @@ pub use private::v7_38 as v7_38;
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v7_39")))]
 #[cfg(feature = "unstable_v7_39")]
 pub use private::v7_39 as v7_39;
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v7_40")))]
+#[cfg(feature = "unstable_v7_40")]
+pub use private::v7_40 as v7_40;
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v7_41")))]
+#[cfg(feature = "unstable_v7_41")]
+pub use private::v7_41 as v7_41;
+#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v7_42")))]
+#[cfg(feature = "unstable_v7_42")]
+pub use private::v7_42 as v7_42;
 
 /// An alias for the module containing settings for the latest version of firmware.
 ///
@@ -293,4 +308,4 @@ pub use private::v7_39 as v7_39;
 ///
 #[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v_latest")))]
 #[cfg(feature = "unstable_v_latest")]
-pub use private::v7_39 as v_latest;
+pub use private::v7_42 as v_latest;
