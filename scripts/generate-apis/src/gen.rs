@@ -167,13 +167,13 @@ pub use private::v{} as v_latest;"#,
 /// This adds features for all versions that it generated.
 pub fn update_cargo_toml(versions: &[Version], dir_path: impl AsRef<Path>) -> anyhow::Result<()> {
 	use std::io::{Read as _, Write as _};
-	use toml_edit::{value, Array, Document, Item};
+	use toml_edit::{value, Array, DocumentMut, Item};
 
 	let dir_path = dir_path.as_ref();
 
 	let mut contents = String::new();
 	std::fs::File::open(dir_path)?.read_to_string(&mut contents)?;
-	let mut toml: Document = contents.parse()?;
+	let mut toml: DocumentMut = contents.parse()?;
 	let Some(Item::Table(features)) = toml.get_mut("features") else {
 		anyhow::bail!("unexpected Cargo.toml structure");
 	};

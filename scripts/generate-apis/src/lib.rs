@@ -174,8 +174,8 @@ impl ParamType {
 			"Int64" => Some("i64"),
 			"Bool" => Some("bool"),
 			"Uint16DP1" | "Uint16DP2" | "Uint16DP3" | "Uint32DP1" | "Int32DP2" | "Uint32DP3"
-			| "UintDP1" | "Int16DP1" | "Int32DP3" | "Int32DP6" | "IntDP1" | "Tenths"
-			| "Utenths" | "UTenths" | "Uhalves32" => Some("f32"),
+			| "UintDP1" | "Int16DP1" | "Int16DP3" | "Int32DP3" | "Int32DP6" | "IntDP1"
+			| "Tenths" | "Utenths" | "UTenths" | "Uhalves32" => Some("f32"),
 			"Uint64DP1" | "Uint64DP9" | "Int64DP9" | "Int64DP1" => Some("f64"),
 			"Token" => Some("::std::string::String"),
 			"MACAddress" => Some("crate::ascii::setting::data_types::MacAddress"),
