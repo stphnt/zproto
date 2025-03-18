@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2025-03-17
+
+### Changed
+
+* `Open*Options::open_dyn()` methods now return a `Backend` that implements `Send`.
+* `Port::try_into_send()` methods now require the `Port`'s `Backend` to implement `Send`.
+
 ## [0.4.1] - 2025-03-02
 
 ### Added
@@ -78,6 +85,7 @@
 Prior release notes can be found in [GitHub Releases](https://github.com/stphnt/zproto/releases).
 
 
-[Unreleased]: https://github.com/stphnt/zproto/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/stphnt/zproto/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/stphnt/zproto/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/stphnt/zproto/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/stphnt/zproto/compare/v0.3.5...v0.4.0
