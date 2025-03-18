@@ -106,7 +106,10 @@ impl OpenSerialOptions {
 	/// which does have runtime overhead. [`open`](OpenSerialOptions::open)
 	/// should generally be used instead, except when the type of the underlying
 	/// backend may not be known at compile time.
-	pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend + Send>>, BinaryError> {
+	pub fn open_dyn<'a>(
+		&self,
+		path: &str,
+	) -> Result<Port<'a, Box<dyn Backend + Send>>, BinaryError> {
 		Ok(Port::from_backend(Box::new(self.open_serial_port(path)?)))
 	}
 }
@@ -454,7 +457,10 @@ where
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError> {
+	pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError>
+	where
+		B: Send,
+	{
 		if self.handlers.packet().is_some() {
 			return Err(TryIntoSendError::new());
 		}

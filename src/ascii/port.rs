@@ -409,7 +409,10 @@ fn do_something<Backend, Tag>(port: &mut Port<Backend, Tag>, chain: &Chain<Tag>)
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn try_into_send(mut self) -> Result<SendPort<'a, B, Tag>, TryIntoSendError> {
+	pub fn try_into_send(mut self) -> Result<SendPort<'a, B, Tag>, TryIntoSendError>
+	where
+		B: Send,
+	{
 		if self.handlers.packet().is_some() || self.handlers.unexpected_alert().is_some() {
 			return Err(TryIntoSendError::new());
 		}
