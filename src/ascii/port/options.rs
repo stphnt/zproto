@@ -191,7 +191,10 @@ impl OpenSerialOptions {
 	/// which does have runtime overhead. [`OpenSerialOptions::open`] should
 	/// generally be used instead, except when the type of the underlying
 	/// backend may not be known at compile time.
-	pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend>>, AsciiError> {
+	pub fn open_dyn<'a>(
+		&self,
+		path: &str,
+	) -> Result<Port<'a, Box<dyn Backend + Send>>, AsciiError> {
 		Ok(self.with_backend(Box::new(self.open_serial_port(path)?)))
 	}
 
@@ -256,7 +259,7 @@ impl OpenTcpOptions {
 	pub fn open_dyn<'a, A: ToSocketAddrs>(
 		&self,
 		address: A,
-	) -> io::Result<Port<'a, Box<dyn Backend>>> {
+	) -> io::Result<Port<'a, Box<dyn Backend + Send>>> {
 		Ok(self.with_backend(Box::new(self.open_tcp_stream(address)?)))
 	}
 

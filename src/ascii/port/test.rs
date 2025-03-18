@@ -772,3 +772,25 @@ make_poison_test!(response::<AnyResponse>);
 make_poison_test!(response_n::<AnyResponse, _>, 1, unchecked::<AnyResponse>());
 make_poison_test!(responses_until_timeout, unchecked::<AnyResponse>());
 make_poison_test!(timeout_guard, None);
+
+/// Calling open_dyn() should return a type that implements `Send`.
+#[test]
+fn port_send_bounds() {
+	if let Ok(port) = Port::open_serial_options().open_dyn("...") {
+		let mut port = port.try_into_send().unwrap();
+
+		std::thread::spawn(move || {
+			// Do something to use the port and cause the move.
+			let _ = port.set_read_timeout(None);
+		});
+	}
+
+	if let Ok(port) = Port::open_tcp_options().open_dyn("...") {
+		let mut port = port.try_into_send().unwrap();
+
+		std::thread::spawn(move || {
+			// Do something to use the port and cause the move.
+			let _ = port.set_read_timeout(None);
+		});
+	}
+}

@@ -106,7 +106,10 @@ impl OpenSerialOptions {
 	/// which does have runtime overhead. [`open`](OpenSerialOptions::open)
 	/// should generally be used instead, except when the type of the underlying
 	/// backend may not be known at compile time.
-	pub fn open_dyn<'a>(&self, path: &str) -> Result<Port<'a, Box<dyn Backend>>, BinaryError> {
+	pub fn open_dyn<'a>(
+		&self,
+		path: &str,
+	) -> Result<Port<'a, Box<dyn Backend + Send>>, BinaryError> {
 		Ok(Port::from_backend(Box::new(self.open_serial_port(path)?)))
 	}
 }
@@ -178,7 +181,7 @@ impl OpenTcpOptions {
 	pub fn open_dyn<'a, A: ToSocketAddrs>(
 		&self,
 		address: A,
-	) -> io::Result<Port<'a, Box<dyn Backend>>> {
+	) -> io::Result<Port<'a, Box<dyn Backend + Send>>> {
 		Ok(Port::from_backend(Box::new(self.open_tcp_stream(address)?)))
 	}
 }
@@ -454,7 +457,10 @@ where
 	/// # Ok(())
 	/// # }
 	/// ```
-	pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError> {
+	pub fn try_into_send(mut self) -> Result<SendPort<'a, B>, TryIntoSendError>
+	where
+		B: Send,
+	{
 		if self.handlers.packet().is_some() {
 			return Err(TryIntoSendError::new());
 		}
@@ -1294,5 +1300,27 @@ mod test {
 				),
 			]
 		);
+	}
+
+	/// Calling open_dyn() should return a type that implements `Send`.
+	#[test]
+	fn port_send_bounds() {
+		if let Ok(port) = Port::open_serial_options().open_dyn("...") {
+			let mut port = port.try_into_send().unwrap();
+
+			std::thread::spawn(move || {
+				// Do something to use the port and cause the move.
+				let _ = port.set_read_timeout(None);
+			});
+		}
+
+		if let Ok(port) = Port::open_tcp_options().open_dyn("...") {
+			let mut port = port.try_into_send().unwrap();
+
+			std::thread::spawn(move || {
+				// Do something to use the port and cause the move.
+				let _ = port.set_read_timeout(None);
+			});
+		}
 	}
 }
