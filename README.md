@@ -82,6 +82,6 @@ This project is license under the [MIT License](LICENSE).
 
 1. Building fails with an error about `libudev`
 
-    This crate requires the `libudev` shared library to be installed on your system, which some operating systems do not have installed by default.
-    Installing the library will solve the problem.
-    For example, on Ubuntu the library can be installed with `sudo apt install libudev-dev`.
+   This crate requires the `libudev` shared library to be installed on your system, which some operating systems do not have installed by default.
+   Installing the library will solve the problem.
+   For example, on Ubuntu the library can be installed with `sudo apt install libudev-dev`.
