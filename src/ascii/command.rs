@@ -314,7 +314,7 @@ impl<'a> CommandWriter<'a> {
 					bytes_written += device_char_count;
 				}
 			}
-		};
+		}
 		Ok(bytes_written)
 	}
 
