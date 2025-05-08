@@ -141,3 +141,17 @@ jobs:
           components: rust-docs
       - uses: Swatinem/rust-cache@v2
       - run: RUSTDOCFLAGS="--cfg unstable" cargo doc --no-deps --all-features
+
+  semver-check:
+    name: SemVer Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libudev
+        run: |
+          sudo apt update
+          sudo apt install libudev-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
+
