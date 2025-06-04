@@ -114,23 +114,23 @@ name = "binary"
 required-features = ["binary"]
 
 [lints.clippy]
-cargo = "deny"
+cargo = { level = "deny", priority = -1 }
 # Some dependencies each have common dependencies but with different versions
 # We cannot fix this, so ignore the lint.
-multiple_crate_versions = { level = "allow", priority = 1 }
+multiple_crate_versions = "allow"
 
-pedantic = "deny"
+pedantic = { level = "deny", priority = -1 }
 # Pedantic group overrides
-module_name_repetitions = { level = "allow", priority = 1 }
-must_use_candidate = { level = "allow", priority = 1 } # too many
-missing_errors_doc = { level = "allow", priority = 1 }
-missing_panics_doc = { level = "allow", priority = 1 }
-needless_pass_by_value = { level = "allow", priority = 1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow" # too many
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+needless_pass_by_value = "allow"
 
 [lints.rust]
 # groups
-warnings = "deny"
-rust-2018-idioms = "deny"
+warnings = { level = "deny", priority = -1 }
+rust-2018-idioms = { level = "deny", priority = -1 }
 
 # individual lints
 missing-docs = "deny"

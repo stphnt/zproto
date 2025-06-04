@@ -76,8 +76,7 @@ impl<B: Backend, P: Port<B>> std::ops::Drop for TimeoutGuard<'_, B, P> {
 			.backend_mut()
 			.set_read_timeout(self.original_timeout)
 		{
-			self.port.poison(io::Error::new(
-				io::ErrorKind::Other,
+			self.port.poison(io::Error::other(
 				if let Some(timeout) = self.original_timeout {
 					format!(
 						"failed to reset timeout to {} seconds: {}",

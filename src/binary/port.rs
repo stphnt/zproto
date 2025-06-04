@@ -954,10 +954,9 @@ where
 	where
 		H::PacketHandler: crate::convert::From<F>,
 	{
-		std::mem::replace(
-			self.handlers.packet(),
-			Some(crate::convert::From::from(callback)),
-		)
+		self.handlers
+			.packet()
+			.replace(crate::convert::From::from(callback))
 	}
 
 	/// Clear any callback registered via [`set_packet_handler`](Port::set_packet_handler) and return it.

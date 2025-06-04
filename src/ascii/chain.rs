@@ -241,7 +241,7 @@ pub struct Axis<'a, Tag> {
 	/// The device address
 	address: NonZeroU8,
 	/// The axis number
-	axis: NonZeroU8,
+	number: NonZeroU8,
 	tag: std::marker::PhantomData<Tag>,
 }
 
@@ -250,7 +250,7 @@ impl<Tag> Clone for Axis<'_, Tag> {
 		Axis {
 			info: self.info,
 			address: self.address,
-			axis: self.axis,
+			number: self.number,
 			tag: std::marker::PhantomData,
 		}
 	}
@@ -258,18 +258,18 @@ impl<Tag> Clone for Axis<'_, Tag> {
 
 impl<'a, Tag> Axis<'a, Tag> {
 	/// Create an `Axis`
-	fn new(info: &'a ChainInfo, address: NonZeroU8, axis: NonZeroU8) -> Self {
+	fn new(info: &'a ChainInfo, address: NonZeroU8, number: NonZeroU8) -> Self {
 		Axis {
 			info,
 			address,
-			axis,
+			number,
 			tag: std::marker::PhantomData,
 		}
 	}
 
 	/// Get the [`Target`] for the axis.
 	pub fn target(&self) -> Target {
-		(self.address.get(), self.axis.get()).into()
+		(self.address.get(), self.number.get()).into()
 	}
 
 	/// Get access to this axis's settings.
