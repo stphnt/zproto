@@ -14,4 +14,4 @@ env_logger = "0.11.6"
 fnv = "1.0.7"
 log = "0.4.17"
 rusqlite = { version = "0.37.0", features = ["bundled"] }
-toml_edit = "0.22.22"
+toml_edit = "0.23.2"
