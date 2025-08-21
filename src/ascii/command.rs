@@ -566,7 +566,6 @@ mod test {
 
 	#[test]
 	fn test_command_writer() {
-		let mut buf = Vec::with_capacity(500);
 		struct Case {
 			command: &'static (u8, u8, &'static str),
 			generate_id: bool,
@@ -690,6 +689,7 @@ mod test {
             },
         ];
 
+		let mut buf = Vec::with_capacity(500);
 		for (case_index, case) in cases.into_iter().enumerate() {
 			eprintln!("cases[{}] = {:?}", case_index, case.command);
 
