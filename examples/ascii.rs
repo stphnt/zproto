@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.flag_ok_and(check::warning_is_none())?;
 	port.poll_until((1, 1, "get pos"), check::flag_ok(), |reply| {
 		let pos: i32 = reply.data().parse().unwrap();
-		pos >= 100000
+		pos >= 100_000
 	})?;
 	port.command_reply((1, "stop"))?
 		.flag_ok_and(check::warning_is("NI"))?;
