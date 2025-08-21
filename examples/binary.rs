@@ -1,7 +1,10 @@
 //! Example script for using Zaber's Binary protocol via zproto.
 
 use simple_logger::SimpleLogger;
-use zproto::binary::{command::*, Port};
+use zproto::binary::{
+	command::{HOME, MOVE_ABSOLUTE, RENUMBER, RETURN_CURRENT_POSITION},
+	Port,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Enable logging
