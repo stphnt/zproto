@@ -518,7 +518,7 @@ fn set_max_packet_size() {
 fn reject_reserved_characters() {
 	let mut port = Port::open_mock();
 
-	let reserved_characters = b"/@#!:\\\r\n".iter().cloned().chain(128u8..=u8::MAX);
+	let reserved_characters = b"/@#!:\\\r\n".iter().copied().chain(128u8..=u8::MAX);
 	for reserved in reserved_characters {
 		let err = port.command([reserved]).unwrap_err();
 		assert!(matches!(err, AsciiError::ReservedCharacter(_)));
