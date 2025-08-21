@@ -169,7 +169,7 @@ fn command_reply_n_ok() {
 		buf.push(b"#01 0 cont 1part2\r\n");
 	}
 	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(Reply::data).collect();
 	assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
 }
 
@@ -227,7 +227,7 @@ fn command_reply_n_unexpected_alert() {
 		buf.push(b"!05 0 IDLE --\r\n"); // Shouldn't be read
 	}
 	let replies = port.command_reply_n("", 2, check::strict()).unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(Reply::data).collect();
 	assert_eq!(reply_data, &["1part1 1part2", "2part1 2part2"]);
 	assert_eq!(alert_count.get(), 3);
 }
@@ -261,7 +261,7 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
 		.unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(Reply::data).collect();
 	assert_eq!(reply_data, expected);
 
 	{
@@ -274,7 +274,7 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
 		.unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(Reply::data).collect();
 	// When the continuations come shouldn't change the response order.
 	assert_eq!(reply_data, expected);
 
@@ -288,7 +288,7 @@ fn command_replies_mixed_cont_until_timeout_ok() {
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
 		.unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(Reply::data).collect();
 	// The initial packet order should change the response order.
 	assert_eq!(
 		reply_data,
@@ -360,7 +360,7 @@ fn command_replies_mixed_cont_until_timeout_unexpected_alert() {
 	let replies = port
 		.command_replies_until_timeout("", check::strict())
 		.unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(Reply::data).collect();
 	assert_eq!(reply_data, expected);
 	assert_eq!(alert_count.get(), 3);
 }
@@ -399,7 +399,7 @@ fn response_until_timeout_ok() {
 		buf.push(b"@02 0 OK IDLE -- 0\r\n");
 	}
 	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(AnyResponse::data).collect();
 	assert_eq!(reply_data, &["0", "0"]);
 
 	// Multi-packet info messages
@@ -411,7 +411,7 @@ fn response_until_timeout_ok() {
 		buf.push(b"#02 0 cont part 2b\r\n");
 	}
 	let replies: Vec<AnyResponse> = port.responses_until_timeout(check::strict()).unwrap();
-	let reply_data: Vec<_> = replies.iter().map(|r| r.data()).collect();
+	let reply_data: Vec<_> = replies.iter().map(AnyResponse::data).collect();
 	assert_eq!(reply_data, &["part 1a part 1b", "part 2a part 2b"]);
 }
 
