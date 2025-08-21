@@ -1301,7 +1301,7 @@ mod test {
 		);
 	}
 
-	/// Calling open_dyn() should return a type that implements `Send`.
+	/// Calling `open_dyn()` should return a type that implements `Send`.
 	#[test]
 	fn port_send_bounds() {
 		if let Ok(port) = Port::open_serial_options().open_dyn("...") {

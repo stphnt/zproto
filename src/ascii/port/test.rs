@@ -773,7 +773,7 @@ make_poison_test!(response_n::<AnyResponse, _>, 1, unchecked::<AnyResponse>());
 make_poison_test!(responses_until_timeout, unchecked::<AnyResponse>());
 make_poison_test!(timeout_guard, None);
 
-/// Calling open_dyn() should return a type that implements `Send`.
+/// Calling `open_dyn()` should return a type that implements `Send`.
 #[test]
 fn port_send_bounds() {
 	if let Ok(port) = Port::open_serial_options().open_dyn("...") {
