@@ -725,12 +725,12 @@ mod test {
 	#[test]
 	fn test_command_writer_custom_packet_size() {
 		let mut buf = vec![];
-		let _79_bytes =
+		let bytes_79 =
 			"1234567891123456789212345678931234567894123456789512345678961234567897123456789";
 		{
 			// Should be not be able to fit data plus the leading `/` and trailing `\n`
 			let mut writer = CommandWriter::new(
-				&_79_bytes,
+				&bytes_79,
 				ConstId {},
 				false,
 				false,
@@ -742,7 +742,7 @@ mod test {
 		{
 			// Should have just enough room for leading `/` and trailing `\n`
 			let mut writer = CommandWriter::new(
-				&_79_bytes,
+				&bytes_79,
 				ConstId {},
 				false,
 				false,
