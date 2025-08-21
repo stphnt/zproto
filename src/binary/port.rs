@@ -1125,8 +1125,14 @@ mod test {
 		}
 
 		// Command failure
-		port.backend
-			.push([1, untyped::ERROR, binary_code::CANNOT_HOME as u8, 0, 0, 0]);
+		port.backend.push([
+			1,
+			untyped::ERROR,
+			u8::try_from(binary_code::CANNOT_HOME).unwrap(),
+			0,
+			0,
+			0,
+		]);
 		let err = port.tx_recv((1, HOME)).unwrap_err();
 		if let BinaryError::CommandFailure(err) = err {
 			assert_eq!(err.code(), binary_code::CANNOT_HOME);
@@ -1165,7 +1171,7 @@ mod test {
 		for (i, reply) in replies.iter().enumerate() {
 			eprintln!("{reply:?}");
 			assert_eq!(reply.command(), HOME);
-			assert_eq!(reply.target(), i as u8 + 1);
+			assert_eq!(reply.target(), u8::try_from(i).unwrap() + 1);
 			assert_eq!(reply.data().unwrap(), 0);
 		}
 	}
@@ -1244,7 +1250,7 @@ mod test {
 		for (i, reply) in replies.iter().enumerate() {
 			eprintln!("{reply:?}");
 			assert_eq!(reply.command(), HOME);
-			assert_eq!(reply.target(), i as u8 + 1);
+			assert_eq!(reply.target(), u8::try_from(i).unwrap() + 1);
 			assert_eq!(reply.data().unwrap(), 0);
 		}
 	}

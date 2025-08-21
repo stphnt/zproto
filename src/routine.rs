@@ -807,10 +807,10 @@ mod test {
 
 	#[test]
 	fn map_err() {
-		assert_eq!(Ok(1), OkRoutine(1).map_err(|x| 2.0 * x as f32).run(&mut ()));
+		assert_eq!(Ok(1), OkRoutine(1).map_err(|x| 2.0 * f64::from(x)).run(&mut ()));
 		assert_eq!(
 			Err(2.0),
-			ErrRoutine(1).map_err(|x| 2.0 * x as f32).run(&mut ())
+			ErrRoutine(1).map_err(|x| 2.0 * f64::from(x)).run(&mut ())
 		);
 	}
 
