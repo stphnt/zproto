@@ -702,6 +702,7 @@ mod test {
 				MaxPacketSize::default(),
 			)
 			.unwrap();
+			#[allow(clippy::naive_bytecount)]
 			let num_expected_packets = case.expected.iter().filter(|byte| **byte == b'\n').count();
 			for index in 0..num_expected_packets {
 				let more = writer.write_packet(&mut buf).unwrap();
