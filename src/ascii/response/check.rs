@@ -462,10 +462,10 @@ pub fn strict<R: Response>() -> impl Check<R> {
 /// For [`Info`] no validation is done.
 ///
 /// For [`AnyResponse`], one of the above checks is
+/// chosen at runtime based on the kind of response.
 ///
 /// [`Alert`]: crate::ascii::response::Alert
 /// [`Info`]: crate::ascii::response::Info
-/// chosen at runtime based on the kind of response.
 pub fn minimal<R: Response>() -> impl Check<R> {
 	R::minimal()
 }
