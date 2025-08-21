@@ -758,7 +758,7 @@ mod test {
 		type Output = T;
 		type Error = i32;
 
-		fn run(&mut self, _: &'_ mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			Ok(self.0)
 		}
 	}
@@ -770,7 +770,7 @@ mod test {
 		type Output = i32;
 		type Error = i32;
 
-		fn run(&mut self, _: &'_ mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			Err(self.0)
 		}
 	}
@@ -787,7 +787,7 @@ mod test {
 		type Output = i32;
 		type Error = i32;
 
-		fn run(&mut self, _: &'_ mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			self.called_count += 1;
 			let is_ok = self.count > 0;
 			self.count = self.count.saturating_sub(1);
