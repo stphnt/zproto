@@ -106,6 +106,7 @@ fn parse_combined(packet: &[u8]) -> Option<Item<'_>> {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn parse() {
 	struct Case {
 		input: &'static [u8],

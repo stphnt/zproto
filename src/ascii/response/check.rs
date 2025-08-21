@@ -749,6 +749,7 @@ mod test {
 	use crate::ascii::{packet::Packet, response::Reply};
 
 	#[test]
+	#[allow(clippy::too_many_lines)]
 	fn check_reply() {
 		struct Case<'a> {
 			reply: Reply,
