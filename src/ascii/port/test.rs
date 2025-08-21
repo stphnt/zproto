@@ -598,7 +598,7 @@ fn read_packet_bytes() {
 				AsciiError::PacketMissingEnd(actual) => assert_eq!(packet, actual),
 				e => panic!("unexpected error: {e:?}"),
 			},
-			Err(_) => panic!("unsupported test case"),
+			Err(err) => panic!("unsupported test cases: {err:?}"),
 		}
 	}
 }
