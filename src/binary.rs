@@ -586,14 +586,14 @@ mod test {
 	}
 
 	#[test]
-	#[should_panic]
+	#[should_panic(expected = "must be in the range (1, 32)")]
 	fn io_state_index_0() {
 		let states = IoStates(1);
 		states.is_high(0);
 	}
 
 	#[test]
-	#[should_panic]
+	#[should_panic(expected = "must be in the range (1, 32)")]
 	fn io_state_index_gt_32() {
 		let states = IoStates(1);
 		states.is_high(33);
