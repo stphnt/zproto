@@ -505,13 +505,13 @@ fn set_checksums() {
 fn set_max_packet_size() {
 	use super::MaxPacketSize;
 
-	let _81 = MaxPacketSize::new(81).unwrap();
+	let custom = MaxPacketSize::new(81).unwrap();
 	let default = MaxPacketSize::default();
 
 	let mut port = Port::open_mock();
 	assert_eq!(port.max_packet_size(), default);
-	assert_eq!(port.set_max_packet_size(_81), default);
-	assert_eq!(port.max_packet_size(), _81);
+	assert_eq!(port.set_max_packet_size(custom), default);
+	assert_eq!(port.max_packet_size(), custom);
 }
 
 #[test]
