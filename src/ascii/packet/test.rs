@@ -11,7 +11,7 @@ use crate::ascii::response::{Flag, Status, Warning};
 #[cfg_attr(test, derive(PartialEq))]
 struct Combined<'a>(RefTokens<'a>, RefPacket<'a>);
 
-impl<'a> Combined<'a> {
+impl Combined<'_> {
 	fn new() -> Self {
 		Combined(RefTokens::new_default(), RefPacket::new_default())
 	}

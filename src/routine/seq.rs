@@ -239,9 +239,9 @@ mod test {
 	#[derive(Debug, Copy, Clone)]
 	struct ConstRoutine<T>(T);
 
-	impl<'a, T> Routine<()> for ConstRoutine<T>
+	impl<T> Routine<()> for ConstRoutine<T>
 	where
-		T: Copy + 'a,
+		T: Copy,
 	{
 		type Output = T;
 		type Error = String;
