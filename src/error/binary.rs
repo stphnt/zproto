@@ -279,6 +279,6 @@ mod test {
 			name(MANUAL_MOVE_TRACKING_DISABLED_MODE_INVALID),
 			Some("Manual Move Tracking Disabled Mode Invalid")
 		);
-		assert_eq!(name(9999999), None);
+		assert_eq!(name(9_999_999), None);
 	}
 }

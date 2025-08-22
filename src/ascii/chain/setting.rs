@@ -305,7 +305,7 @@ mod test {
 	struct DeviceSetting;
 	impl Setting for DeviceSetting {
 		type Type = u8;
-		fn name(&self) -> &str {
+		fn name(&self) -> &'static str {
 			"device.scope.setting"
 		}
 	}
@@ -314,7 +314,7 @@ mod test {
 	struct AxisSetting;
 	impl Setting for AxisSetting {
 		type Type = u32;
-		fn name(&self) -> &str {
+		fn name(&self) -> &'static str {
 			"axis.scope.setting"
 		}
 	}

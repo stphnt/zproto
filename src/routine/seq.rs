@@ -239,14 +239,14 @@ mod test {
 	#[derive(Debug, Copy, Clone)]
 	struct ConstRoutine<T>(T);
 
-	impl<'a, T> Routine<()> for ConstRoutine<T>
+	impl<T> Routine<()> for ConstRoutine<T>
 	where
-		T: Copy + 'a,
+		T: Copy,
 	{
 		type Output = T;
 		type Error = String;
 
-		fn run(&mut self, _: &mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			Ok(self.0)
 		}
 	}
@@ -258,7 +258,7 @@ mod test {
 		type Output = u32;
 		type Error = String;
 
-		fn run(&mut self, _: &mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			Err(format!("{}", self.0))
 		}
 	}

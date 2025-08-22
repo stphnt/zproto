@@ -564,133 +564,134 @@ mod test {
 		assert_eq!(Target::new(5, 9).with_all_axes(), Target(5, 0));
 	}
 
+	struct TestCommandWriterCase {
+		command: &'static (u8, u8, &'static str),
+		generate_id: bool,
+		generate_checksum: bool,
+		expected: &'static [u8],
+	}
+
+	static TEST_COMMAND_WRITER_CASES: &[TestCommandWriterCase] = &[
+        TestCommandWriterCase {
+            command: &(0, 0, ""),
+            generate_id: false,
+            generate_checksum: false,
+            expected: b"/\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, " \t"),
+            generate_id: false,
+            generate_checksum: false,
+            expected: b"/\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, ""),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/:00\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, " \t"),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/:00\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, ""),
+            generate_id: true,
+            generate_checksum: true,
+            expected: b"/0 0 5:2B\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, " \t"),
+            generate_id: true,
+            generate_checksum: true,
+            expected: b"/0 0 5:2B\n",
+        },
+        TestCommandWriterCase {
+            command: &(1, 0, ""),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/1:CF\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 1, ""),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/0 1:7F\n",
+        },
+        TestCommandWriterCase {
+            command: &(2, 1, ""),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/2 1:7D\n",
+        },
+        TestCommandWriterCase {
+            command: &(1, 0, "tools echo"),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/1 tools echo:BF\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, "get maxspeed"),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/get maxspeed:49\n",
+        },
+        TestCommandWriterCase {
+            command: &(2, 0, "get maxspeed"),
+            generate_id: true,
+            generate_checksum: true,
+            expected: b"/2 0 5 get maxspeed:52\n",
+        },
+        TestCommandWriterCase {
+            command: &(1, 0, "tools echo aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg hhhhhhhhhh iiiiiiiiii jjjjjjjjj"),
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/1 tools echo aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee\\:D0\n/1 cont 1 ffffffffff gggggggggg hhhhhhhhhh iiiiiiiiii jjjjjjjjj:24\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Should just fit into one packet
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg:4B\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg h"), // Extra h should pull the gg... into next packet to make room for `\`
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:15\n/cont 1 gggggggggg h:4D\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff ggggggggg h"), // Extra h should _not_ pull the gg... into next packet as there is one fewer g.
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff ggggggggg\\:56\n/cont 1 h:73\n",
+        },
+        TestCommandWriterCase {
+            command: &(1, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Larger header should push gg... into next packet.
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/1 aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:C4\n/1 cont 1 gggggggggg:84\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Larger header should push gg... into next packet.
+            generate_id: true,
+            generate_checksum: true,
+            expected: b"/0 0 5 aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:20\n/0 0 5 cont 1 gggggggggg:E0\n",
+        },
+        TestCommandWriterCase {
+            command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd     \teeeeeeeeee ffffffffff gggggggggg h"), // Extra space should be squashed
+            generate_id: false,
+            generate_checksum: true,
+            expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:15\n/cont 1 gggggggggg h:4D\n",
+        },
+	];
+
 	#[test]
 	fn test_command_writer() {
 		let mut buf = Vec::with_capacity(500);
-		struct Case {
-			command: &'static (u8, u8, &'static str),
-			generate_id: bool,
-			generate_checksum: bool,
-			expected: &'static [u8],
-		}
-		let cases = [
-            Case {
-                command: &(0, 0, ""),
-                generate_id: false,
-                generate_checksum: false,
-                expected: b"/\n",
-            },
-            Case {
-                command: &(0, 0, " \t"),
-                generate_id: false,
-                generate_checksum: false,
-                expected: b"/\n",
-            },
-            Case {
-                command: &(0, 0, ""),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/:00\n",
-            },
-            Case {
-                command: &(0, 0, " \t"),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/:00\n",
-            },
-            Case {
-                command: &(0, 0, ""),
-                generate_id: true,
-                generate_checksum: true,
-                expected: b"/0 0 5:2B\n",
-            },
-            Case {
-                command: &(0, 0, " \t"),
-                generate_id: true,
-                generate_checksum: true,
-                expected: b"/0 0 5:2B\n",
-            },
-            Case {
-                command: &(1, 0, ""),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/1:CF\n",
-            },
-            Case {
-                command: &(0, 1, ""),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/0 1:7F\n",
-            },
-            Case {
-                command: &(2, 1, ""),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/2 1:7D\n",
-            },
-            Case {
-                command: &(1, 0, "tools echo"),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/1 tools echo:BF\n",
-            },
-            Case {
-                command: &(0, 0, "get maxspeed"),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/get maxspeed:49\n",
-            },
-            Case {
-                command: &(2, 0, "get maxspeed"),
-                generate_id: true,
-                generate_checksum: true,
-                expected: b"/2 0 5 get maxspeed:52\n",
-            },
-            Case {
-                command: &(1, 0, "tools echo aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg hhhhhhhhhh iiiiiiiiii jjjjjjjjj"),
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/1 tools echo aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee\\:D0\n/1 cont 1 ffffffffff gggggggggg hhhhhhhhhh iiiiiiiiii jjjjjjjjj:24\n",
-            },
-            Case {
-                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Should just fit into one packet
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg:4B\n",
-            },
-            Case {
-                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg h"), // Extra h should pull the gg... into next packet to make room for `\`
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:15\n/cont 1 gggggggggg h:4D\n",
-            },
-            Case {
-                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff ggggggggg h"), // Extra h should _not_ pull the gg... into next packet as there is one fewer g.
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff ggggggggg\\:56\n/cont 1 h:73\n",
-            },
-            Case {
-                command: &(1, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Larger header should push gg... into next packet.
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/1 aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:C4\n/1 cont 1 gggggggggg:84\n",
-            },
-            Case {
-                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff gggggggggg"),  // Larger header should push gg... into next packet.
-                generate_id: true,
-                generate_checksum: true,
-                expected: b"/0 0 5 aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:20\n/0 0 5 cont 1 gggggggggg:E0\n",
-            },
-            Case {
-                command: &(0, 0, "aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd     \teeeeeeeeee ffffffffff gggggggggg h"), // Extra space should be squashed
-                generate_id: false,
-                generate_checksum: true,
-                expected: b"/aaaaaaaaaa bbbbbbbbbb ccccccccc dddddddddd eeeeeeeeee ffffffffff\\:15\n/cont 1 gggggggggg h:4D\n",
-            },
-        ];
-
-		for (case_index, case) in cases.into_iter().enumerate() {
+		for (case_index, case) in TEST_COMMAND_WRITER_CASES.iter().enumerate() {
 			eprintln!("cases[{}] = {:?}", case_index, case.command);
 
 			buf.clear();
@@ -702,6 +703,7 @@ mod test {
 				MaxPacketSize::default(),
 			)
 			.unwrap();
+			#[allow(clippy::naive_bytecount)]
 			let num_expected_packets = case.expected.iter().filter(|byte| **byte == b'\n').count();
 			for index in 0..num_expected_packets {
 				let more = writer.write_packet(&mut buf).unwrap();
@@ -725,12 +727,12 @@ mod test {
 	#[test]
 	fn test_command_writer_custom_packet_size() {
 		let mut buf = vec![];
-		let _79_bytes =
+		let bytes_79 =
 			"1234567891123456789212345678931234567894123456789512345678961234567897123456789";
 		{
 			// Should be not be able to fit data plus the leading `/` and trailing `\n`
 			let mut writer = CommandWriter::new(
-				&_79_bytes,
+				&bytes_79,
 				ConstId {},
 				false,
 				false,
@@ -742,7 +744,7 @@ mod test {
 		{
 			// Should have just enough room for leading `/` and trailing `\n`
 			let mut writer = CommandWriter::new(
-				&_79_bytes,
+				&bytes_79,
 				ConstId {},
 				false,
 				false,
@@ -793,10 +795,10 @@ mod test {
 			(1000, 4),
 			(9999, 4),
 			(10000, 5),
-			(100000, 6),
-			(1000000, 7),
-			(10000000, 8),
-			(100000000, 9),
+			(100_000, 6),
+			(1_000_000, 7),
+			(10_000_000, 8),
+			(100_000_000, 9),
 			(usize::MAX, 20),
 		];
 		for (input, expected_count) in cases {

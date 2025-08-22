@@ -11,7 +11,7 @@ use crate::ascii::response::{Flag, Status, Warning};
 #[cfg_attr(test, derive(PartialEq))]
 struct Combined<'a>(RefTokens<'a>, RefPacket<'a>);
 
-impl<'a> Combined<'a> {
+impl Combined<'_> {
 	fn new() -> Self {
 		Combined(RefTokens::new_default(), RefPacket::new_default())
 	}
@@ -106,6 +106,7 @@ fn parse_combined(packet: &[u8]) -> Option<Item<'_>> {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn parse() {
 	struct Case {
 		input: &'static [u8],

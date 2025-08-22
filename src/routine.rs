@@ -758,7 +758,7 @@ mod test {
 		type Output = T;
 		type Error = i32;
 
-		fn run(&mut self, _: &'_ mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			Ok(self.0)
 		}
 	}
@@ -770,7 +770,7 @@ mod test {
 		type Output = i32;
 		type Error = i32;
 
-		fn run(&mut self, _: &'_ mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			Err(self.0)
 		}
 	}
@@ -787,7 +787,7 @@ mod test {
 		type Output = i32;
 		type Error = i32;
 
-		fn run(&mut self, _: &'_ mut ()) -> Result<Self::Output, Self::Error> {
+		fn run(&mut self, (): &mut ()) -> Result<Self::Output, Self::Error> {
 			self.called_count += 1;
 			let is_ok = self.count > 0;
 			self.count = self.count.saturating_sub(1);
@@ -807,10 +807,10 @@ mod test {
 
 	#[test]
 	fn map_err() {
-		assert_eq!(Ok(1), OkRoutine(1).map_err(|x| 2.0 * x as f32).run(&mut ()));
+		assert_eq!(Ok(1), OkRoutine(1).map_err(|x| 2.0 * f64::from(x)).run(&mut ()));
 		assert_eq!(
 			Err(2.0),
-			ErrRoutine(1).map_err(|x| 2.0 * x as f32).run(&mut ())
+			ErrRoutine(1).map_err(|x| 2.0 * f64::from(x)).run(&mut ())
 		);
 	}
 

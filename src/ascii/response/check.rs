@@ -749,6 +749,7 @@ mod test {
 	use crate::ascii::{packet::Packet, response::Reply};
 
 	#[test]
+	#[allow(clippy::too_many_lines)]
 	fn check_reply() {
 		struct Case<'a> {
 			reply: Reply,
@@ -981,7 +982,7 @@ mod test {
 			println!("case {}: {}", i, case.reply);
 			let actual = case.checker.check(case.reply.clone());
 			match &case.expected {
-				Ok(_) => assert!(actual.is_ok(), "unexpected error: {actual:?}"),
+				Ok(()) => assert!(actual.is_ok(), "unexpected error: {actual:?}"),
 				Err(expected_err) => {
 					let actual_err = actual.unwrap_err();
 					assert_eq!(*expected_err, actual_err);

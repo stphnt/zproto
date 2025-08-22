@@ -97,7 +97,7 @@ mod test {
 		assert!(!Lrc::verify(b"01 tools echo", 142));
 	}
 
-	/// Writing to an LrcWriter should both write the data and correctly update the hash.
+	/// Writing to an `LrcWriter` should both write the data and correctly update the hash.
 	#[test]
 	fn test_lrc_writer() {
 		let buf = Vec::with_capacity(80);
@@ -113,7 +113,7 @@ mod test {
 		);
 	}
 
-	/// Writing to an LrcWriter should both write the data and correctly update the hash.
+	/// Writing to an `LrcWriter` should both write the data and correctly update the hash.
 	#[test]
 	fn test_lrc_writer_reset_hash() {
 		let buf = Vec::with_capacity(80);

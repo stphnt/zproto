@@ -1,5 +1,6 @@
 # cspell-tools: keep-case no-split
 argh
+bytecount
 clippy
 cfgs
 hexdigit
