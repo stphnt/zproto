@@ -7,6 +7,7 @@ use crate::ascii::chain::{
 pub mod data_types;
 
 /// Define a type representing an ASCII setting.
+#[allow(unused_macros)] // It is used by generated files included below.
 macro_rules! define_settings {
     (
         $(
@@ -56,6 +57,7 @@ macro_rules! define_settings {
 ///
 /// This macro will automatically defined [`Setting`], the scope, and conversion
 /// traits between it and the setting types it maps to.
+#[allow(unused_macros)] // It is used by generated files included below.
 macro_rules! define_any_setting {
     (
         $(#[$any_setting_meta:meta])*
