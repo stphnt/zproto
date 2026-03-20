@@ -84,15 +84,12 @@ impl Data {
 				AND Parent.MinorVersion = ?
 			);",
 		)?;
-		let rows = statement.query_map(
-			[version.major, version.minor, version.major, version.minor],
-			|row| row.get(0),
-		)?;
-
-		let mut setting_ids = Vec::<u32>::new();
-		for row in rows {
-			setting_ids.push(row?);
-		}
+		let setting_ids = statement
+			.query_map(
+				[version.major, version.minor, version.major, version.minor],
+				|row| row.get(0),
+			)?
+			.collect::<Result<Vec<_>, _>>()?;
 		Ok(setting_ids)
 	}
 
@@ -103,8 +100,7 @@ impl Data {
 		log::info!("loading ASCII setting data ...");
 
 		// Get the names of settings associated with a peripheral, meaning they are axis scope.
-		let mut axis_scope_setting_names = HashSet::<String>::default();
-		{
+		let axis_scope_setting_names: HashSet<String> = {
 			let mut statement = conn.prepare(
 				"SELECT DISTINCT DS.ASCIIName
 				FROM Data_ProductsSettings AS DPS
@@ -114,16 +110,11 @@ impl Data {
 				AND ASCIIName IS NOT NULL;",
 			)?;
 			let rows = statement.query_and_then([], |row| -> rusqlite::Result<_> { row.get(0) })?;
-
-			for row in rows {
-				let name = row?;
-				axis_scope_setting_names.insert(name);
-			}
-		}
+			rows.collect::<Result<_, _>>()?
+		};
 
 		// Collect the actual setting information
-		let mut setting_info = FnvHashMap::default();
-		{
+		let setting_info: FnvHashMap<_, _> = {
 			let statement = "SELECT
 					Id,
 					ParamType,
@@ -148,11 +139,8 @@ impl Data {
 					),
 				))
 			})?;
-			for row in rows {
-				let (id, info) = row?;
-				setting_info.insert(id, info);
-			}
-		}
+			rows.collect::<Result<_, _>>()?
+		};
 
 		// Get version information for each setting
 		let mut settings = BTreeMap::<String, _>::default();
