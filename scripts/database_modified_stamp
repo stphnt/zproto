@@ -30,7 +30,7 @@ fi
 
 action="$1"
 last_modified_file="$2"
-database_url="https://www.zaber.com/software/device-database/devices-public.sqlite.lzma"
+database_url="https://www.zaber.com/software/device-database/devices-public-v2.sqlite.lzma"
 
 zaber_last_modified="$(curl --head --silent $database_url | grep 'Last-Modified')"
 
