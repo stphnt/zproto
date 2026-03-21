@@ -33,7 +33,7 @@ impl Data {
 	/// The instance will be populated with all the data we care about.
 	pub fn new(conn: &mut Connection) -> anyhow::Result<Self> {
 		let versions = Self::get_versions(conn)?;
-		let ascii_settings = Self::get_ascii_settings(conn, &versions)?;
+		let ascii_settings = Self::get_ascii_settings(conn)?;
 		Ok(Self {
 			versions,
 			ascii_settings,
@@ -45,93 +45,54 @@ impl Data {
 	/// Get a list of all relevant firmware versions in the database.
 	fn get_versions(conn: &mut Connection) -> anyhow::Result<Vec<Version>> {
 		let mut statement = conn.prepare(
-			r#"SELECT DISTINCT MajorVersion, MinorVersion FROM Data_Products
-			WHERE MajorVersion IS NOT NULL
-			AND MinorVersion IS NOT NULL;"#,
+			"SELECT Major, Minor
+			FROM Data_Versions
+			WHERE Minor < 95
+			AND (Major, Minor) >= (6, 14)
+			ORDER BY Major, Minor",
 		)?;
-		let rows = statement.query_map([], |row| {
-			Ok(Version {
-				major: row.get(0)?,
-				minor: row.get(1)?,
-			})
-		})?;
-		let mut versions = Vec::new();
-		for row in rows {
-			let version = row?;
-			if version >= (6, 14) && version.minor < 98 {
-				versions.push(version);
-			}
-		}
-		versions.sort();
+		let versions = statement
+			.query_map([], |row| {
+				Ok(Version {
+					major: row.get(0)?,
+					minor: row.get(1)?,
+				})
+			})?
+			.collect::<Result<Vec<_>, _>>()?;
 		Ok(versions)
 	}
 
-	fn get_related_setting_ids(
-		conn: &mut Connection,
-		version: Version,
-	) -> anyhow::Result<Vec<u32>> {
-		let mut statement = conn.prepare(
-			"SELECT DISTINCT SettingId 
-			FROM Data_ProductsSettings 
-			WHERE ProductId IN (
-				SELECT Id FROM Data_Products
-				WHERE MajorVersion = ?
-				AND MinorVersion = ?
-				UNION
-				SELECT Child.Id FROM Data_Products AS Child
-				JOIN Data_Products AS Parent ON Parent.Id = Child.ParentId
-				WHERE Parent.MajorVersion = ?
-				AND Parent.MinorVersion = ?
-			);",
-		)?;
-		let rows = statement.query_map(
-			[version.major, version.minor, version.major, version.minor],
-			|row| row.get(0),
-		)?;
-
-		let mut setting_ids = Vec::<u32>::new();
-		for row in rows {
-			setting_ids.push(row?);
-		}
-		Ok(setting_ids)
-	}
-
-	fn get_ascii_settings(
-		conn: &mut Connection,
-		versions: &[Version],
-	) -> anyhow::Result<AsciiSettings> {
+	fn get_ascii_settings(conn: &mut Connection) -> anyhow::Result<AsciiSettings> {
 		log::info!("loading ASCII setting data ...");
 
 		// Get the names of settings associated with a peripheral, meaning they are axis scope.
-		let mut axis_scope_setting_names = HashSet::<String>::default();
-		{
+		// cSpell:ignore ASV ASVG ASVSG
+		let axis_scope_setting_names: HashSet<String> = {
 			let mut statement = conn.prepare(
-				"SELECT DISTINCT DS.ASCIIName
-				FROM Data_ProductsSettings AS DPS
-				JOIN Data_Products AS DP ON DP.Id = DPS.ProductId
-				JOIN Data_Settings AS DS ON DS.Id = DPS.SettingId
-				WHERE DP.ParentId IS NOT NULL
-				AND ASCIIName IS NOT NULL;",
+				"SELECT SC.Name
+				FROM Data_SettingsCommon SC
+				WHERE EXISTS (
+					SELECT 1
+					FROM Data_ProductAttributes PA
+					INNER JOIN Data_AsciiSettingValueGroups ASVG ON ASVG.Id = PA.AsciiSettingValueGroupId
+					INNER JOIN Data_AsciiSettingValueSubgroups ASVSG ON ASVSG.Id = ASVG.MemberId
+					INNER JOIN Data_AsciiSettingValues ASV ON ASV.Id = ASVSG.MemberId
+					INNER JOIN Data_AsciiSettings AS_ ON AS_.Id = ASV.AsciiSettingId
+					WHERE PA.ParentProductGroupId IS NOT NULL
+					AND SC.Id = AS_.SettingId
+				)",
 			)?;
 			let rows = statement.query_and_then([], |row| -> rusqlite::Result<_> { row.get(0) })?;
-
-			for row in rows {
-				let name = row?;
-				axis_scope_setting_names.insert(name);
-			}
-		}
+			rows.collect::<Result<_, _>>()?
+		};
 
 		// Collect the actual setting information
-		let mut setting_info = FnvHashMap::default();
-		{
-			let statement = "SELECT
-					Id,
-					ParamType,
-					EnumType,
-					ASCIIName
-				FROM Data_Settings
-				WHERE ASCIIName IS NOT NULL;";
-			let mut statement = conn.prepare(statement)?;
+		let setting_info: FnvHashMap<_, _> = {
+			let mut statement = conn.prepare(
+				"SELECT Id, TypeId, EnumTypeId, Name
+				FROM Data_SettingsCommon
+				WHERE Name IS NOT NULL",
+			)?;
 			let rows = statement.query_and_then([], |row| -> rusqlite::Result<_> {
 				let id: u32 = row.get(0)?;
 				let param_type: u32 = row.get(1)?;
@@ -148,36 +109,49 @@ impl Data {
 					),
 				))
 			})?;
-			for row in rows {
-				let (id, info) = row?;
-				setting_info.insert(id, info);
-			}
-		}
+			rows.collect::<Result<_, _>>()?
+		};
 
 		// Get version information for each setting
-		let mut settings = BTreeMap::<String, _>::default();
-		for version in versions {
-			log::info!("loading {version} data...");
-			let setting_ids = Self::get_related_setting_ids(conn, *version)?;
+		let mut statement = conn.prepare(
+			"SELECT SC.Id, V.Major, V.Minor
+			FROM Data_ProductAttributes PA
+			INNER JOIN Data_AsciiSettingValueGroups ASVG ON ASVG.Id = PA.AsciiSettingValueGroupId
+			INNER JOIN Data_AsciiSettingValueSubgroups ASVSG ON ASVSG.Id = ASVG.MemberId
+			INNER JOIN Data_AsciiSettingValues ASV ON ASV.Id = ASVSG.MemberId
+			INNER JOIN Data_AsciiSettings AS_ ON AS_.Id = ASV.AsciiSettingId
+			INNER JOIN Data_SettingsCommon SC ON SC.Id = AS_.SettingId
+			INNER JOIN Data_VersionGroups VG ON VG.Id = PA.VersionGroupId
+			INNER JOIN Data_Versions V ON V.Id = VG.MemberId
+			WHERE (V.Major, V.Minor) >= (6, 14)
+			AND V.Minor < 95",
+		)?;
+		let iter = statement.query_map((), |row| {
+			Ok((
+				row.get::<_, u32>(0)?,
+				Version {
+					major: row.get(1)?,
+					minor: row.get(2)?,
+				},
+			))
+		})?;
 
-			for id in setting_ids {
-				let Some((variant, name)) = setting_info.get(&id) else {
-					// This isn't an ASCII setting
-					continue;
-				};
-				let setting_entry = settings.entry(name.clone()).or_insert_with(|| {
-					(
-						if axis_scope_setting_names.contains(name) {
-							Scope::Axis
-						} else {
-							Scope::Device
-						},
-						FnvHashMap::default(),
-					)
-				});
-				let versions: &mut BTreeSet<Version> = setting_entry.1.entry(*variant).or_default();
-				versions.insert(*version);
-			}
+		let mut settings = BTreeMap::<String, _>::default();
+		for result in iter {
+			let (setting_id, version) = result?;
+			let (variant, name) = setting_info.get(&setting_id).unwrap();
+			let setting_entry = settings.entry(name.clone()).or_insert_with(|| {
+				(
+					if axis_scope_setting_names.contains(name) {
+						Scope::Axis
+					} else {
+						Scope::Device
+					},
+					FnvHashMap::default(),
+				)
+			});
+			let versions: &mut BTreeSet<Version> = setting_entry.1.entry(*variant).or_default();
+			versions.insert(version);
 		}
 
 		// Check that each setting only has one variant per version.
@@ -205,7 +179,7 @@ impl Data {
 
 	/// Get a mapping of all the parameter types, keyed by parameter ID.
 	fn get_param_types(conn: &mut Connection) -> anyhow::Result<FnvHashMap<u32, ParamType>> {
-		let mut statement = conn.prepare("SELECT Id, Name FROM Data_ParamTypes;")?;
+		let mut statement = conn.prepare("SELECT Id, Name FROM Data_Types;")?;
 		let rows = statement.query_and_then([], |row| -> rusqlite::Result<_> {
 			Ok((row.get(0)?, ParamType { name: row.get(1)? }))
 		})?;
@@ -227,7 +201,7 @@ impl Data {
 				Var.Name,
 				Var.Description
 			FROM Data_EnumTypes AS Type
-			JOIN Data_EnumNodes AS Var ON Var.TypeId = Type.Id;",
+			JOIN Data_EnumMembers AS Var ON Var.EnumTypeId = Type.Id;",
 		)?;
 		type Record = (u32, String, Option<String>, String, Option<String>);
 		let rows = statement.query_and_then([], |row| -> rusqlite::Result<Record> {
