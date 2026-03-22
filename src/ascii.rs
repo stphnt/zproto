@@ -189,6 +189,9 @@ pub mod port;
 pub mod response;
 #[cfg(unstable)]
 #[cfg_attr(all(doc, unstable), doc(cfg(unstable)))]
+pub mod serialization;
+#[cfg(unstable)]
+#[cfg_attr(all(doc, unstable), doc(cfg(unstable)))]
 pub mod setting;
 
 pub use port::Port;
