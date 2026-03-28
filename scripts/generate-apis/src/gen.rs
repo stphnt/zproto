@@ -3,8 +3,7 @@
 use crate::{db::Data, Version, GENERATED_CONTENT_WARNING};
 use crate::{protocol_manual_link, setting_rust_type_name, AsciiVariant, Scope};
 use anyhow::Context as _;
-use fnv::FnvHashMap;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::Write;
 use std::ops::RangeInclusive;
@@ -47,7 +46,7 @@ fn write_setting_def<W: Write>(
 	f: &mut W,
 	name: &str,
 	_scope: Scope,
-	variant_data: &FnvHashMap<AsciiVariant, BTreeSet<Version>>,
+	variant_data: &BTreeMap<AsciiVariant, BTreeSet<Version>>,
 	version_range: RangeInclusive<Version>,
 	data: &Data,
 ) -> anyhow::Result<()> {

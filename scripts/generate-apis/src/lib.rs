@@ -56,7 +56,7 @@ pub enum Scope {
 	Device,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AsciiVariant {
 	/// The ParamType ID
 	param_type: u32,
@@ -112,7 +112,7 @@ pub fn protocol_manual_link(name: &str, version: Version) -> String {
 }
 
 /// An Enum defined in the database.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Enum {
 	/// The name of the enum.
 	pub name: String,
@@ -125,12 +125,33 @@ pub struct Enum {
 impl Enum {
 	/// Get the name of the enum for use in Rust source code as the name of a type.
 	pub fn rust_type_name(&self) -> String {
-		self.name.to_case(Case::UpperCamel)
+		let value = match self.name.as_str() {
+			"assignmentoperator" => "AssignmentOperator",
+			"calibaction" => "CalibrationAction",
+			"calibmode" => "CalibrationMode",
+			"cdir" => "AngularDirection",
+			"iiraparam" => "IiraParam",
+			"iodigitalaction" => "IoDigitalAction",
+			"iotype" => "IoType",
+			"limdir" => "LimitDirection",
+			"lockstepsetting" => "LockstepSetting",
+			"lockstepaxisindex" => "LockstepAxisIndex",
+			"relationaloperator" => "RelationalOperator",
+			"settingop" => "SettingOperator",
+			"srvpreset" => "ServoPreset",
+			"streamaxisindex" => "StreamAxisIndex",
+			"streamsetupaxis" => "StreamSetupAxis",
+			"streamsetupaxiswithlockstep" => "StreamSetupAxisWithLockstep",
+			"triggeract" => "TriggerAction",
+			"cyclicDir" | "direction" | "limit" | "mode" => &self.name,
+			other => panic!("unsupported enum type name: '{other}'"),
+		};
+		value.to_case(Case::UpperCamel)
 	}
 }
 
 /// A variant within an Enum
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EnumVariant {
 	/// The name of the variant
 	pub name: String,

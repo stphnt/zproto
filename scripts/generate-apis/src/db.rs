@@ -1,7 +1,6 @@
 //! Types and functions for querying the database.
 
 use crate::{AsciiVariant, Enum, EnumVariant, ParamType, Scope, Version};
-use fnv::{FnvHashMap, FnvHashSet};
 use rusqlite::Connection;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;
@@ -16,14 +15,14 @@ pub fn get_connection(path: impl AsRef<Path>) -> anyhow::Result<Connection> {
 	)?)
 }
 
-pub type AsciiSettings = BTreeMap<String, (Scope, FnvHashMap<AsciiVariant, BTreeSet<Version>>)>;
+pub type AsciiSettings = BTreeMap<String, (Scope, BTreeMap<AsciiVariant, BTreeSet<Version>>)>;
 
 /// All data we care about, extracted from the database.
 #[derive(Debug)]
 pub struct Data {
 	pub ascii_settings: AsciiSettings,
-	pub param_types: FnvHashMap<u32, ParamType>,
-	pub enums: FnvHashMap<u32, Enum>,
+	pub types: BTreeMap<u32, ParamType>,
+	pub enums: BTreeMap<u32, Enum>,
 	pub versions: Vec<Version>,
 }
 
@@ -37,13 +36,14 @@ impl Data {
 		Ok(Self {
 			versions,
 			ascii_settings,
-			param_types: Self::get_param_types(conn)?,
+			types: Self::get_types(conn)?,
 			enums: Self::get_enums(conn)?,
 		})
 	}
 
 	/// Get a list of all relevant firmware versions in the database.
 	fn get_versions(conn: &mut Connection) -> anyhow::Result<Vec<Version>> {
+		log::info!("loading versions ...");
 		let mut statement = conn.prepare(
 			"SELECT Major, Minor
 			FROM Data_Versions
@@ -87,7 +87,7 @@ impl Data {
 		};
 
 		// Collect the actual setting information
-		let setting_info: FnvHashMap<_, _> = {
+		let setting_info: BTreeMap<_, _> = {
 			let mut statement = conn.prepare(
 				"SELECT Id, TypeId, EnumTypeId, Name
 				FROM Data_SettingsCommon
@@ -147,7 +147,7 @@ impl Data {
 					} else {
 						Scope::Device
 					},
-					FnvHashMap::default(),
+					BTreeMap::default(),
 				)
 			});
 			let versions: &mut BTreeSet<Version> = setting_entry.1.entry(*variant).or_default();
@@ -156,7 +156,7 @@ impl Data {
 
 		// Check that each setting only has one variant per version.
 		let mut passed = true;
-		let mut found_versions = FnvHashSet::default();
+		let mut found_versions = HashSet::new();
 		for (setting, (_scope, variants)) in &mut settings {
 			found_versions.clear();
 			for versions in variants.values() {
@@ -177,13 +177,14 @@ impl Data {
 		Ok(settings)
 	}
 
-	/// Get a mapping of all the parameter types, keyed by parameter ID.
-	fn get_param_types(conn: &mut Connection) -> anyhow::Result<FnvHashMap<u32, ParamType>> {
+	/// Get a mapping of all the data types, keyed by parameter ID.
+	fn get_types(conn: &mut Connection) -> anyhow::Result<BTreeMap<u32, ParamType>> {
+		log::info!("loading types ...");
 		let mut statement = conn.prepare("SELECT Id, Name FROM Data_Types;")?;
 		let rows = statement.query_and_then([], |row| -> rusqlite::Result<_> {
 			Ok((row.get(0)?, ParamType { name: row.get(1)? }))
 		})?;
-		let mut types = FnvHashMap::default();
+		let mut types = BTreeMap::default();
 		for row in rows {
 			let (id, param_type) = row?;
 			types.insert(id, param_type);
@@ -192,7 +193,8 @@ impl Data {
 	}
 
 	/// Get a mapping of enums, keyed by enum ID.
-	fn get_enums(conn: &mut Connection) -> anyhow::Result<FnvHashMap<u32, Enum>> {
+	fn get_enums(conn: &mut Connection) -> anyhow::Result<BTreeMap<u32, Enum>> {
+		log::info!("loading enums ...");
 		let mut statement = conn.prepare(
 			"SELECT
 				Type.Id,
@@ -213,7 +215,7 @@ impl Data {
 				row.get(4)?,
 			))
 		})?;
-		let mut enums = FnvHashMap::default();
+		let mut enums = BTreeMap::default();
 		for row in rows {
 			let (id, name, description, var_name, var_description) = row?;
 			let entry = enums.entry(id).or_insert_with(|| Enum {
@@ -238,7 +240,7 @@ impl Data {
 			return "crate::ascii::data_types::Version".to_string();
 		}
 		let param_type = self
-			.param_types
+			.types
 			.get(&variant.param_type)
 			.unwrap_or_else(|| panic!("invalid param type id {}", variant.param_type));
 		if param_type.is_enum() {
