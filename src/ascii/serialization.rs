@@ -1,4 +1,5 @@
 //! Types and traits for serializing and deserializing data in the ASCII protocol.
+use crate::error::ConversionError;
 use std::fmt;
 
 /// Types that can be serialized into an ASCII packet.
@@ -37,10 +38,10 @@ macro_rules! impl_by_deferring_to_display_and_from_str {
 			}
 
 			impl Deserialize for $type {
-				type Error = <$type as std::str::FromStr>::Err;
+				type Error = ConversionError;
 
 				fn deserialize(data: &str) -> Result<Self, Self::Error> {
-					data.parse()
+					data.parse().map_err(|err| ConversionError::new_from::<$type>(data, &err))
 				}
 			}
 		)+

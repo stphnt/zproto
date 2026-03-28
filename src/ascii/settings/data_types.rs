@@ -1,6 +1,7 @@
 //! Custom data types for ASCII settings.
 
 use crate::ascii::serialization;
+use crate::error::ConversionError;
 
 /// A MAC address.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -22,7 +23,7 @@ impl std::fmt::Display for MacAddress {
 }
 
 impl std::str::FromStr for MacAddress {
-	type Err = InvalidMacAddress;
+	type Err = ConversionError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let mut octets = [0u8; 6];
@@ -30,13 +31,14 @@ impl std::str::FromStr for MacAddress {
 		for (i, part) in s.split('-').enumerate() {
 			max_octet_index = i;
 			if i < 6 {
-				octets[i] = u8::from_str_radix(part, 16).map_err(|_| InvalidMacAddress)?;
+				octets[i] = u8::from_str_radix(part, 16)
+					.map_err(|err| ConversionError::new_from::<Self>(s, &err))?;
 			} else {
-				return Err(InvalidMacAddress);
+				return Err(ConversionError::new::<Self>(s));
 			}
 		}
 		if max_octet_index != 5 {
-			return Err(InvalidMacAddress);
+			return Err(ConversionError::new::<Self>(s));
 		}
 		Ok(MacAddress { octets })
 	}
@@ -55,12 +57,29 @@ impl serialization::Deserialize for MacAddress {
 	}
 }
 
-/// Error indicating parsing a string into a [`MacAddress`] failed.
-#[derive(Debug, Copy, Clone)]
-pub struct InvalidMacAddress;
-impl std::fmt::Display for InvalidMacAddress {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "invalid MAC address")
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn mac_address_parse_display() {
+		let cases = &[
+			// input              expected display (if valid)
+			("00-11-22-33-44-55", Ok("00-11-22-33-44-55")),
+			("aa-bb-cc-dd-ee-ff", Ok("AA-BB-CC-DD-EE-FF")),
+			("", Err(())),
+			("001122334455", Err(())),
+			("00-11-22-33-44-zz", Err(())),
+			("00-11-22-33-44-55-66", Err(())),
+			("00-11-22-33-44", Err(())),
+		];
+		for (i, (input, expected)) in cases.iter().enumerate() {
+			eprintln!("case {i}: {input}");
+			let result = input.parse::<MacAddress>();
+			match expected {
+				Ok(display) => assert_eq!(&result.unwrap().to_string(), display),
+				Err(()) => assert!(result.is_err()),
+			}
+		}
 	}
 }
-impl std::error::Error for InvalidMacAddress {}

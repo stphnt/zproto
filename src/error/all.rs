@@ -110,6 +110,32 @@ impl TryFrom<Error> for AsciiCheckError<AnyResponse> {
 /// Converting a value failed.
 #[derive(Debug)]
 pub struct ConversionError(pub(crate) Box<str>);
+
+#[cfg(unstable)]
+impl ConversionError {
+	pub(crate) fn new<T: std::any::Any>(input: &str) -> Self {
+		ConversionError(
+			format!(
+				"{:?} cannot be converted to {}",
+				input,
+				std::any::type_name::<T>()
+			)
+			.into_boxed_str(),
+		)
+	}
+
+	pub(crate) fn new_from<T: std::any::Any>(input: &str, err: &dyn std::error::Error) -> Self {
+		ConversionError(
+			format!(
+				"{:?} cannot be converted to {}: {}",
+				input,
+				std::any::type_name::<T>(),
+				err,
+			)
+			.into_boxed_str(),
+		)
+	}
+}
 impl_error_display! { ConversionError, self => "conversion failure: {}", self.0 }
 
 /// Multiple devices were discovered with the same address.
