@@ -3,81 +3,42 @@
 use crate::{db::Data, Version, GENERATED_CONTENT_WARNING};
 use crate::{protocol_manual_link, setting_rust_type_name, AsciiVariant, Scope};
 use anyhow::Context as _;
+use fnv::FnvHashMap;
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::Write;
+use std::ops::RangeInclusive;
 use std::path::Path;
 
-/// Generate the Rust source files for each version of firmware.
-pub fn generate_ascii_setting_sources(
-	data: &Data,
-	dir_path: impl AsRef<Path>,
-) -> anyhow::Result<()> {
-	let dir_path = dir_path.as_ref();
+/// Generate the source file for ASCII settings.
+pub fn generate_ascii_setting_source(data: &Data, path: impl AsRef<Path>) -> anyhow::Result<()> {
+	let path = path.as_ref();
+	let mut file =
+		File::create(path).with_context(|| format!("could not create {}", path.display()))?;
+	log::info!("generating {}", path.display());
 
-	for version in &data.versions {
-		let src_version = version.source_display();
-
-		// Write the data into specified file as Rust source code.
-		let out_path = dir_path.join(format!("v{src_version}.rs"));
-		let mut file = File::create(&out_path)
-			.with_context(|| format!("could not create {}", out_path.display()))?;
-		log::info!("generating {}", out_path.display());
-
-		writeln!(
-			&mut file,
-			r#"//! Settings in firmware version {version}.
-
-{GENERATED_CONTENT_WARNING}
-
-use crate::ascii::setting::Setting;
-use crate::ascii::chain::scope::{{AxisScope, DeviceScope}};
+	writeln!(
+		&mut file,
+		"{GENERATED_CONTENT_WARNING}
 
 define_settings! {{
-"#
-		)?;
-
-		// Define each setting in the module
-		let mut settings = Vec::with_capacity(data.ascii_settings.len());
-		for (name, (scope, variants)) in &data.ascii_settings {
-			for (variant, versions) in variants {
-				if versions.contains(version) {
-					settings.push((name, *scope, variant));
-					write_setting_def(&mut file, name, *scope, variant, *version, data)?;
-				}
-			}
-		}
-
-		writeln!(&mut file, "}}")?;
-
-		// Define an enum that can be any setting in the version
-		write_any_setting_def(&mut file, *version, &settings)?;
-	}
-	Ok(())
-}
-
-/// Write the definition for a Rust enum representing any setting available the provided settings.
-fn write_any_setting_def<W: Write>(
-	f: &mut W,
-	version: Version,
-	settings: &[(&String, Scope, &AsciiVariant)],
-) -> anyhow::Result<()> {
-	// Define AnySetting
-	writeln!(
-		f,
-		r#"define_any_setting! {{
-/// Any setting available in firmware version {version}.
-pub enum AnySetting {{"#
+"
 	)?;
-	for (name, _scope, _variant) in settings {
-		writeln!(
-			f,
-			"    /// The [{name}]({link}) setting.\n    {type_name},",
-			name = name,
-			link = protocol_manual_link(name, version),
-			type_name = setting_rust_type_name(name),
+
+	let version_range = *data.versions.iter().min().unwrap()..=*data.versions.iter().max().unwrap();
+	for (name, (scope, variants)) in &data.ascii_settings {
+		write_setting_def(
+			&mut file,
+			name,
+			*scope,
+			variants,
+			version_range.clone(),
+			data,
 		)?;
 	}
-	writeln!(f, "}}\n}}")?;
+
+	writeln!(&mut file, "}}")?;
+
 	Ok(())
 }
 
@@ -85,137 +46,47 @@ pub enum AnySetting {{"#
 fn write_setting_def<W: Write>(
 	f: &mut W,
 	name: &str,
-	scope: Scope,
-	variant: &AsciiVariant,
-	version: Version,
+	_scope: Scope,
+	variant_data: &FnvHashMap<AsciiVariant, BTreeSet<Version>>,
+	version_range: RangeInclusive<Version>,
 	data: &Data,
 ) -> anyhow::Result<()> {
+	let setting_version_range = variant_data.values().fold(
+		Version {
+			major: 100,
+			minor: 0,
+		}..=Version { major: 0, minor: 0 },
+		|range, versions| {
+			*range.start().min(versions.first().unwrap())
+				..=*range.end().max(versions.last().unwrap())
+		},
+	);
 	let type_name = setting_rust_type_name(name);
-	let value_type = data.rust_setting_value_type_name(variant);
-	let link = protocol_manual_link(name, version);
-	let scope_trait_name = scope.trait_name();
+	let mut variant_value_types: Vec<_> = variant_data
+		.keys()
+		.map(|variant| data.rust_setting_value_type_name(variant))
+		.collect();
+	variant_value_types.sort();
+	variant_value_types.dedup();
+	let value_type_list = variant_value_types.join(", ");
+	let link = protocol_manual_link(name, *setting_version_range.end());
+
 	writeln!(
 		f,
-		r#"    /// The type representing the [`{name}`]({link}) setting.
-    pub struct {type_name}: Setting<Type = {value_type}, Name = "{name}">, {scope_trait_name};"#
+		"/// The type representing the [`{name}`]({link}) setting."
 	)?;
-	Ok(())
-}
 
-/// Write `mod.inc`, which contains all `pub mod` statements for all the
-/// version specific modules we will create. This file should be
-/// `include!(..)`ed into the parent module file.
-pub fn generate_mod_inc(
-	versions: &[Version],
-	latest_version: Version,
-	dir_path: impl AsRef<Path>,
-) -> anyhow::Result<()> {
-	let out_path = dir_path.as_ref().join("mod.inc");
-	let mut file = File::create(&out_path)
-		.with_context(|| format!("could not create {}", out_path.display()))?;
-	let file = &mut file;
-
-	writeln!(file, "{GENERATED_CONTENT_WARNING}\n")?;
-	writeln!(file, "pub(crate) mod private {{")?;
-	for version in versions {
-		if *version == latest_version {
-			writeln!(
-				file,
-				"\t#[cfg(any(feature = \"unstable_v{}\", feature = \"unstable_v_latest\"))]",
-				version.source_display()
-			)?;
-		} else {
-			writeln!(
-				file,
-				"\t#[cfg(feature = \"unstable_v{}\")]",
-				version.source_display()
-			)?;
-		}
-		writeln!(file, "\tpub mod v{};", version.source_display())?;
+	let (start, end) = (setting_version_range.start(), setting_version_range.end());
+	if start > version_range.start() {
+		writeln!(f, "///\n/// Introduced in firmware version {start}.",)?;
 	}
-	writeln!(file, "}}")?;
-
-	for version in versions {
-		writeln!(
-			file,
-			r#"#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v{0}")))]
-#[cfg(feature = "unstable_v{0}")]
-pub use private::v{0} as v{0};"#,
-			version.source_display()
-		)?;
+	// The FW7 version numbers are not contiguous, so this check only works for FW6.
+	if end.major == 6 && end < version_range.end() {
+		writeln!(f, "///\n/// Removed after firmware version {end}.")?;
 	}
-	// Define v_latest module. Add an empty line in the documentation so that
-	// the docs for the module it aliases are concatenated as a new paragraph.
 	writeln!(
-		file,
-		r#"
-/// An alias for the module containing settings for the latest version of firmware.
-///
-/// This alias is updated as new firmware versions are released and is excluded from
-/// all semver guarantees (i.e. changing it does not necessitate a major version bump).
-///
-#[cfg_attr(all(doc, feature = "doc_cfg"), doc(cfg(feature = "unstable_v_latest")))]
-#[cfg(feature = "unstable_v_latest")]
-pub use private::v{} as v_latest;"#,
-		latest_version.source_display()
+		f,
+		r#""{name}" => pub struct {type_name}: {value_type_list}"#
 	)?;
-	Ok(())
-}
-
-/// Update the zproto Cargo.toml.
-///
-/// This adds features for all versions that it generated.
-pub fn update_cargo_toml(versions: &[Version], dir_path: impl AsRef<Path>) -> anyhow::Result<()> {
-	use std::io::{Read as _, Write as _};
-	use toml_edit::{value, Array, DocumentMut, Item};
-
-	let dir_path = dir_path.as_ref();
-
-	let mut contents = String::new();
-	std::fs::File::open(dir_path)?.read_to_string(&mut contents)?;
-	let mut toml: DocumentMut = contents.parse()?;
-	let Some(Item::Table(features)) = toml.get_mut("features") else {
-		anyhow::bail!("unexpected Cargo.toml structure");
-	};
-	for version in versions {
-		features
-			.entry(&format!("unstable_v{}", version.source_display()))
-			.or_insert(value(Array::default()))
-			.as_value_mut()
-			.unwrap()
-			.as_array_mut()
-			.unwrap()
-			.decor_mut()
-			.set_suffix(format!(
-				" # Enable APIs related to firmware version {version} (requires the '--cfg unstable' rustc flag)"
-			));
-	}
-	features
-		.entry("unstable_v_latest")
-		.or_insert(value(Array::default()))
-		.as_value_mut()
-		.unwrap()
-		.as_array_mut()
-		.unwrap()
-		.decor_mut()
-		.set_suffix(" # Enable APIs related to the latest firmware version (requires the '--cfg unstable' rustc flag)");
-
-	features.sort_values_by(|key_a, _, key_b, _| {
-		use std::cmp::Ordering;
-		match (key_a.get(), key_b.get()) {
-			("default", _) => Ordering::Less,
-			(_, "default") => Ordering::Greater,
-			("doc_cfg", _) => Ordering::Greater,
-			(_, "doc_cfg") => Ordering::Less,
-			(a, b) => a.cmp(b),
-		}
-	});
-
-	let mut file = std::fs::File::options()
-		.write(true)
-		.truncate(true)
-		.open(dir_path)?;
-	write!(&mut file, "{toml}")?;
-
 	Ok(())
 }

@@ -1,5 +1,7 @@
 //! Custom data types for ASCII settings.
 
+use crate::ascii::serialization;
+
 /// A MAC address.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct MacAddress {
@@ -37,6 +39,19 @@ impl std::str::FromStr for MacAddress {
 			return Err(InvalidMacAddress);
 		}
 		Ok(MacAddress { octets })
+	}
+}
+
+impl serialization::Serialize for MacAddress {
+	fn serialize(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{self}")
+	}
+}
+
+impl serialization::Deserialize for MacAddress {
+	type Error = <Self as std::str::FromStr>::Err;
+	fn deserialize(s: &str) -> Result<Self, Self::Error> {
+		s.parse()
 	}
 }
 

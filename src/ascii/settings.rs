@@ -1,9 +1,5 @@
 //! Types representing ASCII settings.
 
-use crate::ascii::chain::{
-	data_type::DataType,
-	scope::{AxisScope, DeviceScope},
-};
 pub mod data_types;
 
 /// Define a type representing an ASCII setting.
@@ -12,26 +8,27 @@ macro_rules! define_settings {
     (
         $(
             $(#[$metadata:meta])*
-            $visibility:vis struct $setting:ident : Setting<Type = $data_type:path, Name = $name:literal>, $scope:ident;
+            $name:literal => pub struct $setting:ident: $($value_type:ty),+
         )+
     ) => {
         $(
         $(#[$metadata])*
         #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        $visibility struct $setting;
+        pub struct $setting;
         impl $setting {
             /// Returns the name of the setting.
             pub const fn name(&self) -> &'static str {
                 $name
             }
         }
-        impl crate::ascii::setting::Setting for $setting {
-            type Type = $data_type;
+        impl crate::ascii::settings::Setting for $setting {
             fn name(&self) -> &str {
                 self.name()
             }
         }
-        impl $scope for $setting {}
+        $(
+        impl crate::ascii::settings::ValueType<$value_type> for $setting {}
+        )+
         impl std::convert::AsRef<str> for $setting {
             /// Return the name of the setting.
             fn as_ref(&self) -> &str {
@@ -49,6 +46,16 @@ macro_rules! define_settings {
             }
         }
         )+
+
+        define_any_setting! {
+        	/// Any firmware setting.
+    		pub enum AnySetting {
+        		$(
+		    		$(#[$metadata])*
+		    		$setting
+        		),+
+        	}
+        }
     };
 }
 
@@ -77,8 +84,7 @@ macro_rules! define_any_setting {
                 $setting
             ),+
         }
-        impl crate::ascii::setting::Setting for $any_setting {
-            type Type = String;
+        impl crate::ascii::settings::Setting for $any_setting {
             fn name(&self) -> &str {
                 match self {
                     $(
@@ -87,8 +93,6 @@ macro_rules! define_any_setting {
                 }
             }
         }
-        impl crate::ascii::chain::scope::AxisScope for $any_setting {}
-        impl crate::ascii::chain::scope::DeviceScope for $any_setting {}
         impl std::convert::AsRef<str> for $any_setting {
             fn as_ref(&self) -> &str {
                 self.name()
@@ -113,44 +117,39 @@ macro_rules! define_any_setting {
     };
 }
 
-include!("setting/mod.inc");
-
 /// Any type that represents a setting
 pub trait Setting {
-	/// The setting's datatype.
-	///
-	/// This is used to convert the data to and from values in an ASCII protocol message.
-	type Type: DataType;
-
 	/// Get the name of the setting.
 	fn name(&self) -> &str;
 }
 
 impl<T> Setting for &T
 where
-	T: Setting,
+	T: Setting + ?Sized,
 {
-	type Type = T::Type;
 	fn name(&self) -> &str {
 		(*self).name()
 	}
 }
 
-// Allow &str and String to be used as axis- or device-scope `Setting`s
+/// Marks a type `T` as a datatype for a setting.
+pub trait ValueType<T> {}
+
+impl<T, U> ValueType<U> for &T where T: ValueType<U> {}
+
+// Allow strings to be used as settings.
 impl Setting for &str {
-	type Type = String;
 	fn name(&self) -> &str {
 		self
 	}
 }
-impl DeviceScope for &str {}
-impl AxisScope for &str {}
+impl ValueType<String> for &str {}
 
 impl Setting for String {
-	type Type = String;
 	fn name(&self) -> &str {
 		self.as_str()
 	}
 }
-impl DeviceScope for String {}
-impl AxisScope for String {}
+impl ValueType<String> for String {}
+
+include!("settings.inc");

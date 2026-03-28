@@ -55,14 +55,6 @@ pub enum Scope {
 	#[default]
 	Device,
 }
-impl Scope {
-	fn trait_name(self) -> &'static str {
-		match self {
-			Scope::Axis => "AxisScope",
-			Scope::Device => "DeviceScope",
-		}
-	}
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct AsciiVariant {
@@ -178,7 +170,7 @@ impl ParamType {
 			| "Tenths" | "Utenths" | "UTenths" | "Uhalves32" => Some("f32"),
 			"Uint64DP1" | "Uint64DP9" | "Int64DP9" | "Int64DP1" => Some("f64"),
 			"Token" => Some("::std::string::String"),
-			"MACAddress" => Some("crate::ascii::setting::data_types::MacAddress"),
+			"MACAddress" => Some("crate::ascii::settings::data_types::MacAddress"),
 			"IPv4Address" | "IPv4Mask" => Some("::std::net::Ipv4Addr"),
 			name => panic!("unsupported param type '{name}'"),
 		}

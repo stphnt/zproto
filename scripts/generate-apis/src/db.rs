@@ -63,7 +63,7 @@ impl Data {
 	}
 
 	fn get_ascii_settings(conn: &mut Connection) -> anyhow::Result<AsciiSettings> {
-		log::info!("loading ASCII setting data ...");
+		log::info!("loading ASCII settings ...");
 
 		// Get the names of settings associated with a peripheral, meaning they are axis scope.
 		// cSpell:ignore ASV ASVG ASVSG

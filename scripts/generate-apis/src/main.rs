@@ -29,19 +29,13 @@ fn main() -> anyhow::Result<()> {
 		let mut dir = app.dir.clone();
 		dir.push("src");
 		dir.push("ascii");
-		dir.push("setting");
 		dir
 	};
 	std::fs::create_dir_all(&dir)?;
-	gen::generate_mod_inc(&data.versions, *data.versions.iter().last().unwrap(), &dir)?;
 
 	log::info!("generating settings ...");
-	let src_dir = dir.join("private");
-	std::fs::create_dir_all(&src_dir)?;
-	gen::generate_ascii_setting_sources(&data, src_dir)?;
+	gen::generate_ascii_setting_source(&data, dir.join("settings.inc"))?;
 
-	log::info!("updating Cargo.toml ...");
-	gen::update_cargo_toml(&data.versions, app.dir.join("Cargo.toml"))?;
 	log::info!("done");
 	Ok(())
 }

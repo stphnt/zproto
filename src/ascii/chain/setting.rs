@@ -37,7 +37,7 @@ use crate::{
 			check::{self, Check},
 			Reply,
 		},
-		setting::Setting,
+		settings::Setting,
 		Port,
 	},
 	backend::Backend,
