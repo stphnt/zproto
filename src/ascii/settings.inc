@@ -260,13 +260,13 @@ define_settings! {
 /// The type representing the [`driver.i2t.measured`](https://www.zaber.com/protocol-manual#topic_setting_driver_i2t_measured) setting.
 ///
 /// Introduced in firmware version 7.28.
-"driver.i2t.measured" => pub struct DriverI2tMeasured: f32
+"driver.i2t.measured" => pub struct DriverI2tMeasured: f64
 /// The type representing the [`driver.overdrive.state`](https://www.zaber.com/protocol-manual#topic_setting_driver_overdrive_state) setting.
 ///
 /// Introduced in firmware version 7.32.
 "driver.overdrive.state" => pub struct DriverOverdriveState: u8
 /// The type representing the [`driver.temperature`](https://www.zaber.com/protocol-manual#topic_setting_driver_temperature) setting.
-"driver.temperature" => pub struct DriverTemperature: f32
+"driver.temperature" => pub struct DriverTemperature: f64
 /// The type representing the [`encoder.1.count`](https://www.zaber.com/protocol-manual#topic_setting_encoder_1_count) setting.
 ///
 /// Introduced in firmware version 7.22.
@@ -306,7 +306,7 @@ define_settings! {
 /// The type representing the [`encoder.1.power.up.delay`](https://www.zaber.com/protocol-manual#topic_setting_encoder_1_power_up_delay) setting.
 ///
 /// Introduced in firmware version 7.41.
-"encoder.1.power.up.delay" => pub struct Encoder1PowerUpDelay: f32
+"encoder.1.power.up.delay" => pub struct Encoder1PowerUpDelay: f64
 /// The type representing the [`encoder.1.ratio.div`](https://www.zaber.com/protocol-manual#topic_setting_encoder_1_ratio_div) setting.
 ///
 /// Introduced in firmware version 7.22.
@@ -398,7 +398,7 @@ define_settings! {
 /// The type representing the [`encoder.2.power.up.delay`](https://www.zaber.com/protocol-manual#topic_setting_encoder_2_power_up_delay) setting.
 ///
 /// Introduced in firmware version 7.41.
-"encoder.2.power.up.delay" => pub struct Encoder2PowerUpDelay: f32
+"encoder.2.power.up.delay" => pub struct Encoder2PowerUpDelay: f64
 /// The type representing the [`encoder.2.ratio.div`](https://www.zaber.com/protocol-manual#topic_setting_encoder_2_ratio_div) setting.
 ///
 /// Introduced in firmware version 7.22.
@@ -502,7 +502,7 @@ define_settings! {
 /// The type representing the [`encoder.power.up.delay`](https://www.zaber.com/protocol-manual#topic_setting_encoder_power_up_delay) setting.
 ///
 /// Introduced in firmware version 7.41.
-"encoder.power.up.delay" => pub struct EncoderPowerUpDelay: f32
+"encoder.power.up.delay" => pub struct EncoderPowerUpDelay: f64
 /// The type representing the [`encoder.ratio.div`](https://www.zaber.com/protocol-manual#topic_setting_encoder_ratio_div) setting.
 ///
 /// Introduced in firmware version 7.22.
@@ -568,7 +568,7 @@ define_settings! {
 /// The type representing the [`ictrl.delay`](https://www.zaber.com/protocol-manual#topic_setting_ictrl_delay) setting.
 ///
 /// Introduced in firmware version 7.27.
-"ictrl.delay" => pub struct IctrlDelay: f32
+"ictrl.delay" => pub struct IctrlDelay: f64
 /// The type representing the [`ictrl.ff.kd`](https://www.zaber.com/protocol-manual#topic_setting_ictrl_ff_kd) setting.
 ///
 /// Introduced in firmware version 7.27.
@@ -584,7 +584,7 @@ define_settings! {
 /// The type representing the [`ictrl.period`](https://www.zaber.com/protocol-manual#topic_setting_ictrl_period) setting.
 ///
 /// Introduced in firmware version 7.27.
-"ictrl.period" => pub struct IctrlPeriod: f32
+"ictrl.period" => pub struct IctrlPeriod: f64
 /// The type representing the [`ictrl.pi.ki`](https://www.zaber.com/protocol-manual#topic_setting_ictrl_pi_ki) setting.
 ///
 /// Introduced in firmware version 7.27.
@@ -600,19 +600,19 @@ define_settings! {
 /// The type representing the [`io.ai.1.fc`](https://www.zaber.com/protocol-manual#topic_setting_io_ai_1_fc) setting.
 ///
 /// Introduced in firmware version 7.40.
-"io.ai.1.fc" => pub struct IoAi1Fc: f32
+"io.ai.1.fc" => pub struct IoAi1Fc: f64
 /// The type representing the [`io.ai.2.fc`](https://www.zaber.com/protocol-manual#topic_setting_io_ai_2_fc) setting.
 ///
 /// Introduced in firmware version 7.40.
-"io.ai.2.fc" => pub struct IoAi2Fc: f32
+"io.ai.2.fc" => pub struct IoAi2Fc: f64
 /// The type representing the [`io.ai.3.fc`](https://www.zaber.com/protocol-manual#topic_setting_io_ai_3_fc) setting.
 ///
 /// Introduced in firmware version 7.40.
-"io.ai.3.fc" => pub struct IoAi3Fc: f32
+"io.ai.3.fc" => pub struct IoAi3Fc: f64
 /// The type representing the [`io.ai.4.fc`](https://www.zaber.com/protocol-manual#topic_setting_io_ai_4_fc) setting.
 ///
 /// Introduced in firmware version 7.40.
-"io.ai.4.fc" => pub struct IoAi4Fc: f32
+"io.ai.4.fc" => pub struct IoAi4Fc: f64
 /// The type representing the [`io.di.port`](https://www.zaber.com/protocol-manual#topic_setting_io_di_port) setting.
 ///
 /// Introduced in firmware version 7.22.
@@ -650,19 +650,19 @@ define_settings! {
 /// The type representing the [`lamp.current`](https://www.zaber.com/protocol-manual#topic_setting_lamp_current) setting.
 ///
 /// Introduced in firmware version 7.09.
-"lamp.current" => pub struct LampCurrent: f32
+"lamp.current" => pub struct LampCurrent: f64
 /// The type representing the [`lamp.current.max`](https://www.zaber.com/protocol-manual#topic_setting_lamp_current_max) setting.
 ///
 /// Introduced in firmware version 7.09.
-"lamp.current.max" => pub struct LampCurrentMax: f32
+"lamp.current.max" => pub struct LampCurrentMax: f64
 /// The type representing the [`lamp.flux`](https://www.zaber.com/protocol-manual#topic_setting_lamp_flux) setting.
 ///
 /// Introduced in firmware version 7.09.
-"lamp.flux" => pub struct LampFlux: f32
+"lamp.flux" => pub struct LampFlux: f64
 /// The type representing the [`lamp.flux.max`](https://www.zaber.com/protocol-manual#topic_setting_lamp_flux_max) setting.
 ///
 /// Introduced in firmware version 7.09.
-"lamp.flux.max" => pub struct LampFluxMax: f32
+"lamp.flux.max" => pub struct LampFluxMax: f64
 /// The type representing the [`lamp.status`](https://www.zaber.com/protocol-manual#topic_setting_lamp_status) setting.
 ///
 /// Introduced in firmware version 7.09.
@@ -670,7 +670,7 @@ define_settings! {
 /// The type representing the [`lamp.temperature`](https://www.zaber.com/protocol-manual#topic_setting_lamp_temperature) setting.
 ///
 /// Introduced in firmware version 7.09.
-"lamp.temperature" => pub struct LampTemperature: f32
+"lamp.temperature" => pub struct LampTemperature: f64
 /// The type representing the [`lamp.wavelength.fwhm`](https://www.zaber.com/protocol-manual#topic_setting_lamp_wavelength_fwhm) setting.
 ///
 /// Introduced in firmware version 7.09.
@@ -874,7 +874,7 @@ define_settings! {
 /// The type representing the [`motion.accel.ramptime`](https://www.zaber.com/protocol-manual#topic_setting_motion_accel_ramptime) setting.
 ///
 /// Introduced in firmware version 7.19.
-"motion.accel.ramptime" => pub struct MotionAccelRamptime: f32
+"motion.accel.ramptime" => pub struct MotionAccelRamptime: f64
 /// The type representing the [`motion.accelonly`](https://www.zaber.com/protocol-manual#topic_setting_motion_accelonly) setting.
 "motion.accelonly" => pub struct MotionAccelonly: u32
 /// The type representing the [`motion.busy`](https://www.zaber.com/protocol-manual#topic_setting_motion_busy) setting.
@@ -934,19 +934,19 @@ define_settings! {
 /// The type representing the [`motion.tracking.scan.period`](https://www.zaber.com/protocol-manual#topic_setting_motion_tracking_scan_period) setting.
 ///
 /// Introduced in firmware version 7.40.
-"motion.tracking.scan.period" => pub struct MotionTrackingScanPeriod: f32
+"motion.tracking.scan.period" => pub struct MotionTrackingScanPeriod: f64
 /// The type representing the [`motion.tracking.scan.signal.valid.delay`](https://www.zaber.com/protocol-manual#topic_setting_motion_tracking_scan_signal_valid_delay) setting.
 ///
 /// Introduced in firmware version 7.40.
-"motion.tracking.scan.signal.valid.delay" => pub struct MotionTrackingScanSignalValidDelay: f32
+"motion.tracking.scan.signal.valid.delay" => pub struct MotionTrackingScanSignalValidDelay: f64
 /// The type representing the [`motion.tracking.scan.tolerance`](https://www.zaber.com/protocol-manual#topic_setting_motion_tracking_scan_tolerance) setting.
 ///
 /// Introduced in firmware version 7.40.
-"motion.tracking.scan.tolerance" => pub struct MotionTrackingScanTolerance: f32
+"motion.tracking.scan.tolerance" => pub struct MotionTrackingScanTolerance: f64
 /// The type representing the [`motion.tracking.setpoint`](https://www.zaber.com/protocol-manual#topic_setting_motion_tracking_setpoint) setting.
 ///
 /// Introduced in firmware version 7.40.
-"motion.tracking.setpoint" => pub struct MotionTrackingSetpoint: f32
+"motion.tracking.setpoint" => pub struct MotionTrackingSetpoint: f64
 /// The type representing the [`motion.tracking.settle.mode`](https://www.zaber.com/protocol-manual#topic_setting_motion_tracking_settle_mode) setting.
 ///
 /// Introduced in firmware version 7.40.
@@ -958,7 +958,7 @@ define_settings! {
 /// The type representing the [`motion.tracking.settle.tolerance`](https://www.zaber.com/protocol-manual#topic_setting_motion_tracking_settle_tolerance) setting.
 ///
 /// Introduced in firmware version 7.40.
-"motion.tracking.settle.tolerance" => pub struct MotionTrackingSettleTolerance: f32
+"motion.tracking.settle.tolerance" => pub struct MotionTrackingSettleTolerance: f64
 /// The type representing the [`motion.tracking.settle.tolerance.met`](https://www.zaber.com/protocol-manual#topic_setting_motion_tracking_settle_tolerance_met) setting.
 ///
 /// Introduced in firmware version 7.40.
@@ -990,7 +990,7 @@ define_settings! {
 /// The type representing the [`motor.i2t.measured`](https://www.zaber.com/protocol-manual#topic_setting_motor_i2t_measured) setting.
 ///
 /// Introduced in firmware version 7.28.
-"motor.i2t.measured" => pub struct MotorI2tMeasured: f32
+"motor.i2t.measured" => pub struct MotorI2tMeasured: f64
 /// The type representing the [`motor.inductance`](https://www.zaber.com/protocol-manual#topic_setting_motor_inductance) setting.
 ///
 /// Introduced in firmware version 7.22.
@@ -1064,11 +1064,11 @@ define_settings! {
 /// The type representing the [`process.control.hysteresis.temperature`](https://www.zaber.com/protocol-manual#topic_setting_process_control_hysteresis_temperature) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.hysteresis.temperature" => pub struct ProcessControlHysteresisTemperature: f32
+"process.control.hysteresis.temperature" => pub struct ProcessControlHysteresisTemperature: f64
 /// The type representing the [`process.control.hysteresis.voltage`](https://www.zaber.com/protocol-manual#topic_setting_process_control_hysteresis_voltage) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.hysteresis.voltage" => pub struct ProcessControlHysteresisVoltage: f32
+"process.control.hysteresis.voltage" => pub struct ProcessControlHysteresisVoltage: f64
 /// The type representing the [`process.control.mode`](https://www.zaber.com/protocol-manual#topic_setting_process_control_mode) setting.
 ///
 /// Introduced in firmware version 7.35.
@@ -1076,23 +1076,23 @@ define_settings! {
 /// The type representing the [`process.control.setpoint.temperature`](https://www.zaber.com/protocol-manual#topic_setting_process_control_setpoint_temperature) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.setpoint.temperature" => pub struct ProcessControlSetpointTemperature: f32
+"process.control.setpoint.temperature" => pub struct ProcessControlSetpointTemperature: f64
 /// The type representing the [`process.control.setpoint.temperature.filtered`](https://www.zaber.com/protocol-manual#topic_setting_process_control_setpoint_temperature_filtered) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.setpoint.temperature.filtered" => pub struct ProcessControlSetpointTemperatureFiltered: f32
+"process.control.setpoint.temperature.filtered" => pub struct ProcessControlSetpointTemperatureFiltered: f64
 /// The type representing the [`process.control.setpoint.tf`](https://www.zaber.com/protocol-manual#topic_setting_process_control_setpoint_tf) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.setpoint.tf" => pub struct ProcessControlSetpointTf: f32
+"process.control.setpoint.tf" => pub struct ProcessControlSetpointTf: f64
 /// The type representing the [`process.control.setpoint.voltage`](https://www.zaber.com/protocol-manual#topic_setting_process_control_setpoint_voltage) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.setpoint.voltage" => pub struct ProcessControlSetpointVoltage: f32
+"process.control.setpoint.voltage" => pub struct ProcessControlSetpointVoltage: f64
 /// The type representing the [`process.control.setpoint.voltage.filtered`](https://www.zaber.com/protocol-manual#topic_setting_process_control_setpoint_voltage_filtered) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.setpoint.voltage.filtered" => pub struct ProcessControlSetpointVoltageFiltered: f32
+"process.control.setpoint.voltage.filtered" => pub struct ProcessControlSetpointVoltageFiltered: f64
 /// The type representing the [`process.control.source`](https://www.zaber.com/protocol-manual#topic_setting_process_control_source) setting.
 ///
 /// Introduced in firmware version 7.35.
@@ -1100,19 +1100,19 @@ define_settings! {
 /// The type representing the [`process.control.voltage.max`](https://www.zaber.com/protocol-manual#topic_setting_process_control_voltage_max) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.voltage.max" => pub struct ProcessControlVoltageMax: f32
+"process.control.voltage.max" => pub struct ProcessControlVoltageMax: f64
 /// The type representing the [`process.control.voltage.min`](https://www.zaber.com/protocol-manual#topic_setting_process_control_voltage_min) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.control.voltage.min" => pub struct ProcessControlVoltageMin: f32
+"process.control.voltage.min" => pub struct ProcessControlVoltageMin: f64
 /// The type representing the [`process.current`](https://www.zaber.com/protocol-manual#topic_setting_process_current) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.current" => pub struct ProcessCurrent: f32
+"process.current" => pub struct ProcessCurrent: f64
 /// The type representing the [`process.current.max`](https://www.zaber.com/protocol-manual#topic_setting_process_current_max) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.current.max" => pub struct ProcessCurrentMax: f32
+"process.current.max" => pub struct ProcessCurrentMax: f64
 /// The type representing the [`process.pid.kd`](https://www.zaber.com/protocol-manual#topic_setting_process_pid_kd) setting.
 ///
 /// Introduced in firmware version 7.35.
@@ -1128,7 +1128,7 @@ define_settings! {
 /// The type representing the [`process.pid.offset`](https://www.zaber.com/protocol-manual#topic_setting_process_pid_offset) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.pid.offset" => pub struct ProcessPidOffset: f32
+"process.pid.offset" => pub struct ProcessPidOffset: f64
 /// The type representing the [`process.startup.mode`](https://www.zaber.com/protocol-manual#topic_setting_process_startup_mode) setting.
 ///
 /// Introduced in firmware version 7.35.
@@ -1140,23 +1140,23 @@ define_settings! {
 /// The type representing the [`process.voltage`](https://www.zaber.com/protocol-manual#topic_setting_process_voltage) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.voltage" => pub struct ProcessVoltage: f32
+"process.voltage" => pub struct ProcessVoltage: f64
 /// The type representing the [`process.voltage.on`](https://www.zaber.com/protocol-manual#topic_setting_process_voltage_on) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.voltage.on" => pub struct ProcessVoltageOn: f32
+"process.voltage.on" => pub struct ProcessVoltageOn: f64
 /// The type representing the [`process.voltage.start`](https://www.zaber.com/protocol-manual#topic_setting_process_voltage_start) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.voltage.start" => pub struct ProcessVoltageStart: f32
+"process.voltage.start" => pub struct ProcessVoltageStart: f64
 /// The type representing the [`process.voltage.start.duration`](https://www.zaber.com/protocol-manual#topic_setting_process_voltage_start_duration) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.voltage.start.duration" => pub struct ProcessVoltageStartDuration: f32
+"process.voltage.start.duration" => pub struct ProcessVoltageStartDuration: f64
 /// The type representing the [`process.voltage.tf`](https://www.zaber.com/protocol-manual#topic_setting_process_voltage_tf) setting.
 ///
 /// Introduced in firmware version 7.35.
-"process.voltage.tf" => pub struct ProcessVoltageTf: f32
+"process.voltage.tf" => pub struct ProcessVoltageTf: f64
 /// The type representing the [`pvt.numseqs`](https://www.zaber.com/protocol-manual#topic_setting_pvt_numseqs) setting.
 ///
 /// Introduced in firmware version 7.33.
@@ -1174,7 +1174,7 @@ define_settings! {
 /// The type representing the [`scope.delay`](https://www.zaber.com/protocol-manual#topic_setting_scope_delay) setting.
 ///
 /// Introduced in firmware version 7.01.
-"scope.delay" => pub struct ScopeDelay: f32
+"scope.delay" => pub struct ScopeDelay: f64
 /// The type representing the [`scope.numchannels`](https://www.zaber.com/protocol-manual#topic_setting_scope_numchannels) setting.
 ///
 /// Introduced in firmware version 7.29.
@@ -1182,15 +1182,15 @@ define_settings! {
 /// The type representing the [`scope.timebase`](https://www.zaber.com/protocol-manual#topic_setting_scope_timebase) setting.
 ///
 /// Introduced in firmware version 7.01.
-"scope.timebase" => pub struct ScopeTimebase: f32
+"scope.timebase" => pub struct ScopeTimebase: f64
 /// The type representing the [`sensor.temperature.1`](https://www.zaber.com/protocol-manual#topic_setting_sensor_temperature_1) setting.
 ///
 /// Introduced in firmware version 7.35.
-"sensor.temperature.1" => pub struct SensorTemperature1: f32
+"sensor.temperature.1" => pub struct SensorTemperature1: f64
 /// The type representing the [`sensor.temperature.2`](https://www.zaber.com/protocol-manual#topic_setting_sensor_temperature_2) setting.
 ///
 /// Introduced in firmware version 7.35.
-"sensor.temperature.2" => pub struct SensorTemperature2: f32
+"sensor.temperature.2" => pub struct SensorTemperature2: f64
 /// The type representing the [`stream.numbufs`](https://www.zaber.com/protocol-manual#topic_setting_stream_numbufs) setting.
 "stream.numbufs" => pub struct StreamNumbufs: u32
 /// The type representing the [`stream.numstreams`](https://www.zaber.com/protocol-manual#topic_setting_stream_numstreams) setting.
@@ -1202,11 +1202,11 @@ define_settings! {
 /// The type representing the [`system.current`](https://www.zaber.com/w/Manuals/ASCII_Protocol_Manual#system.current) setting.
 ///
 /// Removed after firmware version 6.32.
-"system.current" => pub struct SystemCurrent: f32
+"system.current" => pub struct SystemCurrent: f64
 /// The type representing the [`system.current.max`](https://www.zaber.com/protocol-manual#topic_setting_system_current_max) setting.
 ///
 /// Introduced in firmware version 7.28.
-"system.current.max" => pub struct SystemCurrentMax: f32
+"system.current.max" => pub struct SystemCurrentMax: f64
 /// The type representing the [`system.led.enable`](https://www.zaber.com/protocol-manual#topic_setting_system_led_enable) setting.
 "system.led.enable" => pub struct SystemLedEnable: bool
 /// The type representing the [`system.serial`](https://www.zaber.com/protocol-manual#topic_setting_system_serial) setting.
@@ -1214,13 +1214,13 @@ define_settings! {
 /// Introduced in firmware version 6.15.
 "system.serial" => pub struct SystemSerial: u32
 /// The type representing the [`system.temperature`](https://www.zaber.com/protocol-manual#topic_setting_system_temperature) setting.
-"system.temperature" => pub struct SystemTemperature: f32
+"system.temperature" => pub struct SystemTemperature: f64
 /// The type representing the [`system.uptime`](https://www.zaber.com/protocol-manual#topic_setting_system_uptime) setting.
 ///
 /// Introduced in firmware version 7.34.
 "system.uptime" => pub struct SystemUptime: f64
 /// The type representing the [`system.voltage`](https://www.zaber.com/protocol-manual#topic_setting_system_voltage) setting.
-"system.voltage" => pub struct SystemVoltage: f32
+"system.voltage" => pub struct SystemVoltage: f64
 /// The type representing the [`trigger.numactions`](https://www.zaber.com/protocol-manual#topic_setting_trigger_numactions) setting.
 ///
 /// Introduced in firmware version 7.06.
@@ -1314,7 +1314,7 @@ define_settings! {
 /// Introduced in firmware version 7.29.
 "vel" => pub struct Vel: i64
 /// The type representing the [`version`](https://www.zaber.com/protocol-manual#topic_setting_version) setting.
-"version" => pub struct Version: f32
+"version" => pub struct Version: f64
 /// The type representing the [`version.build`](https://www.zaber.com/protocol-manual#topic_setting_version_build) setting.
 ///
 /// Introduced in firmware version 6.17.
