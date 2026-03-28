@@ -1314,7 +1314,7 @@ define_settings! {
 /// Introduced in firmware version 7.29.
 "vel" => pub struct Vel: i64
 /// The type representing the [`version`](https://www.zaber.com/protocol-manual#topic_setting_version) setting.
-"version" => pub struct Version: f64
+"version" => pub struct Version: crate::ascii::settings::data_types::Version
 /// The type representing the [`version.build`](https://www.zaber.com/protocol-manual#topic_setting_version_build) setting.
 ///
 /// Introduced in firmware version 6.17.

@@ -230,7 +230,13 @@ impl Data {
 	}
 
 	/// Get the name for a setting's type for use in Rust source code.
-	pub fn rust_setting_value_type_name(&self, variant: &AsciiVariant) -> String {
+	///
+	/// This is most often defined by the param type or enum type of the variant.
+	/// However, for some settings we explicitly override the type.
+	pub fn rust_setting_value_type_name(&self, name: &str, variant: &AsciiVariant) -> String {
+		if name == "version" {
+			return "crate::ascii::settings::data_types::Version".to_string();
+		}
 		let param_type = self
 			.param_types
 			.get(&variant.param_type)

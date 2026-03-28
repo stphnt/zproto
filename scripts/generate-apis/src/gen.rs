@@ -64,7 +64,7 @@ fn write_setting_def<W: Write>(
 	let type_name = setting_rust_type_name(name);
 	let mut variant_value_types: Vec<_> = variant_data
 		.keys()
-		.map(|variant| data.rust_setting_value_type_name(variant))
+		.map(|variant| data.rust_setting_value_type_name(name, variant))
 		.collect();
 	variant_value_types.sort();
 	variant_value_types.dedup();

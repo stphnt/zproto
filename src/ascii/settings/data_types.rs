@@ -57,6 +57,52 @@ impl serialization::Deserialize for MacAddress {
 	}
 }
 
+/// A firmware version number.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Version {
+	/// The major firmware version number.
+	pub major: u8,
+	/// The minor firmware version number.
+	pub minor: u8,
+}
+
+impl std::fmt::Display for Version {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}.{:02}", self.major, self.minor)
+	}
+}
+
+impl std::str::FromStr for Version {
+	type Err = ConversionError;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let (major, minor) = s
+			.split_once('.')
+			.ok_or_else(|| ConversionError::new::<Self>(s))?;
+		Ok(Version {
+			major: major
+				.parse()
+				.map_err(|err| ConversionError::new_from::<Self>(s, &err))?,
+			minor: minor
+				.parse()
+				.map_err(|err| ConversionError::new_from::<Self>(s, &err))?,
+		})
+	}
+}
+
+impl serialization::Serialize for Version {
+	fn serialize(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{self}")
+	}
+}
+
+impl serialization::Deserialize for Version {
+	type Error = <Self as std::str::FromStr>::Err;
+	fn deserialize(s: &str) -> Result<Self, Self::Error> {
+		s.parse()
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -81,5 +127,33 @@ mod test {
 				Err(()) => assert!(result.is_err()),
 			}
 		}
+	}
+
+	#[test]
+	fn version_parse() {
+		assert_eq!(
+			"7.01".parse::<Version>().unwrap(),
+			Version { major: 7, minor: 1 }
+		);
+		assert_eq!(
+			"7.15".parse::<Version>().unwrap(),
+			Version {
+				major: 7,
+				minor: 15,
+			}
+		);
+	}
+
+	#[test]
+	fn version_display() {
+		assert_eq!(Version { major: 7, minor: 1 }.to_string(), "7.01");
+		assert_eq!(
+			Version {
+				major: 7,
+				minor: 15
+			}
+			.to_string(),
+			"7.15"
+		);
 	}
 }
