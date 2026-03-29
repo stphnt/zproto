@@ -31,13 +31,11 @@ impl Data {
 	///
 	/// The instance will be populated with all the data we care about.
 	pub fn new(conn: &mut Connection) -> anyhow::Result<Self> {
-		let versions = Self::get_versions(conn)?;
-		let ascii_settings = Self::get_ascii_settings(conn)?;
 		Ok(Self {
-			versions,
-			ascii_settings,
+			versions: Self::get_versions(conn)?,
 			types: Self::get_types(conn)?,
 			enums: Self::get_enums(conn)?,
+			ascii_settings: Self::get_ascii_settings(conn)?,
 		})
 	}
 
