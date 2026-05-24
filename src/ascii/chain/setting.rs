@@ -27,7 +27,6 @@
 use crate::{
 	ascii::{
 		chain::{
-			data_type::DataType,
 			info::ChainInfo,
 			scope::{RequiresAxisScope, RequiresDeviceScope, SatisfiesRequiredScope},
 			Axis, Device,
@@ -37,7 +36,8 @@ use crate::{
 			check::{self, Check},
 			Reply,
 		},
-		settings::Setting,
+		serialization::{Deserialize, Serialize},
+		settings::{Setting, ValueType},
 		Port,
 	},
 	backend::Backend,
@@ -90,12 +90,13 @@ impl<'a, Tag> DeviceSettings<'a, Tag> {
 }
 
 impl<S, Tag> Settings<'_, S, Tag> {
-	/// Get the value of a setting.
+	/// Get the value of a setting as type `V`.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn get<T>(&self, setting: T) -> Get<T, Tag>
+	pub fn get<V, T>(&self, setting: T) -> Get<V, T, Tag>
 	where
-		T: Setting + SatisfiesRequiredScope<S>,
+		T: Setting + SatisfiesRequiredScope<S> + ValueType<V>,
+		V: Deserialize,
 	{
 		Get {
 			target: self.target,
@@ -105,10 +106,11 @@ impl<S, Tag> Settings<'_, S, Tag> {
 	}
 
 	/// Same as [`Settings::get`] except that the reply is validated with the custom [`Check`].
-	pub fn get_with_check<T, C>(&self, setting: T, checker: C) -> GetWithCheck<T, C, Tag>
+	pub fn get_with_check<V, T, C>(&self, setting: T, checker: C) -> GetWithCheck<V, T, C, Tag>
 	where
-		T: Setting + SatisfiesRequiredScope<S>,
+		T: Setting + SatisfiesRequiredScope<S> + ValueType<V>,
 		C: check::Check<Reply>,
+		V: Deserialize,
 	{
 		GetWithCheck {
 			target: self.target,
@@ -121,10 +123,10 @@ impl<S, Tag> Settings<'_, S, Tag> {
 	/// Set the value of a setting.
 	///
 	/// The reply's warning flag and status fields are not checked. The reply is expected to be "OK".
-	pub fn set<T, V>(&self, setting: T, value: V) -> Set<T, V, Tag>
+	pub fn set<V, T>(&self, setting: T, value: V) -> Set<V, T, Tag>
 	where
-		T: Setting + SatisfiesRequiredScope<S>,
-		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
+		T: Setting + SatisfiesRequiredScope<S> + ValueType<V>,
+		V: Serialize,
 	{
 		Set {
 			target: self.target,
@@ -135,15 +137,15 @@ impl<S, Tag> Settings<'_, S, Tag> {
 	}
 
 	/// Same as [`Settings::set`] except that the reply is validated with the custom [`Check`].
-	pub fn set_with_check<T, V, C>(
+	pub fn set_with_check<V, T, C>(
 		&self,
 		setting: T,
 		value: V,
 		checker: C,
-	) -> SetWithCheck<T, V, C, Tag>
+	) -> SetWithCheck<V, T, C, Tag>
 	where
-		T: Setting + SatisfiesRequiredScope<S>,
-		V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
+		T: Setting + SatisfiesRequiredScope<S> + ValueType<V>,
+		V: Serialize,
 		C: check::Check<Reply>,
 	{
 		SetWithCheck {
@@ -156,66 +158,69 @@ impl<S, Tag> Settings<'_, S, Tag> {
 	}
 }
 
-/// A routine that will get the value of a device or axis setting, `T`.
+/// A routine that will get the value (of type `V`) of a device or axis setting (of type `T`).
 ///
 /// It is created via the [`get`] method on [`Settings`].
 ///
 /// [`get`]: Settings::get
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct Get<T, Tag> {
+pub struct Get<V, T, Tag> {
 	target: Target,
 	setting: T,
-	tag: std::marker::PhantomData<Tag>,
+	tag: std::marker::PhantomData<(V, Tag)>,
 }
 
-impl<'a, B, T, Tag> Routine<Port<'a, B, Tag>> for Get<T, Tag>
+impl<B, V, T, Tag> Routine<Port<'_, B, Tag>> for Get<V, T, Tag>
 where
 	B: Backend,
-	T: Setting,
-	<T::Type as DataType>::Owned: 'a,
+	T: Setting + ValueType<V>,
+	V: Deserialize,
+	AsciiError: From<<V as Deserialize>::Error>,
 {
-	type Output = <T::Type as DataType>::Owned;
+	type Output = V;
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'_, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let reply = port
 			.command_reply((self.target, format!("get {}", self.setting.name())))?
 			.flag_ok()?;
-		Ok(T::Type::parse(reply.data())?)
+		Ok(V::deserialize(reply.data())?)
 	}
 }
 
-/// A routine that will get the value of a device or axis setting, `T`.
-/// Responses are validated with the custom [`Check`], `C`.
+/// A routine that will get the value (of type `V`) of a device or axis setting
+/// (of type `T`). Responses are validated with the custom [`Check`] (of type
+/// `C`).
 ///
 /// It is created via the [`get_with_check`] method on [`Settings`].
 ///
 /// [`get_with_check`]: Settings::get_with_check
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct GetWithCheck<T, C, Tag> {
+pub struct GetWithCheck<V, T, C, Tag> {
 	target: Target,
 	setting: T,
 	checker: C,
-	tag: std::marker::PhantomData<Tag>,
+	tag: std::marker::PhantomData<(Tag, V)>,
 }
 
-impl<'a, B, T, C, Tag> Routine<Port<'a, B, Tag>> for GetWithCheck<T, C, Tag>
+impl<B, V, T, C, Tag> Routine<Port<'_, B, Tag>> for GetWithCheck<V, T, C, Tag>
 where
 	B: Backend,
-	T: Setting,
+	T: Setting + ValueType<V>,
+	V: Deserialize,
 	for<'b> &'b C: Check<Reply>,
-	<T::Type as DataType>::Owned: 'a,
+	AsciiError: From<<V as Deserialize>::Error>,
 {
-	type Output = <T::Type as DataType>::Owned;
+	type Output = V;
 	type Error = AsciiError;
 
 	fn run(&mut self, port: &mut Port<'_, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let reply = port
 			.command_reply((self.target, format!("get {}", self.setting.name())))?
 			.check(&self.checker)?;
-		Ok(T::Type::parse(reply.data())?)
+		Ok(V::deserialize(reply.data())?)
 	}
 }
 
@@ -226,29 +231,29 @@ where
 /// [`set`]: Settings::set
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct Set<T, V, Tag> {
+pub struct Set<V, T, Tag> {
 	target: Target,
 	setting: T,
 	value: V,
 	tag: std::marker::PhantomData<Tag>,
 }
-impl<'a, B, T, V, Tag> Routine<Port<'a, B, Tag>> for Set<T, V, Tag>
+impl<B, V, T, Tag> Routine<Port<'_, B, Tag>> for Set<V, T, Tag>
 where
 	B: Backend,
-	T: Setting,
-	V: std::borrow::Borrow<<T::Type as DataType>::Borrowed>,
+	T: Setting + ValueType<V>,
+	V: Serialize,
 {
 	type Output = ();
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'_, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let _ = port
 			.command_reply((
 				self.target,
 				format!(
 					"set {} {}",
 					self.setting.name(),
-					T::Type::display(self.value.borrow())
+					crate::ascii::serialization::Adapter(&self.value),
 				),
 			))?
 			.flag_ok_and(check::minimal())?;
@@ -264,31 +269,31 @@ where
 /// [`set_with_check`]: Settings::set_with_check
 #[derive(Debug)]
 #[must_use = "routines are lazy and do nothing unless consumed"]
-pub struct SetWithCheck<T, V, C, Tag> {
+pub struct SetWithCheck<V, T, C, Tag> {
 	target: Target,
 	setting: T,
 	value: V,
 	checker: C,
 	tag: std::marker::PhantomData<Tag>,
 }
-impl<'a, B, T, V, C, Tag> Routine<Port<'a, B, Tag>> for SetWithCheck<T, V, C, Tag>
+impl<B, V, T, C, Tag> Routine<Port<'_, B, Tag>> for SetWithCheck<V, T, C, Tag>
 where
 	B: Backend,
-	T: Setting,
-	V: std::borrow::Borrow<<T::Type as DataType>::Borrowed> + 'a,
+	T: Setting + ValueType<V>,
+	V: Serialize,
 	for<'b> &'b C: check::Check<Reply>,
 {
 	type Output = ();
 	type Error = AsciiError;
 
-	fn run(&mut self, port: &mut Port<'a, B, Tag>) -> Result<Self::Output, Self::Error> {
+	fn run(&mut self, port: &mut Port<'_, B, Tag>) -> Result<Self::Output, Self::Error> {
 		let _ = port
 			.command_reply((
 				self.target,
 				format!(
 					"set {} {}",
 					self.setting.name(),
-					T::Type::display(self.value.borrow())
+					crate::ascii::serialization::Adapter(&self.value),
 				),
 			))?
 			.check(&self.checker)?;
@@ -304,20 +309,20 @@ mod test {
 
 	struct DeviceSetting;
 	impl Setting for DeviceSetting {
-		type Type = u8;
 		fn name(&self) -> &'static str {
 			"device.scope.setting"
 		}
 	}
+	impl ValueType<u8> for DeviceSetting {}
 	impl DeviceScope for DeviceSetting {}
 
 	struct AxisSetting;
 	impl Setting for AxisSetting {
-		type Type = u32;
 		fn name(&self) -> &'static str {
 			"axis.scope.setting"
 		}
 	}
+	impl ValueType<u32> for AxisSetting {}
 	impl AxisScope for AxisSetting {}
 
 	/// Ensure settings of the appropriate scope are accepted by the `get()` and
