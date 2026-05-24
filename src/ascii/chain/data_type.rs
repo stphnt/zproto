@@ -6,7 +6,7 @@
 //! traits are there to support [`DataType`].
 //!
 //! [`Settings`]: crate::ascii::chain::setting::Settings
-use crate::ascii::settings::data_types::MacAddress;
+use crate::ascii::data_types::MacAddress;
 use crate::error::ConversionError;
 
 /// Any type that is a valid data type in the ASCII protocol.

@@ -183,6 +183,9 @@
 pub mod chain;
 pub(crate) mod checksum;
 pub mod command;
+#[cfg(unstable)]
+#[cfg_attr(all(doc, unstable), doc(cfg(unstable)))]
+pub mod data_types;
 mod id;
 pub mod packet;
 pub mod port;

@@ -1,4 +1,4 @@
-//! Custom data types for ASCII settings.
+//! Custom data types for ASCII settings or command parameters.
 
 use crate::ascii::serialization;
 use crate::error::ConversionError;

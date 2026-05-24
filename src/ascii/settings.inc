@@ -146,7 +146,7 @@ define_settings! {
 /// The type representing the [`comm.en.mac`](https://www.zaber.com/protocol-manual#topic_setting_comm_en_mac) setting.
 ///
 /// Introduced in firmware version 7.24.
-"comm.en.mac" => pub struct CommEnMac: crate::ascii::settings::data_types::MacAddress
+"comm.en.mac" => pub struct CommEnMac: crate::ascii::data_types::MacAddress
 /// The type representing the [`comm.en.mdns.enable`](https://www.zaber.com/protocol-manual#topic_setting_comm_en_mdns_enable) setting.
 ///
 /// Introduced in firmware version 7.24.
@@ -1314,7 +1314,7 @@ define_settings! {
 /// Introduced in firmware version 7.29.
 "vel" => pub struct Vel: i64
 /// The type representing the [`version`](https://www.zaber.com/protocol-manual#topic_setting_version) setting.
-"version" => pub struct Version: crate::ascii::settings::data_types::Version
+"version" => pub struct Version: crate::ascii::data_types::Version
 /// The type representing the [`version.build`](https://www.zaber.com/protocol-manual#topic_setting_version_build) setting.
 ///
 /// Introduced in firmware version 6.17.

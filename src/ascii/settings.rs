@@ -1,7 +1,5 @@
 //! Types representing ASCII settings.
 
-pub mod data_types;
-
 /// Define a type representing an ASCII setting.
 #[allow(unused_macros)] // It is used by generated files included below.
 macro_rules! define_settings {
