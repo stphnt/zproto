@@ -611,7 +611,7 @@ where
 			self.backend
 				.name()
 				.unwrap_or_else(|| UNKNOWN_BACKEND_NAME.to_string()),
-			&buf
+			buf
 		);
 		let response = Message::from_bytes(buf, self.id.is_enabled());
 

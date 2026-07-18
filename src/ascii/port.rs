@@ -916,7 +916,7 @@ fn do_something<Backend, Tag>(port: &mut Port<Backend, Tag>, chain: &Chain<Tag>)
 		// Log the packet
 		log::debug!(
 			"{} RECV: {}",
-			&backend_name,
+			backend_name,
 			String::from_utf8_lossy(&raw_packet).trim_end()
 		);
 
