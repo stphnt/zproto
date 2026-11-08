@@ -75,10 +75,7 @@ impl AsciiExt for u8 {
 	}
 
 	fn is_separator(&self) -> bool {
-		matches! {
-			*self,
-			b' ' | b'\t'
-		}
+		matches!(*self, b' ' | b'\t')
 	}
 
 	fn is_packet_end(&self) -> bool {
