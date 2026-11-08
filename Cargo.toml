@@ -22,22 +22,22 @@ needless_pass_by_value = "allow"
 [workspace.lints.rust]
 # groups
 warnings = { level = "deny", priority = -1 }
-rust-2018-idioms = { level = "deny", priority = -1 }
+rust_2018_idioms = { level = "deny", priority = -1 }
 
 # individual lints
-missing-docs = "deny"
-macro-use-extern-crate = "deny"
-meta-variable-misuse = "deny"
-missing-debug-implementations = "deny"
-non-local-definitions = "deny"
-redundant-lifetimes = "deny"
-unit-bindings = "deny"
-unsafe-op-in-unsafe-fn = "deny"
-unused-lifetimes = "deny"
+missing_docs = "deny"
+macro_use_extern_crate = "deny"
+meta_variable_misuse = "deny"
+missing_debug_implementations = "deny"
+non_local_definitions = "deny"
+redundant_lifetimes = "deny"
+unit_bindings = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unused_lifetimes = "deny"
 
 unexpected_cfgs = { level = "deny", check-cfg = ['cfg(unstable)'] }
 
 [workspace.lints.rustdoc]
-missing-crate-level-docs = "deny"
-unescaped-backticks = "deny"
+missing_crate_level_docs = "deny"
+unescaped_backticks = "deny"
 
