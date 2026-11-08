@@ -1017,13 +1017,13 @@ fn do_something<Backend, Tag>(port: &mut Port<Backend, Tag>, chain: &Chain<Tag>)
 					}
 				}
 			}
-		} else {
-			// There is no handle for unexpected response, so simply report any
-			// errors directly to the caller.
-			let result = inner();
-			self.builder.clear();
-			result
 		}
+
+		// There is no handle for unexpected response, so simply report any
+		// errors directly to the caller.
+		let result = inner();
+		self.builder.clear();
+		result
 	}
 
 	/// Receiving a response.
