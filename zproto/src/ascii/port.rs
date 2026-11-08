@@ -986,7 +986,7 @@ fn do_something<Backend, Tag>(port: &mut Port<Backend, Tag>, chain: &Chain<Tag>)
 			Ok(())
 		};
 
-		if let Some(callback) = &mut self.handlers.unexpected_alert() {
+		if let Some(callback) = self.handlers.unexpected_alert() {
 			// There is an handler for alerts, check if we need to call it for any remaining responses.
 			loop {
 				match inner() {
@@ -1057,7 +1057,7 @@ fn do_something<Backend, Tag>(port: &mut Port<Backend, Tag>, chain: &Chain<Tag>)
 					.map_err(AsciiUnexpectedResponseError::new)
 					.map_err(From::from)
 			}();
-			if let Some(callback) = &mut self.handlers.unexpected_alert() {
+			if let Some(callback) = self.handlers.unexpected_alert() {
 				// There is an handler for alerts, check if we need to call it.
 				match result {
 					Err(AsciiError::UnexpectedResponse(err)) => {
