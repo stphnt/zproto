@@ -111,10 +111,7 @@ pub fn protocol_manual_link(name: &str, version: Version) -> String {
 			"https://www.zaber.com/protocol-manual#topic_setting_{}",
 			format_setting_name(name, Case::Snake)
 		),
-		6 => format!(
-			"https://www.zaber.com/w/Manuals/ASCII_Protocol_Manual#{}",
-			name
-		),
+		6 => format!("https://www.zaber.com/w/Manuals/ASCII_Protocol_Manual#{name}"),
 		_ => panic!("unsupported firmware version {version}"),
 	}
 }
