@@ -25,7 +25,7 @@ pub fn generate_ascii_setting_sources(
 
 		writeln!(
 			&mut file,
-			r#"//! Settings in firmware version {version}.
+			r"//! Settings in firmware version {version}.
 
 {GENERATED_CONTENT_WARNING}
 
@@ -33,7 +33,7 @@ use crate::ascii::setting::Setting;
 use crate::ascii::chain::scope::{{AxisScope, DeviceScope}};
 
 define_settings! {{
-"#
+"
 		)?;
 
 		// Define each setting in the module
@@ -64,9 +64,9 @@ fn write_any_setting_def<W: Write>(
 	// Define AnySetting
 	writeln!(
 		f,
-		r#"define_any_setting! {{
+		r"define_any_setting! {{
 /// Any setting available in firmware version {version}.
-pub enum AnySetting {{"#
+pub enum AnySetting {{"
 	)?;
 	for (name, _scope, _variant) in settings {
 		writeln!(
