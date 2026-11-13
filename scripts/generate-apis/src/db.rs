@@ -170,9 +170,10 @@ impl Data {
 				}
 			}
 		}
-		if !passed {
-			panic!("some settings have multiple variants in one version");
-		}
+		assert!(
+			passed,
+			"some settings have multiple variants in one version"
+		);
 
 		Ok(settings)
 	}
