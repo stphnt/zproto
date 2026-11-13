@@ -16,14 +16,20 @@ pub fn get_connection(path: impl AsRef<Path>) -> anyhow::Result<Connection> {
 	)?)
 }
 
+/// A mapping of ASCII setting names to its scope and possible variants and the
+/// versions associated with that variant.
 pub type AsciiSettings = BTreeMap<String, (Scope, FnvHashMap<AsciiVariant, BTreeSet<Version>>)>;
 
 /// All data we care about, extracted from the database.
 #[derive(Debug)]
 pub struct Data {
+	/// ASCII setting information.
 	pub ascii_settings: AsciiSettings,
+	/// Type information.
 	pub param_types: FnvHashMap<u32, ParamType>,
+	/// Enum information.
 	pub enums: FnvHashMap<u32, Enum>,
+	/// Firmware versions.
 	pub versions: Vec<Version>,
 }
 
@@ -94,18 +100,14 @@ impl Data {
 				WHERE Name IS NOT NULL",
 			)?;
 			let rows = statement.query_and_then([], |row| -> rusqlite::Result<_> {
-				let id: u32 = row.get(0)?;
-				let param_type: u32 = row.get(1)?;
-				let enum_type: Option<u32> = row.get(2)?;
-				let name: String = row.get(3)?;
 				Ok((
-					id,
+					row.get::<_, u32>(0)?,
 					(
 						AsciiVariant {
-							param_type,
-							enum_type,
+							param_type: row.get(1)?,
+							enum_type: row.get(2)?,
 						},
-						name,
+						row.get::<_, String>(3)?,
 					),
 				))
 			})?;
@@ -170,9 +172,10 @@ impl Data {
 				}
 			}
 		}
-		if !passed {
-			panic!("some settings have multiple variants in one version");
-		}
+		assert!(
+			passed,
+			"some settings have multiple variants in one version"
+		);
 
 		Ok(settings)
 	}
@@ -193,6 +196,8 @@ impl Data {
 
 	/// Get a mapping of enums, keyed by enum ID.
 	fn get_enums(conn: &mut Connection) -> anyhow::Result<FnvHashMap<u32, Enum>> {
+		type Record = (u32, String, Option<String>, String, Option<String>);
+
 		let mut statement = conn.prepare(
 			"SELECT
 				Type.Id,
@@ -203,7 +208,6 @@ impl Data {
 			FROM Data_EnumTypes AS Type
 			JOIN Data_EnumMembers AS Var ON Var.EnumTypeId = Type.Id;",
 		)?;
-		type Record = (u32, String, Option<String>, String, Option<String>);
 		let rows = statement.query_and_then([], |row| -> rusqlite::Result<Record> {
 			Ok((
 				row.get(0)?,
@@ -242,7 +246,7 @@ impl Data {
 		} else {
 			param_type
 				.rust_type_name()
-				.map(|name| name.to_string())
+				.map(ToString::to_string)
 				.unwrap()
 		}
 	}

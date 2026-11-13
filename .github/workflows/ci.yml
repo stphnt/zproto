@@ -42,8 +42,8 @@ jobs:
       - name: Install libudev
         if: runner.os == 'Linux'
         run: |
-          sudo apt update
-          sudo apt install libudev-dev
+          sudo apt-get update
+          sudo apt-get install libudev-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --features=ascii,binary,mock --workspace --verbose

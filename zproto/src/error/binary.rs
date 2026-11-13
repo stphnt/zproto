@@ -262,12 +262,12 @@ mod test {
 
 	// Make sure the error enums are at most 3 words large (the same size as a String).
 	// This will minimize the size of Result<R, Error>.
-	const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
+	const WORD_SIZE: usize = std::mem::size_of::<&usize>();
 	const_assert_eq!(std::mem::size_of::<Message>(), 8);
 	const_assert!(
-		std::mem::size_of::<BinaryUnexpectedError>() < std::mem::size_of::<Message>() + _WORD_SIZE
+		std::mem::size_of::<BinaryUnexpectedError>() < std::mem::size_of::<Message>() + WORD_SIZE
 	);
-	const_assert_eq!(std::mem::size_of::<BinaryError>(), 3 * _WORD_SIZE);
+	const_assert_eq!(std::mem::size_of::<BinaryError>(), 3 * WORD_SIZE);
 
 	assert_impl_all!(BinaryError: From<BinaryUnexpectedError>);
 	assert_impl_all!(BinaryUnexpectedError: TryFrom<BinaryError>);
