@@ -100,18 +100,14 @@ impl Data {
 				WHERE Name IS NOT NULL",
 			)?;
 			let rows = statement.query_and_then([], |row| -> rusqlite::Result<_> {
-				let id: u32 = row.get(0)?;
-				let param_type: u32 = row.get(1)?;
-				let enum_type: Option<u32> = row.get(2)?;
-				let name: String = row.get(3)?;
 				Ok((
-					id,
+					row.get::<_, u32>(0)?,
 					(
 						AsciiVariant {
-							param_type,
-							enum_type,
+							param_type: row.get(1)?,
+							enum_type: row.get(2)?,
 						},
-						name,
+						row.get::<_, String>(3)?,
 					),
 				))
 			})?;
