@@ -243,7 +243,7 @@ impl Data {
 		} else {
 			param_type
 				.rust_type_name()
-				.map(|name| name.to_string())
+				.map(ToString::to_string)
 				.unwrap()
 		}
 	}
