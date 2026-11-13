@@ -1,3 +1,5 @@
+//! Utilities for generating Rust APIs from Zaber's device database.
+
 use convert_case::{Case, Casing as _};
 
 pub mod db;
@@ -12,10 +14,13 @@ static GENERATED_CONTENT_WARNING: &str = r"// ##################################
 /// A firmware version
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Version {
+	/// The major version.
 	pub major: u8,
+	/// The minor version
 	pub minor: u8,
 }
 impl Version {
+	/// Returns a [`VersionSourceDisplay`].
 	pub fn source_display(self) -> VersionSourceDisplay {
 		VersionSourceDisplay(self)
 	}
@@ -51,7 +56,9 @@ impl std::fmt::Display for VersionSourceDisplay {
 /// The scope of the setting
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
 pub enum Scope {
+	/// The setting is scoped to the axis.
 	Axis,
+	/// The setting is scoped to the device.
 	#[default]
 	Device,
 }
@@ -64,6 +71,7 @@ impl Scope {
 	}
 }
 
+/// Information about a variant of an ASCII setting.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct AsciiVariant {
 	/// The `ParamType` ID

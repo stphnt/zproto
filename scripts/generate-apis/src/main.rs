@@ -1,3 +1,4 @@
+//! Script that generates library APIs based on device database information.
 use argh::FromArgs;
 use generate_apis::{db, gen};
 use std::path::PathBuf;

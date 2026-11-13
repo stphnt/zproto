@@ -16,14 +16,20 @@ pub fn get_connection(path: impl AsRef<Path>) -> anyhow::Result<Connection> {
 	)?)
 }
 
+/// A mapping of ASCII setting names to its scope and possible variants and the
+/// versions associated with that variant.
 pub type AsciiSettings = BTreeMap<String, (Scope, FnvHashMap<AsciiVariant, BTreeSet<Version>>)>;
 
 /// All data we care about, extracted from the database.
 #[derive(Debug)]
 pub struct Data {
+	/// ASCII setting information.
 	pub ascii_settings: AsciiSettings,
+	/// Type information.
 	pub param_types: FnvHashMap<u32, ParamType>,
+	/// Enum information.
 	pub enums: FnvHashMap<u32, Enum>,
+	/// Firmware versions.
 	pub versions: Vec<Version>,
 }
 
