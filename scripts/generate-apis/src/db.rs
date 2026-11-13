@@ -194,6 +194,8 @@ impl Data {
 
 	/// Get a mapping of enums, keyed by enum ID.
 	fn get_enums(conn: &mut Connection) -> anyhow::Result<FnvHashMap<u32, Enum>> {
+		type Record = (u32, String, Option<String>, String, Option<String>);
+
 		let mut statement = conn.prepare(
 			"SELECT
 				Type.Id,
@@ -204,7 +206,6 @@ impl Data {
 			FROM Data_EnumTypes AS Type
 			JOIN Data_EnumMembers AS Var ON Var.EnumTypeId = Type.Id;",
 		)?;
-		type Record = (u32, String, Option<String>, String, Option<String>);
 		let rows = statement.query_and_then([], |row| -> rusqlite::Result<Record> {
 			Ok((
 				row.get(0)?,
