@@ -203,10 +203,8 @@ pub fn update_cargo_toml(versions: &[Version], dir_path: impl AsRef<Path>) -> an
 	features.sort_values_by(|key_a, _, key_b, _| {
 		use std::cmp::Ordering;
 		match (key_a.get(), key_b.get()) {
-			("default", _) => Ordering::Less,
-			(_, "default") => Ordering::Greater,
-			("doc_cfg", _) => Ordering::Greater,
-			(_, "doc_cfg") => Ordering::Less,
+			("default", _) | (_, "doc_cfg") => Ordering::Less,
+			(_, "default") | ("doc_cfg", _) => Ordering::Greater,
 			(a, b) => a.cmp(b),
 		}
 	});
