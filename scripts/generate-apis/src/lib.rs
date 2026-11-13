@@ -66,9 +66,9 @@ impl Scope {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct AsciiVariant {
-	/// The ParamType ID
+	/// The `ParamType` ID
 	param_type: u32,
-	/// The EnumType ID
+	/// The `EnumType` ID
 	enum_type: Option<u32>,
 }
 
