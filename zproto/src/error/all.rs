@@ -137,8 +137,8 @@ mod test {
 
 	// Make sure the error enums are at most 3 words large (the same size as a String).
 	// This will minimize the size of Result<R, Error>.
-	const _WORD_SIZE: usize = std::mem::size_of::<&usize>();
-	const_assert_eq!(std::mem::size_of::<Error>(), 3 * _WORD_SIZE);
+	const WORD_SIZE: usize = std::mem::size_of::<&usize>();
+	const_assert_eq!(std::mem::size_of::<Error>(), 3 * WORD_SIZE);
 
 	// Make sure that error enum types are properly convertible
 	assert_impl_all!(Error: From<AsciiProtocolError>);
