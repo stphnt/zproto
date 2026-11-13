@@ -76,7 +76,7 @@ pub struct AsciiVariant {
 ///
 /// This only supports `UpperSnake`, `Snake`, and `UpperCamel`. Using any
 /// other type results in a panic.
-fn format_setting_name(name: &str, case: Case) -> String {
+fn format_setting_name(name: &str, case: Case<'_>) -> String {
 	let mut formatted_name = String::new();
 	let mut capitalize = case != Case::Snake;
 	for c in name.chars() {
